@@ -6,27 +6,10 @@ extends CharacterBody3D
 @export var mouse_sensitivity := 0.0025
 
 @onready var camera: Camera3D = $Camera3D
-@onready var shadow: MeshInstance3D = $PlayerShadow
 
 
 func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-
-
-func _update_shadow() -> void:
-	var query := PhysicsRayQueryParameters3D.create(
-		global_position + Vector3.UP * 0.1,
-		global_position + Vector3.DOWN * 8.0
-	)
-	query.exclude = [get_rid()]
-	var hit := get_world_3d().direct_space_state.intersect_ray(query)
-	shadow.visible = not hit.is_empty()
-	if hit:
-		shadow.global_position = hit.position + hit.normal * 0.02
-		shadow.global_rotation = Vector3.ZERO
-		var height_above_ground: float = maxf(global_position.y - hit.position.y, 0.0)
-		var shadow_scale := clampf(1.0 + height_above_ground * 0.15, 1.0, 1.6)
-		shadow.scale = Vector3(shadow_scale, 1.0, shadow_scale)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -41,8 +24,6 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _physics_process(delta: float) -> void:
-	_update_shadow()
-
 	if not is_on_floor():
 		velocity += get_gravity() * delta
 	elif Input.is_physical_key_pressed(KEY_SPACE):
