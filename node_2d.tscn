@@ -1,0 +1,267 @@
+[gd_scene format=3 uid="uid://bxioiqthuvkx4"]
+
+[ext_resource type="Script" path="res://player_controller.gd" id="1_player_controller"]
+
+[sub_resource type="Shader" id="Shader_player_shadow"]
+code = "shader_type spatial;\nrender_mode unshaded, cull_disabled, depth_draw_never;\n\nvoid fragment() {\n\tfloat radius = length(UV - vec2(0.5));\n\tfloat opacity = 1.0 - smoothstep(0.16, 0.5, radius);\n\tALBEDO = vec3(0.025, 0.03, 0.04);\n\tALPHA = opacity * 0.38;\n}\n"
+
+[sub_resource type="ShaderMaterial" id="Material_player_shadow"]
+shader = SubResource("Shader_player_shadow")
+
+[sub_resource type="PlaneMesh" id="Mesh_player_shadow"]
+size = Vector2(0.8, 0.55)
+
+[sub_resource type="Environment" id="Environment_diorama"]
+background_mode = 1
+background_color = Color(0.13, 0.19, 0.25, 1)
+ambient_light_source = 3
+ambient_light_color = Color(0.72, 0.8, 0.9, 1)
+ambient_light_energy = 0.65
+tonemap_mode = 2
+
+[sub_resource type="StandardMaterial3D" id="Material_floor"]
+albedo_color = Color(0.28, 0.39, 0.35, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="Material_wood"]
+albedo_color = Color(0.48, 0.27, 0.14, 1)
+roughness = 0.82
+
+[sub_resource type="StandardMaterial3D" id="Material_lamp"]
+albedo_color = Color(0.92, 0.65, 0.24, 1)
+roughness = 0.55
+
+[sub_resource type="StandardMaterial3D" id="Material_book_teal"]
+albedo_color = Color(0.12, 0.43, 0.48, 1)
+roughness = 0.8
+
+[sub_resource type="StandardMaterial3D" id="Material_book_red"]
+albedo_color = Color(0.67, 0.23, 0.2, 1)
+roughness = 0.8
+
+[sub_resource type="StandardMaterial3D" id="Material_book_cream"]
+albedo_color = Color(0.83, 0.75, 0.56, 1)
+roughness = 0.8
+
+[sub_resource type="StandardMaterial3D" id="Material_ceramic"]
+albedo_color = Color(0.79, 0.83, 0.8, 1)
+roughness = 0.25
+
+[sub_resource type="StandardMaterial3D" id="Material_pot"]
+albedo_color = Color(0.65, 0.32, 0.22, 1)
+roughness = 0.75
+
+[sub_resource type="StandardMaterial3D" id="Material_leaves"]
+albedo_color = Color(0.2, 0.43, 0.27, 1)
+roughness = 0.8
+
+[sub_resource type="PlaneMesh" id="Mesh_ground"]
+size = Vector2(200, 200)
+
+[sub_resource type="BoxMesh" id="Mesh_table_top"]
+size = Vector3(3.2, 0.22, 2.1)
+
+[sub_resource type="BoxMesh" id="Mesh_table_leg"]
+size = Vector3(0.18, 1.15, 0.18)
+
+[sub_resource type="CylinderMesh" id="Mesh_lamp_base"]
+top_radius = 0.28
+bottom_radius = 0.28
+height = 0.12
+
+[sub_resource type="CylinderMesh" id="Mesh_lamp_stem"]
+top_radius = 0.055
+bottom_radius = 0.055
+height = 0.72
+
+[sub_resource type="CylinderMesh" id="Mesh_lamp_shade"]
+top_radius = 0.12
+bottom_radius = 0.34
+height = 0.46
+
+[sub_resource type="BoxMesh" id="Mesh_book"]
+size = Vector3(0.68, 0.12, 0.82)
+
+[sub_resource type="CylinderMesh" id="Mesh_mug"]
+top_radius = 0.16
+bottom_radius = 0.14
+height = 0.3
+
+[sub_resource type="CylinderMesh" id="Mesh_pot"]
+top_radius = 0.3
+bottom_radius = 0.22
+height = 0.48
+
+[sub_resource type="CylinderMesh" id="Mesh_plant_stem"]
+top_radius = 0.045
+bottom_radius = 0.07
+height = 0.72
+
+[sub_resource type="SphereMesh" id="Mesh_leaf"]
+radius = 0.28
+height = 0.56
+
+[sub_resource type="WorldBoundaryShape3D" id="Shape_ground"]
+
+[sub_resource type="BoxShape3D" id="Shape_table_top"]
+size = Vector3(3.2, 0.22, 2.1)
+
+[sub_resource type="CapsuleShape3D" id="Shape_player"]
+radius = 0.32
+height = 1.8
+
+[node name="Node3D" type="Node3D" unique_id=2074553589]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_diorama")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+rotation_degrees = Vector3(-48, -32, 0)
+light_color = Color(1, 0.88, 0.69, 1)
+light_energy = 1.25
+shadow_enabled = true
+
+[node name="Player" type="CharacterBody3D" parent="."]
+position = Vector3(4, 0.9, 4)
+rotation_degrees = Vector3(0, 45, 0)
+script = ExtResource("1_player_controller")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Player"]
+shape = SubResource("Shape_player")
+
+[node name="Camera3D" type="Camera3D" parent="Player"]
+position = Vector3(0, 0.62, 0)
+rotation_degrees = Vector3(-12, 0, 0)
+current = true
+
+[node name="PlayerShadow" type="MeshInstance3D" parent="Player"]
+position = Vector3(0, -0.88, 0)
+mesh = SubResource("Mesh_player_shadow")
+material_override = SubResource("Material_player_shadow")
+cast_shadow = 0
+
+[node name="Diorama" type="Node3D" parent="."]
+
+[node name="GroundBody" type="StaticBody3D" parent="Diorama"]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Diorama/GroundBody"]
+shape = SubResource("Shape_ground")
+
+[node name="Ground" type="MeshInstance3D" parent="Diorama"]
+mesh = SubResource("Mesh_ground")
+surface_material_override/0 = SubResource("Material_floor")
+
+[node name="Table" type="Node3D" parent="Diorama"]
+
+[node name="TopBody" type="StaticBody3D" parent="Diorama/Table"]
+position = Vector3(0, 1.15, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Diorama/Table/TopBody"]
+shape = SubResource("Shape_table_top")
+
+[node name="Top" type="MeshInstance3D" parent="Diorama/Table"]
+position = Vector3(0, 1.15, 0)
+mesh = SubResource("Mesh_table_top")
+surface_material_override/0 = SubResource("Material_wood")
+
+[node name="LegFrontLeft" type="MeshInstance3D" parent="Diorama/Table"]
+position = Vector3(-1.38, 0.57, 0.83)
+mesh = SubResource("Mesh_table_leg")
+surface_material_override/0 = SubResource("Material_wood")
+
+[node name="LegFrontRight" type="MeshInstance3D" parent="Diorama/Table"]
+position = Vector3(1.38, 0.57, 0.83)
+mesh = SubResource("Mesh_table_leg")
+surface_material_override/0 = SubResource("Material_wood")
+
+[node name="LegBackLeft" type="MeshInstance3D" parent="Diorama/Table"]
+position = Vector3(-1.38, 0.57, -0.83)
+mesh = SubResource("Mesh_table_leg")
+surface_material_override/0 = SubResource("Material_wood")
+
+[node name="LegBackRight" type="MeshInstance3D" parent="Diorama/Table"]
+position = Vector3(1.38, 0.57, -0.83)
+mesh = SubResource("Mesh_table_leg")
+surface_material_override/0 = SubResource("Material_wood")
+
+[node name="Lamp" type="Node3D" parent="Diorama/Table"]
+position = Vector3(-1.08, 1.26, -0.4)
+
+[node name="Base" type="MeshInstance3D" parent="Diorama/Table/Lamp"]
+mesh = SubResource("Mesh_lamp_base")
+surface_material_override/0 = SubResource("Material_lamp")
+
+[node name="Stem" type="MeshInstance3D" parent="Diorama/Table/Lamp"]
+position = Vector3(0, 0.41, 0)
+mesh = SubResource("Mesh_lamp_stem")
+surface_material_override/0 = SubResource("Material_lamp")
+
+[node name="Shade" type="MeshInstance3D" parent="Diorama/Table/Lamp"]
+position = Vector3(0, 0.94, 0)
+mesh = SubResource("Mesh_lamp_shade")
+surface_material_override/0 = SubResource("Material_lamp")
+
+[node name="LampGlow" type="OmniLight3D" parent="Diorama/Table/Lamp"]
+position = Vector3(0, 0.85, 0)
+light_color = Color(1, 0.71, 0.37, 1)
+light_energy = 0.7
+omni_range = 4.0
+shadow_enabled = true
+
+[node name="Books" type="Node3D" parent="Diorama/Table"]
+position = Vector3(0.05, 1.27, -0.42)
+
+[node name="TealBook" type="MeshInstance3D" parent="Diorama/Table/Books"]
+position = Vector3(0, 0.06, 0)
+mesh = SubResource("Mesh_book")
+surface_material_override/0 = SubResource("Material_book_teal")
+
+[node name="RedBook" type="MeshInstance3D" parent="Diorama/Table/Books"]
+position = Vector3(0.03, 0.18, 0.02)
+rotation_degrees = Vector3(0, 9, 0)
+mesh = SubResource("Mesh_book")
+surface_material_override/0 = SubResource("Material_book_red")
+
+[node name="CreamBook" type="MeshInstance3D" parent="Diorama/Table/Books"]
+position = Vector3(-0.02, 0.3, 0.01)
+rotation_degrees = Vector3(0, -5, 0)
+mesh = SubResource("Mesh_book")
+surface_material_override/0 = SubResource("Material_book_cream")
+
+[node name="Mug" type="MeshInstance3D" parent="Diorama/Table"]
+position = Vector3(0.92, 1.41, 0.42)
+mesh = SubResource("Mesh_mug")
+surface_material_override/0 = SubResource("Material_ceramic")
+
+[node name="Plant" type="Node3D" parent="Diorama/Table"]
+position = Vector3(1.14, 1.26, -0.55)
+
+[node name="Pot" type="MeshInstance3D" parent="Diorama/Table/Plant"]
+position = Vector3(0, 0.24, 0)
+mesh = SubResource("Mesh_pot")
+surface_material_override/0 = SubResource("Material_pot")
+
+[node name="Stem" type="MeshInstance3D" parent="Diorama/Table/Plant"]
+position = Vector3(0, 0.78, 0)
+mesh = SubResource("Mesh_plant_stem")
+surface_material_override/0 = SubResource("Material_leaves")
+
+[node name="LeafLeft" type="MeshInstance3D" parent="Diorama/Table/Plant"]
+position = Vector3(-0.2, 0.94, 0)
+rotation_degrees = Vector3(0, 0, 32)
+scale = Vector3(0.8, 1.3, 0.8)
+mesh = SubResource("Mesh_leaf")
+surface_material_override/0 = SubResource("Material_leaves")
+
+[node name="LeafRight" type="MeshInstance3D" parent="Diorama/Table/Plant"]
+position = Vector3(0.2, 0.94, 0)
+rotation_degrees = Vector3(0, 0, -32)
+scale = Vector3(0.8, 1.3, 0.8)
+mesh = SubResource("Mesh_leaf")
+surface_material_override/0 = SubResource("Material_leaves")
+
+[node name="LeafTop" type="MeshInstance3D" parent="Diorama/Table/Plant"]
+position = Vector3(0, 1.13, 0)
+scale = Vector3(0.75, 1.35, 0.75)
+mesh = SubResource("Mesh_leaf")
+surface_material_override/0 = SubResource("Material_leaves")
