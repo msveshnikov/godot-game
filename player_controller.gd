@@ -16,6 +16,7 @@ const RUN_FOOTSTEP_INTERVAL := 0.3
 @export var run_speed := 7.5
 @export var jump_velocity := 5.0
 @export var mouse_sensitivity := 0.0025
+@export var invert_mouse_y := false
 
 @onready var camera: Camera3D = $Camera3D
 @onready var interact_ray: RayCast3D = $Camera3D/InteractRay
@@ -59,7 +60,8 @@ func _input(event: InputEvent) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		rotate_y(-event.relative.x * mouse_sensitivity)
-		camera.rotate_x(-event.relative.y * mouse_sensitivity)
+		var vertical_mouse_direction := 1.0 if invert_mouse_y else -1.0
+		camera.rotate_x(event.relative.y * mouse_sensitivity * vertical_mouse_direction)
 		camera.rotation.x = clampf(camera.rotation.x, deg_to_rad(-80.0), deg_to_rad(80.0))
 	elif event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE

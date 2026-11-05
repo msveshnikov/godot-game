@@ -12,6 +12,7 @@ var is_open := false
 var _closed_position: Vector3
 var _pull_tween: Tween
 var _audio_player: AudioStreamPlayer3D
+var _pistol_available := false
 
 
 func _ready() -> void:
@@ -30,6 +31,8 @@ func interact() -> void:
 
 	is_open = not is_open
 	prompt.text = "E - PUSH" if is_open else "E - PULL"
+	if not is_open:
+		_set_pistol_available(false)
 	_audio_player.play()
 	var target_position := _closed_position
 	if is_open:
@@ -39,7 +42,12 @@ func interact() -> void:
 	_pull_tween.tween_callback(_set_pistol_available.bind(is_open))
 
 
+func can_take_pistol() -> bool:
+	return is_open and _pistol_available and foam_pistol.get_parent() == self
+
+
 func _set_pistol_available(available: bool) -> void:
+	_pistol_available = available
 	if foam_pistol.get_parent() != self:
 		return
 

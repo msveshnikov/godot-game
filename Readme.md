@@ -10,7 +10,7 @@ The main scene (`node_2d.tscn`) is a small, warmly lit first-person room with ce
 - **WASD**: Move
 - **Shift**: Run
 - **Space**: Jump
-- **Mouse**: Look around
+- **Mouse**: Look around (vertical look is inverted by default)
 - **E**: Open/close doors, take fruit or the foam pistol, pull/push a wardrobe drawer, or toggle the wall switch while aiming at the object. The pistols only appear when their drawers are open; the HUD shows your fruit count and pistol status.
 - **Q or left mouse button**: Fire a foam pellet with the collected pistol
 - **Esc**: Release the mouse; click to capture it again

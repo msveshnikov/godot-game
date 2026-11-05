@@ -4,6 +4,10 @@ const PICKUP_SOUND: AudioStream = preload("res://addons/cogito/Assets/Audio/Kenn
 
 
 func interact() -> String:
+	var locker := get_parent()
+	if locker.has_method("can_take_pistol") and not locker.call("can_take_pistol"):
+		return ""
+
 	var player := get_tree().get_first_node_in_group("player")
 	if player == null:
 		push_error("Cannot collect the foam pistol: no player node was found.")
@@ -26,6 +30,7 @@ func interact() -> String:
 	position = Vector3(0.34, -0.28, -0.55)
 	rotation_degrees = Vector3(0, -90, 0)
 	scale = Vector3.ONE * 0.55
+	visible = true
 	player.call("collect_gun")
 
 	var sound := AudioStreamPlayer3D.new()
