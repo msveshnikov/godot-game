@@ -9,6 +9,13 @@ const FRUIT_SCRIPT: Script = preload("res://fruit_pickup.gd")
 const GUN_SCRIPT: Script = preload("res://locker_gun.gd")
 const PISTOL_MODEL_SCENE: PackedScene = preload("res://foam_pistol_model.tscn")
 const LOCKER_SCRIPT: Script = preload("res://interactable_locker.gd")
+const COGITO_LOUNGE_CHAIR: PackedScene = preload("res://addons/cogito/DemoScenes/DemoPrefabs/lounge_chair.tscn")
+const COGITO_SIDE_TABLE: PackedScene = preload("res://addons/cogito/DemoScenes/DemoPrefabs/side_table.tscn")
+const COGITO_BOOKS: PackedScene = preload("res://addons/cogito/DemoScenes/DemoPrefabs/books.tscn")
+const COGITO_COFFEE_MUG: PackedScene = preload("res://addons/cogito/DemoScenes/DemoPrefabs/coffee_mug.tscn")
+const COGITO_BOOKCASE: PackedScene = preload("res://addons/cogito/DemoScenes/DemoPrefabs/bookcase_open.tscn")
+const COGITO_RUG: PackedScene = preload("res://addons/cogito/DemoScenes/DemoPrefabs/rug_rectangle.tscn")
+const COGITO_SMALL_PLANT: PackedScene = preload("res://addons/cogito/DemoScenes/DemoPrefabs/plant_small_2.tscn")
 const WALL_TEXTURE: Texture2D = preload("res://textures/stone_blocks.svg")
 const FLOOR_TEXTURE: Texture2D = preload("res://textures/wood_planks.svg")
 const WOOD_TEXTURE: Texture2D = preload("res://textures/wood_planks.svg")
@@ -140,6 +147,34 @@ func _build_room_furnishings() -> void:
 	add_child(lamp_light)
 
 	_build_wardrobe()
+	_build_cogito_furnishings()
+
+
+func _build_cogito_furnishings() -> void:
+	_add_cogito_prop(COGITO_LOUNGE_CHAIR, "LoungeChair", Vector3(-2.75, 0, -1.55))
+	_add_cogito_prop(COGITO_SIDE_TABLE, "SideTable", Vector3(-1.7, 0, -1.75))
+	_add_cogito_prop(COGITO_BOOKS, "Books", Vector3(-1.25, 0.8, -1.85), 12.0)
+	_add_cogito_prop(COGITO_COFFEE_MUG, "CoffeeMug", Vector3(-0.75, 0.8, -1.9))
+	_add_cogito_prop(COGITO_BOOKCASE, "Bookcase", Vector3(-1.5, 0, 2.7))
+	_add_cogito_prop(COGITO_RUG, "Rug", Vector3(-1.57, 0.02, -0.65))
+	_add_cogito_prop(COGITO_SMALL_PLANT, "SmallPlant", Vector3(-3.15, 0, 2.4))
+
+
+func _add_cogito_prop(
+	prop_scene: PackedScene,
+	prop_name: String,
+	prop_position: Vector3,
+	yaw_degrees := 0.0
+) -> void:
+	var prop := prop_scene.instantiate() as Node3D
+	if prop == null:
+		push_error("Cogito prop '%s' must have a Node3D root." % prop_name)
+		return
+
+	prop.name = prop_name
+	prop.position = prop_position
+	prop.rotation_degrees.y = yaw_degrees
+	add_child(prop)
 
 
 func _build_wardrobe() -> void:
