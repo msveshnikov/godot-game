@@ -3,6 +3,7 @@
 [ext_resource type="Script" path="res://player_controller.gd" id="1_player_controller"]
 [ext_resource type="Script" path="res://interactable_locker.gd" id="2_interactable_locker"]
 [ext_resource type="Script" path="res://fruit_pickup.gd" id="3_fruit_pickup"]
+[ext_resource type="Script" path="res://interactable_door.gd" id="4_interactable_door"]
 
 [sub_resource type="Environment" id="Environment_diorama"]
 background_mode = 1
@@ -76,6 +77,14 @@ roughness = 0.45
 albedo_color = Color(0.48, 0.68, 0.19, 1)
 roughness = 0.46
 
+[sub_resource type="StandardMaterial3D" id="Material_banana"]
+albedo_color = Color(1, 0.79, 0.16, 1)
+roughness = 0.42
+
+[sub_resource type="StandardMaterial3D" id="Material_banana_tip"]
+albedo_color = Color(0.34, 0.2, 0.08, 1)
+roughness = 0.8
+
 [sub_resource type="StandardMaterial3D" id="Material_metal"]
 albedo_color = Color(0.68, 0.62, 0.46, 1)
 metallic = 0.72
@@ -96,6 +105,12 @@ size = Vector3(14, 5, 0.25)
 
 [sub_resource type="BoxMesh" id="Mesh_side_wall"]
 size = Vector3(0.25, 5, 14)
+
+[sub_resource type="BoxMesh" id="Mesh_front_wall_side"]
+size = Vector3(5.7, 5, 0.25)
+
+[sub_resource type="BoxMesh" id="Mesh_front_wall_header"]
+size = Vector3(2.6, 1.3, 0.25)
 
 [sub_resource type="BoxMesh" id="Mesh_ceiling"]
 size = Vector3(14, 0.2, 14)
@@ -119,8 +134,40 @@ size = Vector3(0.42, 0.08, 0.08)
 radius = 0.2
 height = 0.4
 
+[sub_resource type="CapsuleMesh" id="Mesh_banana_segment"]
+radius = 0.065
+height = 0.3
+radial_segments = 12
+rings = 4
+
+[sub_resource type="SphereMesh" id="Mesh_banana_tip"]
+radius = 0.055
+height = 0.11
+
 [sub_resource type="SphereShape3D" id="Shape_fruit"]
 radius = 0.24
+
+[sub_resource type="BoxShape3D" id="Shape_front_wall_side"]
+size = Vector3(5.7, 5, 0.25)
+
+[sub_resource type="BoxShape3D" id="Shape_front_wall_header"]
+size = Vector3(2.6, 1.3, 0.25)
+
+[sub_resource type="BoxShape3D" id="Shape_outside_door"]
+size = Vector3(2.4, 3.7, 0.18)
+
+[sub_resource type="BoxMesh" id="Mesh_outside_door"]
+size = Vector3(2.4, 3.7, 0.18)
+
+[sub_resource type="BoxMesh" id="Mesh_door_frame_side"]
+size = Vector3(0.18, 3.8, 0.34)
+
+[sub_resource type="BoxMesh" id="Mesh_door_frame_top"]
+size = Vector3(2.8, 0.18, 0.34)
+
+[sub_resource type="SphereMesh" id="Mesh_door_knob"]
+radius = 0.075
+height = 0.15
 
 [sub_resource type="CylinderMesh" id="Mesh_fruit_stem"]
 top_radius = 0.025
@@ -287,14 +334,82 @@ mesh = SubResource("Mesh_wall")
 surface_material_override/0 = SubResource("Material_wall")
 
 [node name="FrontWall" type="StaticBody3D" parent="Diorama/Room"]
-position = Vector3(0, 2.5, 7)
+position = Vector3(-4.15, 2.5, 7)
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Diorama/Room/FrontWall"]
-shape = SubResource("Shape_wall")
+shape = SubResource("Shape_front_wall_side")
 
 [node name="Mesh" type="MeshInstance3D" parent="Diorama/Room/FrontWall"]
-mesh = SubResource("Mesh_wall")
+mesh = SubResource("Mesh_front_wall_side")
 surface_material_override/0 = SubResource("Material_wall")
+
+[node name="FrontWallRight" type="StaticBody3D" parent="Diorama/Room"]
+position = Vector3(4.15, 2.5, 7)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Diorama/Room/FrontWallRight"]
+shape = SubResource("Shape_front_wall_side")
+
+[node name="Mesh" type="MeshInstance3D" parent="Diorama/Room/FrontWallRight"]
+mesh = SubResource("Mesh_front_wall_side")
+surface_material_override/0 = SubResource("Material_wall")
+
+[node name="DoorHeader" type="StaticBody3D" parent="Diorama/Room"]
+position = Vector3(0, 4.35, 7)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Diorama/Room/DoorHeader"]
+shape = SubResource("Shape_front_wall_header")
+
+[node name="Mesh" type="MeshInstance3D" parent="Diorama/Room/DoorHeader"]
+mesh = SubResource("Mesh_front_wall_header")
+surface_material_override/0 = SubResource("Material_wall")
+
+[node name="OutsideDoorFrame" type="Node3D" parent="Diorama/Room"]
+position = Vector3(0, 0, 6.82)
+
+[node name="LeftJamb" type="MeshInstance3D" parent="Diorama/Room/OutsideDoorFrame"]
+position = Vector3(-1.3, 1.9, 0)
+mesh = SubResource("Mesh_door_frame_side")
+surface_material_override/0 = SubResource("Material_wardrobe_trim")
+
+[node name="RightJamb" type="MeshInstance3D" parent="Diorama/Room/OutsideDoorFrame"]
+position = Vector3(1.3, 1.9, 0)
+mesh = SubResource("Mesh_door_frame_side")
+surface_material_override/0 = SubResource("Material_wardrobe_trim")
+
+[node name="Lintel" type="MeshInstance3D" parent="Diorama/Room/OutsideDoorFrame"]
+position = Vector3(0, 3.8, 0)
+mesh = SubResource("Mesh_door_frame_top")
+surface_material_override/0 = SubResource("Material_wardrobe_trim")
+
+[node name="Hinge" type="Node3D" parent="Diorama/Room/OutsideDoorFrame"]
+position = Vector3(-1.19, 0, 0)
+
+[node name="DoorBody" type="StaticBody3D" parent="Diorama/Room/OutsideDoorFrame/Hinge"]
+position = Vector3(1.19, 1.85, 0)
+script = ExtResource("4_interactable_door")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Diorama/Room/OutsideDoorFrame/Hinge/DoorBody"]
+shape = SubResource("Shape_outside_door")
+
+[node name="Door" type="MeshInstance3D" parent="Diorama/Room/OutsideDoorFrame/Hinge/DoorBody"]
+mesh = SubResource("Mesh_outside_door")
+surface_material_override/0 = SubResource("Material_wardrobe")
+
+[node name="InsideKnob" type="MeshInstance3D" parent="Diorama/Room/OutsideDoorFrame/Hinge/DoorBody"]
+position = Vector3(0.92, 0, -0.14)
+mesh = SubResource("Mesh_door_knob")
+surface_material_override/0 = SubResource("Material_metal")
+
+[node name="OutsideKnob" type="MeshInstance3D" parent="Diorama/Room/OutsideDoorFrame/Hinge/DoorBody"]
+position = Vector3(0.92, 0, 0.14)
+mesh = SubResource("Mesh_door_knob")
+surface_material_override/0 = SubResource("Material_metal")
+
+[node name="Prompt" type="Label3D" parent="Diorama/Room/OutsideDoorFrame/Hinge/DoorBody"]
+position = Vector3(0, 1.35, 0.2)
+pixel_size = 0.004
+billboard = 1
+text = "E - OPEN"
 
 [node name="LeftWall" type="StaticBody3D" parent="Diorama/Room"]
 position = Vector3(-7, 2.5, 0)
@@ -515,6 +630,61 @@ surface_material_override/0 = SubResource("Material_pear")
 
 [node name="Prompt" type="Label3D" parent="Diorama/Table/FruitBowl/Pear"]
 position = Vector3(0, 0.32, 0)
+pixel_size = 0.004
+billboard = 1
+text = "E - TAKE"
+
+[node name="Banana" type="Area3D" parent="Diorama/Table/FruitBowl"]
+position = Vector3(-0.02, 0, 0.32)
+script = ExtResource("3_fruit_pickup")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Diorama/Table/FruitBowl/Banana"]
+position = Vector3(0, 0.05, 0)
+shape = SubResource("Shape_fruit")
+
+[node name="CurveLeft" type="MeshInstance3D" parent="Diorama/Table/FruitBowl/Banana"]
+position = Vector3(-0.2, 0.13, 0)
+rotation_degrees = Vector3(0, 0, 54)
+mesh = SubResource("Mesh_banana_segment")
+surface_material_override/0 = SubResource("Material_banana")
+
+[node name="CurveCenterLeft" type="MeshInstance3D" parent="Diorama/Table/FruitBowl/Banana"]
+position = Vector3(-0.1, 0.045, 0)
+rotation_degrees = Vector3(0, 0, 72)
+mesh = SubResource("Mesh_banana_segment")
+surface_material_override/0 = SubResource("Material_banana")
+
+[node name="CurveCenterRight" type="MeshInstance3D" parent="Diorama/Table/FruitBowl/Banana"]
+position = Vector3(0, 0.015, 0)
+rotation_degrees = Vector3(0, 0, 90)
+mesh = SubResource("Mesh_banana_segment")
+surface_material_override/0 = SubResource("Material_banana")
+
+[node name="CurveCenterRight2" type="MeshInstance3D" parent="Diorama/Table/FruitBowl/Banana"]
+position = Vector3(0.1, 0.045, 0)
+rotation_degrees = Vector3(0, 0, 108)
+mesh = SubResource("Mesh_banana_segment")
+surface_material_override/0 = SubResource("Material_banana")
+
+[node name="CurveRight" type="MeshInstance3D" parent="Diorama/Table/FruitBowl/Banana"]
+position = Vector3(0.2, 0.13, 0)
+rotation_degrees = Vector3(0, 0, 126)
+mesh = SubResource("Mesh_banana_segment")
+surface_material_override/0 = SubResource("Material_banana")
+
+[node name="StemTip" type="MeshInstance3D" parent="Diorama/Table/FruitBowl/Banana"]
+position = Vector3(-0.29, 0.24, 0)
+mesh = SubResource("Mesh_banana_tip")
+surface_material_override/0 = SubResource("Material_banana_tip")
+
+[node name="FlowerTip" type="MeshInstance3D" parent="Diorama/Table/FruitBowl/Banana"]
+position = Vector3(0.29, 0.24, 0)
+mesh = SubResource("Mesh_banana_tip")
+surface_material_override/0 = SubResource("Material_banana_tip")
+surface_material_override/0 = SubResource("Material_banana")
+
+[node name="Prompt" type="Label3D" parent="Diorama/Table/FruitBowl/Banana"]
+position = Vector3(0, 0.46, 0)
 pixel_size = 0.004
 billboard = 1
 text = "E - TAKE"
