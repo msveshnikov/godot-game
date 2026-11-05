@@ -4,7 +4,7 @@
 [![GodotEngine](https://img.shields.io/badge/Godot_4.6.3_stable-blue?logo=godotengine&logoColor=white)](https://godotengine.org/) [![COGITO](https://img.shields.io/badge/version_1.2.0-35A1D7?label=COGITO&labelColor=0E887A)](https://codeberg.org/Phazorknight/Cogito)
 
 ## Playable room
-The main scene (`node_2d.tscn`) is a small, warmly lit first-person room with ceiling lights, collectible fruit including a curved banana, and a collectible Cogito-style foam pistol in the wardrobe drawer. It also has a wall-mounted light switch, enclosing walls and ceiling, an opening door, and a street lined with five differently colored, enterable houses, surrounded by a forest. Cogito props decorate the street, where two friendly Cogito NPCs stand watch. Each house has an opening door and a furnished room with a table, collectible fruit, and a wardrobe with a foam pistol.
+The main scene (`node_2d.tscn`) is a small, warmly lit first-person room with ceiling lights, collectible fruit including a curved banana, and a collectible Cogito-style foam pistol in the wardrobe drawer. It also has a wall-mounted light switch, enclosing walls and ceiling, an opening door, and a street lined with five differently colored, enterable houses, surrounded by a forest. Cogito props decorate the street, where two friendly Cogito NPCs stroll along the sidewalks. Each house has an opening door and a furnished room with a table, collectible fruit, and a wardrobe with a foam pistol.
 
 ### Controls
 - **WASD**: Move

@@ -9,6 +9,7 @@ const RUN_FOOTSTEP_SOUNDS: Array[AudioStream] = [
 	preload("res://addons/cogito/Assets/Audio/Kenney/Footsteps/footstep03.ogg"),
 	preload("res://addons/cogito/Assets/Audio/Kenney/Footsteps/footstep04.ogg"),
 ]
+const WALK_FOOTSTEP_INTERVAL := 0.48
 const RUN_FOOTSTEP_INTERVAL := 0.3
 
 @export var walk_speed := 4.5
@@ -117,12 +118,12 @@ func _physics_process(delta: float) -> void:
 	velocity.z = direction.z * speed
 
 	move_and_slide()
-	_update_running_footsteps(delta, input_direction.length_squared() > 0.0)
+	_update_footsteps(delta, input_direction.length_squared() > 0.0)
 
 
-func _update_running_footsteps(delta: float, has_movement_input: bool) -> void:
+func _update_footsteps(delta: float, has_movement_input: bool) -> void:
 	var is_running := Input.is_physical_key_pressed(KEY_SHIFT)
-	if not is_running or not has_movement_input or not is_on_floor():
+	if not has_movement_input or not is_on_floor() or Vector2(velocity.x, velocity.z).length_squared() < 0.01:
 		_footstep_timer = 0.0
 		return
 
@@ -133,4 +134,4 @@ func _update_running_footsteps(delta: float, has_movement_input: bool) -> void:
 	_footstep_sound.stream = RUN_FOOTSTEP_SOUNDS[randi_range(0, RUN_FOOTSTEP_SOUNDS.size() - 1)]
 	_footstep_sound.pitch_scale = randf_range(0.94, 1.06)
 	_footstep_sound.play()
-	_footstep_timer = RUN_FOOTSTEP_INTERVAL
+	_footstep_timer = RUN_FOOTSTEP_INTERVAL if is_running else WALK_FOOTSTEP_INTERVAL

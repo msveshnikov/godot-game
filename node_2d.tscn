@@ -14,6 +14,7 @@
 [ext_resource type="PackedScene" path="res://addons/cogito/DemoScenes/DemoPrefabs/potted_plant.tscn" id="12_cogito_plant"]
 [ext_resource type="PackedScene" path="res://addons/cogito/DemoScenes/DemoPrefabs/trashcan.tscn" id="13_cogito_trashcan"]
 [ext_resource type="PackedScene" path="res://addons/cogito/CogitoNPC/cogito_npc.tscn" id="14_cogito_npc"]
+[ext_resource type="Script" path="res://villager_walk.gd" id="15_villager_walk"]
 
 [sub_resource type="ShaderMaterial" id="Material_sky"]
 shader = ExtResource("10_sky_shader")
@@ -788,14 +789,18 @@ position = Vector3(-28, 0.4, 12.35)
 position = Vector3(28, 0.4, 21.65)
 
 [node name="VillagerNear" parent="Diorama/Street/CogitoTown" instance=ExtResource("14_cogito_npc")]
-position = Vector3(-25, 0.9, 12.35)
+position = Vector3(-25, 0, 12.35)
+script = ExtResource("15_villager_walk")
 display_name = "Villager"
 response_to_player = "Friendly"
+walk_points = Array[Vector3]([Vector3(-25, 0, 12.35), Vector3(0, 0, 12.35)])
 
 [node name="VillagerFar" parent="Diorama/Street/CogitoTown" instance=ExtResource("14_cogito_npc")]
-position = Vector3(25, 0.9, 21.65)
+position = Vector3(25, 0, 21.65)
+script = ExtResource("15_villager_walk")
 display_name = "Villager"
 response_to_player = "Friendly"
+walk_points = Array[Vector3]([Vector3(25, 0, 21.65), Vector3(0, 0, 21.65)])
 
 [node name="Table" type="Node3D" parent="Diorama"]
 
