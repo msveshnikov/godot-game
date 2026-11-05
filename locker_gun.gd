@@ -12,6 +12,9 @@ func interact() -> String:
 	if camera == null:
 		push_error("Cannot collect the foam pistol: the player has no Camera3D.")
 		return ""
+	if not player.has_method("collect_gun"):
+		push_error("Cannot collect the foam pistol: the player cannot update its weapon state.")
+		return ""
 
 	monitoring = false
 	monitorable = false
@@ -24,6 +27,7 @@ func interact() -> String:
 	position = Vector3(0.34, -0.28, -0.55)
 	rotation_degrees = Vector3(0, -90, 0)
 	scale = Vector3.ONE * 0.55
+	player.call("collect_gun")
 
 	var sound := AudioStreamPlayer3D.new()
 	sound.stream = PICKUP_SOUND

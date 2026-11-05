@@ -30,6 +30,17 @@ func _ready() -> void:
 	add_child(_fire_sound)
 
 
+func _input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_Q:
+		if has_gun:
+			_fire_foam_pellet()
+	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		if has_gun:
+			_fire_foam_pellet()
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		rotate_y(-event.relative.x * mouse_sensitivity)
@@ -46,16 +57,15 @@ func _unhandled_input(event: InputEvent) -> void:
 					if target.is_in_group("fruit_pickups"):
 						fruits_taken += 1
 						fruit_counter.text = "Fruit taken: %d (%s)" % [fruits_taken, result]
-					elif target.is_in_group("gun_pickups"):
-						has_gun = true
-						gun_status.text = "Foam pistol: Collected (click to fire)"
+					elif target.is_in_group("gun_pickups") or result == "Foam pistol":
+						collect_gun()
 					else:
 						push_warning("Interaction returned an unrecognized collectible: %s" % result)
-	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
-			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-		elif has_gun:
-			_fire_foam_pellet()
+
+
+func collect_gun() -> void:
+	has_gun = true
+	gun_status.text = "Foam pistol: Collected (Q/click to fire)"
 
 
 func _fire_foam_pellet() -> void:
@@ -65,6 +75,7 @@ func _fire_foam_pellet() -> void:
 	_can_fire = false
 	var pellet := FOAM_PELLET_SCENE.instantiate() as RigidBody3D
 	get_tree().current_scene.add_child(pellet)
+	pellet.add_collision_exception_with(self)
 	pellet.global_position = gun_muzzle.global_position
 	pellet.global_basis = camera.global_basis
 	pellet.linear_velocity = -camera.global_basis.z * 18.0
