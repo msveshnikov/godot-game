@@ -16,19 +16,24 @@ const COGITO_COFFEE_MUG: PackedScene = preload("res://addons/cogito/DemoScenes/D
 const COGITO_BOOKCASE: PackedScene = preload("res://addons/cogito/DemoScenes/DemoPrefabs/bookcase_open.tscn")
 const COGITO_RUG: PackedScene = preload("res://addons/cogito/DemoScenes/DemoPrefabs/rug_rectangle.tscn")
 const COGITO_SMALL_PLANT: PackedScene = preload("res://addons/cogito/DemoScenes/DemoPrefabs/plant_small_2.tscn")
-const WALL_TEXTURE: Texture2D = preload("res://textures/stone_blocks.svg")
+const WALL_TEXTURE: Texture2D = preload("res://textures/interior_plaster.svg")
+const FACADE_TEXTURE: Texture2D = preload("res://textures/exterior_siding.svg")
 const FLOOR_TEXTURE: Texture2D = preload("res://textures/wood_planks.svg")
-const WOOD_TEXTURE: Texture2D = preload("res://textures/wood_planks.svg")
-const ROOF_TEXTURE: Texture2D = preload("res://textures/wood_planks.svg")
+const WOOD_TEXTURE: Texture2D = preload("res://textures/wood_furniture.svg")
+const DOOR_TEXTURE: Texture2D = preload("res://textures/wood_door.svg")
+const ROOF_TEXTURE: Texture2D = preload("res://textures/roof_shingles.svg")
 const HOUSE_FRONT_Z := -3.5
-const WALL_COLOR := Color(0.72, 0.68, 0.58, 1)
-const FLOOR_COLOR := Color(0.28, 0.39, 0.35, 1)
+const WALL_COLOR := Color(0.95, 0.93, 0.87, 1)
+const FLOOR_COLOR := Color.WHITE
 const WOOD_COLOR := Color(0.48, 0.27, 0.14, 1)
 const TRIM_WOOD_COLOR := Color(0.55, 0.34, 0.18, 1)
 const BANANA_COLOR := Color(1, 0.79, 0.16, 1)
 const BANANA_TIP_COLOR := Color(0.34, 0.2, 0.08, 1)
+
+
 func _ready() -> void:
 	_build_shell()
+	_build_exterior_finish()
 	_build_facade()
 	_build_door()
 	_build_room_furnishings()
@@ -39,13 +44,22 @@ func _build_shell() -> void:
 	_add_box("LeftWall", Vector3(-3.875, 2.8, 0), Vector3(0.25, 5.6, 7), WALL_COLOR, true, Vector3.ZERO, null, WALL_TEXTURE)
 	_add_box("RightWall", Vector3(3.875, 2.8, 0), Vector3(0.25, 5.6, 7), WALL_COLOR, true, Vector3.ZERO, null, WALL_TEXTURE)
 	_add_box("BackWall", Vector3(0, 2.8, 3.375), Vector3(8, 5.6, 0.25), WALL_COLOR, true, Vector3.ZERO, null, WALL_TEXTURE)
-	_add_box("FrontLeft", Vector3(-2.375, 2.8, HOUSE_FRONT_Z), Vector3(3.25, 5.6, 0.25), facade_color, true, Vector3.ZERO, null, WALL_TEXTURE)
-	_add_box("FrontRight", Vector3(2.375, 2.8, HOUSE_FRONT_Z), Vector3(3.25, 5.6, 0.25), facade_color, true, Vector3.ZERO, null, WALL_TEXTURE)
-	_add_box("FrontHeader", Vector3(0, 4, HOUSE_FRONT_Z), Vector3(1.5, 3.2, 0.25), facade_color, true, Vector3.ZERO, null, WALL_TEXTURE)
-	_add_box("Ceiling", Vector3(0, 5.55, 0), Vector3(7.5, 0.2, 6.5), WALL_COLOR, true, Vector3.ZERO, null, FLOOR_TEXTURE)
+	_add_box("FrontLeft", Vector3(-2.375, 2.8, HOUSE_FRONT_Z), Vector3(3.25, 5.6, 0.25), WALL_COLOR, true, Vector3.ZERO, null, WALL_TEXTURE)
+	_add_box("FrontRight", Vector3(2.375, 2.8, HOUSE_FRONT_Z), Vector3(3.25, 5.6, 0.25), WALL_COLOR, true, Vector3.ZERO, null, WALL_TEXTURE)
+	_add_box("FrontHeader", Vector3(0, 4, HOUSE_FRONT_Z), Vector3(1.5, 3.2, 0.25), WALL_COLOR, true, Vector3.ZERO, null, WALL_TEXTURE)
+	_add_box("Ceiling", Vector3(0, 5.55, 0), Vector3(7.5, 0.2, 6.5), WALL_COLOR, true, Vector3.ZERO, null, WALL_TEXTURE)
 	_add_box("RoofFront", Vector3(0, 6.35, -1.72), Vector3(9, 0.32, 4.3), roof_color, false, Vector3(-28, 0, 0), null, ROOF_TEXTURE)
 	_add_box("RoofBack", Vector3(0, 6.35, 1.72), Vector3(9, 0.32, 4.3), roof_color, false, Vector3(28, 0, 0), null, ROOF_TEXTURE)
 	_add_box("Chimney", Vector3(2.7, 6.7, 1.6), Vector3(0.75, 1.5, 0.75), trim_color)
+
+
+func _build_exterior_finish() -> void:
+	_add_box("ExteriorLeft", Vector3(-4.015, 2.8, 0), Vector3(0.03, 5.6, 7), facade_color, false, Vector3.ZERO, null, FACADE_TEXTURE)
+	_add_box("ExteriorRight", Vector3(4.015, 2.8, 0), Vector3(0.03, 5.6, 7), facade_color, false, Vector3.ZERO, null, FACADE_TEXTURE)
+	_add_box("ExteriorBack", Vector3(0, 2.8, 3.515), Vector3(8, 5.6, 0.03), facade_color, false, Vector3.ZERO, null, FACADE_TEXTURE)
+	_add_box("ExteriorFrontLeft", Vector3(-2.375, 2.8, HOUSE_FRONT_Z - 0.14), Vector3(3.25, 5.6, 0.03), facade_color, false, Vector3.ZERO, null, FACADE_TEXTURE)
+	_add_box("ExteriorFrontRight", Vector3(2.375, 2.8, HOUSE_FRONT_Z - 0.14), Vector3(3.25, 5.6, 0.03), facade_color, false, Vector3.ZERO, null, FACADE_TEXTURE)
+	_add_box("ExteriorFrontHeader", Vector3(0, 4, HOUSE_FRONT_Z - 0.14), Vector3(1.5, 3.2, 0.03), facade_color, false, Vector3.ZERO, null, FACADE_TEXTURE)
 
 
 func _build_facade() -> void:
@@ -86,7 +100,7 @@ func _build_door() -> void:
 	var door_box_mesh := BoxMesh.new()
 	door_box_mesh.size = door_box.size
 	door_mesh.mesh = door_box_mesh
-	door_mesh.material_override = _make_material(roof_color, WOOD_TEXTURE)
+	door_mesh.material_override = _make_material(WOOD_COLOR, DOOR_TEXTURE)
 	door_body.add_child(door_mesh)
 
 	var prompt := Label3D.new()
@@ -335,7 +349,8 @@ func _add_banana(banana_position: Vector3) -> void:
 
 func _make_material(color: Color, texture: Texture2D = null) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
-	material.albedo_color = color if texture == null or texture == WALL_TEXTURE else Color.WHITE
+	var tint_texture := texture == FACADE_TEXTURE or texture == ROOF_TEXTURE
+	material.albedo_color = color if texture == null or texture == WALL_TEXTURE or tint_texture else Color.WHITE
 	material.roughness = 0.82
 	if texture != null:
 		material.albedo_texture = texture

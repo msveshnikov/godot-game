@@ -7,7 +7,7 @@
 [ext_resource type="Script" uid="uid://cypwbscgbkdes" path="res://room_light_switch.gd" id="5_room_light_switch"]
 [ext_resource type="PackedScene" path="res://street_house.tscn" id="6_street_house"]
 [ext_resource type="Script" uid="uid://b1yklxtwv56ji" path="res://locker_gun.gd" id="7_locker_gun"]
-[ext_resource type="Texture2D" uid="uid://bvn84vb6bsx57" path="res://textures/stone_blocks.svg" id="8_texture_stone"]
+[ext_resource type="Texture2D" path="res://textures/interior_plaster.svg" id="8_texture_interior"]
 [ext_resource type="Texture2D" uid="uid://1q4pljsl2xaq" path="res://textures/wood_planks.svg" id="9_texture_wood"]
 [ext_resource type="Shader" uid="uid://c6g50xf51rf35" path="res://sky.gdshader" id="10_sky_shader"]
 [ext_resource type="Script" uid="uid://bncu8krclsne" path="res://forest.gd" id="11_forest"]
@@ -17,6 +17,10 @@
 [ext_resource type="Script" uid="uid://1v4pe24bf3gy" path="res://villager_walk.gd" id="15_villager_walk"]
 [ext_resource type="PackedScene" path="res://foam_pistol_model.tscn" id="16_foam_pistol_model"]
 [ext_resource type="Shader" path="res://grass.gdshader" id="17_grass_shader"]
+[ext_resource type="Texture2D" path="res://textures/exterior_siding.svg" id="18_texture_siding"]
+[ext_resource type="Texture2D" path="res://textures/concrete_pavers.svg" id="19_texture_pavers"]
+[ext_resource type="Texture2D" path="res://textures/wood_furniture.svg" id="20_texture_furniture"]
+[ext_resource type="Texture2D" path="res://textures/wood_door.svg" id="21_texture_door"]
 
 [sub_resource type="ShaderMaterial" id="Material_sky"]
 shader = ExtResource("10_sky_shader")
@@ -68,6 +72,13 @@ uv1_scale = Vector3(0.48, 0.48, 0.48)
 uv1_triplanar = true
 uv1_world_triplanar = true
 
+[sub_resource type="StandardMaterial3D" id="Material_table"]
+albedo_texture = ExtResource("20_texture_furniture")
+roughness = 0.68
+uv1_scale = Vector3(0.48, 0.48, 0.48)
+uv1_triplanar = true
+uv1_world_triplanar = true
+
 [sub_resource type="BoxShape3D" id="Shape_wall"]
 size = Vector3(14, 5, 0.25)
 
@@ -75,10 +86,35 @@ size = Vector3(14, 5, 0.25)
 size = Vector3(14, 5, 0.25)
 
 [sub_resource type="StandardMaterial3D" id="Material_wall"]
-albedo_color = Color(0.72, 0.68, 0.58, 1)
-albedo_texture = ExtResource("8_texture_stone")
-roughness = 0.92
+albedo_texture = ExtResource("8_texture_interior")
+roughness = 0.94
 uv1_scale = Vector3(0.42, 0.42, 0.42)
+uv1_triplanar = true
+uv1_world_triplanar = true
+
+[sub_resource type="StandardMaterial3D" id="Material_exterior"]
+albedo_texture = ExtResource("18_texture_siding")
+roughness = 0.88
+uv1_scale = Vector3(0.48, 0.48, 0.48)
+uv1_triplanar = true
+uv1_world_triplanar = true
+
+[sub_resource type="BoxMesh" id="Mesh_exterior_back"]
+size = Vector3(14, 5, 0.03)
+
+[sub_resource type="BoxMesh" id="Mesh_exterior_side"]
+size = Vector3(0.03, 5, 14)
+
+[sub_resource type="BoxMesh" id="Mesh_exterior_front_side"]
+size = Vector3(5.7, 5, 0.03)
+
+[sub_resource type="BoxMesh" id="Mesh_exterior_front_header"]
+size = Vector3(2.6, 1.3, 0.03)
+
+[sub_resource type="StandardMaterial3D" id="Material_door"]
+albedo_texture = ExtResource("21_texture_door")
+roughness = 0.78
+uv1_scale = Vector3(0.48, 0.48, 0.48)
 uv1_triplanar = true
 uv1_world_triplanar = true
 
@@ -99,7 +135,7 @@ size = Vector3(0.18, 3.8, 0.34)
 
 [sub_resource type="StandardMaterial3D" id="Material_wardrobe_trim"]
 albedo_color = Color(0.96, 0.9, 0.8, 1)
-albedo_texture = ExtResource("9_texture_wood")
+albedo_texture = ExtResource("20_texture_furniture")
 roughness = 0.72
 uv1_scale = Vector3(0.48, 0.48, 0.48)
 uv1_triplanar = true
@@ -116,7 +152,7 @@ size = Vector3(2.4, 3.7, 0.18)
 
 [sub_resource type="StandardMaterial3D" id="Material_wardrobe"]
 albedo_color = Color(0.96, 0.9, 0.8, 1)
-albedo_texture = ExtResource("9_texture_wood")
+albedo_texture = ExtResource("20_texture_furniture")
 roughness = 0.84
 uv1_scale = Vector3(0.48, 0.48, 0.48)
 uv1_triplanar = true
@@ -182,11 +218,7 @@ size = Vector3(60, 0.06, 8)
 
 [sub_resource type="StandardMaterial3D" id="Material_street_asphalt"]
 albedo_color = Color(0.14, 0.16, 0.19, 1)
-albedo_texture = ExtResource("8_texture_stone")
 roughness = 0.96
-uv1_scale = Vector3(0.3, 0.3, 0.3)
-uv1_triplanar = true
-uv1_world_triplanar = true
 
 [sub_resource type="BoxShape3D" id="Shape_street_asphalt"]
 size = Vector3(60, 0.06, 8)
@@ -195,8 +227,7 @@ size = Vector3(60, 0.06, 8)
 size = Vector3(60, 0.12, 1.2)
 
 [sub_resource type="StandardMaterial3D" id="Material_street_sidewalk"]
-albedo_color = Color(0.57, 0.55, 0.5, 1)
-albedo_texture = ExtResource("8_texture_stone")
+albedo_texture = ExtResource("19_texture_pavers")
 roughness = 0.92
 uv1_scale = Vector3(0.42, 0.42, 0.42)
 uv1_triplanar = true
@@ -516,7 +547,7 @@ shape = SubResource("Shape_outside_door")
 
 [node name="Door" type="MeshInstance3D" parent="Diorama/Room/OutsideDoorFrame/Hinge/DoorBody" unique_id=731419226]
 mesh = SubResource("Mesh_outside_door")
-surface_material_override/0 = SubResource("Material_wardrobe")
+surface_material_override/0 = SubResource("Material_door")
 
 [node name="InsideKnob" type="MeshInstance3D" parent="Diorama/Room/OutsideDoorFrame/Hinge/DoorBody" unique_id=653418587]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.92, 0, -0.14)
@@ -575,6 +606,38 @@ shape = SubResource("Shape_side_wall")
 [node name="Mesh" type="MeshInstance3D" parent="Diorama/Room/RightWall" unique_id=451144844]
 mesh = SubResource("Mesh_side_wall")
 surface_material_override/0 = SubResource("Material_wall")
+
+[node name="ExteriorFinish" type="Node3D" parent="Diorama/Room"]
+
+[node name="BackSiding" type="MeshInstance3D" parent="Diorama/Room/ExteriorFinish"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, -7.14)
+mesh = SubResource("Mesh_exterior_back")
+surface_material_override/0 = SubResource("Material_exterior")
+
+[node name="LeftSiding" type="MeshInstance3D" parent="Diorama/Room/ExteriorFinish"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.14, 2.5, 0)
+mesh = SubResource("Mesh_exterior_side")
+surface_material_override/0 = SubResource("Material_exterior")
+
+[node name="RightSiding" type="MeshInstance3D" parent="Diorama/Room/ExteriorFinish"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.14, 2.5, 0)
+mesh = SubResource("Mesh_exterior_side")
+surface_material_override/0 = SubResource("Material_exterior")
+
+[node name="FrontSidingLeft" type="MeshInstance3D" parent="Diorama/Room/ExteriorFinish"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.15, 2.5, 7.14)
+mesh = SubResource("Mesh_exterior_front_side")
+surface_material_override/0 = SubResource("Material_exterior")
+
+[node name="FrontSidingRight" type="MeshInstance3D" parent="Diorama/Room/ExteriorFinish"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.15, 2.5, 7.14)
+mesh = SubResource("Mesh_exterior_front_side")
+surface_material_override/0 = SubResource("Material_exterior")
+
+[node name="FrontSidingHeader" type="MeshInstance3D" parent="Diorama/Room/ExteriorFinish"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.35, 7.14)
+mesh = SubResource("Mesh_exterior_front_header")
+surface_material_override/0 = SubResource("Material_exterior")
 
 [node name="CeilingBody" type="StaticBody3D" parent="Diorama/Room" unique_id=749024585]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 0)
@@ -788,27 +851,27 @@ shape = SubResource("Shape_table_top")
 [node name="Top" type="MeshInstance3D" parent="Diorama/Table" unique_id=1364420578]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.15, 0)
 mesh = SubResource("Mesh_table_top")
-surface_material_override/0 = SubResource("Material_wood")
+surface_material_override/0 = SubResource("Material_table")
 
 [node name="LegFrontLeft" type="MeshInstance3D" parent="Diorama/Table" unique_id=1514705723]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.38, 0.57, 0.83)
 mesh = SubResource("Mesh_table_leg")
-surface_material_override/0 = SubResource("Material_wood")
+surface_material_override/0 = SubResource("Material_table")
 
 [node name="LegFrontRight" type="MeshInstance3D" parent="Diorama/Table" unique_id=1008184723]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.38, 0.57, 0.83)
 mesh = SubResource("Mesh_table_leg")
-surface_material_override/0 = SubResource("Material_wood")
+surface_material_override/0 = SubResource("Material_table")
 
 [node name="LegBackLeft" type="MeshInstance3D" parent="Diorama/Table" unique_id=789182846]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.38, 0.57, -0.83)
 mesh = SubResource("Mesh_table_leg")
-surface_material_override/0 = SubResource("Material_wood")
+surface_material_override/0 = SubResource("Material_table")
 
 [node name="LegBackRight" type="MeshInstance3D" parent="Diorama/Table" unique_id=1642965106]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.38, 0.57, -0.83)
 mesh = SubResource("Mesh_table_leg")
-surface_material_override/0 = SubResource("Material_wood")
+surface_material_override/0 = SubResource("Material_table")
 
 [node name="Lamp" type="Node3D" parent="Diorama/Table" unique_id=1576776177]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.08, 1.26, -0.4)
