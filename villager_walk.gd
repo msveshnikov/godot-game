@@ -5,11 +5,17 @@ extends "res://addons/cogito/CogitoNPC/cogito_npc.gd"
 
 var _waypoint_index := 0
 var _pause_remaining := 0.0
+var _route_parent: Node3D
 
 
 func _ready() -> void:
 	super._ready()
-	if walk_points.size() > 1 and global_position.distance_to(to_global(walk_points[0])) < 0.8:
+	_route_parent = get_parent() as Node3D
+	if _route_parent == null:
+		push_error("Villager walk route requires a Node3D parent.")
+		return
+
+	if walk_points.size() > 1 and global_position.distance_to(_route_parent.to_global(walk_points[0])) < 0.8:
 		_waypoint_index = 1
 
 
@@ -24,7 +30,7 @@ func _physics_process(delta: float) -> void:
 		move_and_slide()
 		return
 
-	var target_position := to_global(walk_points[_waypoint_index])
+	var target_position := _route_parent.to_global(walk_points[_waypoint_index])
 	var direction := target_position - global_position
 	direction.y = 0.0
 
