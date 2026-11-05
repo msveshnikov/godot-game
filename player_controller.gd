@@ -1,5 +1,8 @@
 extends CharacterBody3D
 
+const FOAM_PELLET_SCENE: PackedScene = preload("res://foam_pellet.tscn")
+const FOAM_FIRE_SOUND: AudioStream = preload("res://addons/cogito/Assets/Audio/Spray.ogg")
+
 @export var walk_speed := 4.5
 @export var run_speed := 7.5
 @export var jump_velocity := 5.0
@@ -8,12 +11,23 @@ extends CharacterBody3D
 @onready var camera: Camera3D = $Camera3D
 @onready var interact_ray: RayCast3D = $Camera3D/InteractRay
 @onready var fruit_counter: Label = $HUD/FruitCounter
+@onready var gun_status: Label = $HUD/GunStatus
+@onready var gun_muzzle: Marker3D = $Camera3D/GunMuzzle
 
 var fruits_taken := 0
+var has_gun := false
+var _can_fire := true
+var _fire_sound: AudioStreamPlayer
 
 
 func _ready() -> void:
+	add_to_group("player")
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	_fire_sound = AudioStreamPlayer.new()
+	_fire_sound.name = "FoamFireSound"
+	_fire_sound.stream = FOAM_FIRE_SOUND
+	_fire_sound.volume_db = -4.0
+	add_child(_fire_sound)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -29,10 +43,34 @@ func _unhandled_input(event: InputEvent) -> void:
 			if target.has_method("interact"):
 				var result: Variant = target.call("interact")
 				if result is String and not result.is_empty():
-					fruits_taken += 1
-					fruit_counter.text = "Fruit taken: %d (%s)" % [fruits_taken, result]
+					if target.is_in_group("fruit_pickups"):
+						fruits_taken += 1
+						fruit_counter.text = "Fruit taken: %d (%s)" % [fruits_taken, result]
+					elif target.is_in_group("gun_pickups"):
+						has_gun = true
+						gun_status.text = "Foam pistol: Collected (click to fire)"
+					else:
+						push_warning("Interaction returned an unrecognized collectible: %s" % result)
 	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		elif has_gun:
+			_fire_foam_pellet()
+
+
+func _fire_foam_pellet() -> void:
+	if not _can_fire:
+		return
+
+	_can_fire = false
+	var pellet := FOAM_PELLET_SCENE.instantiate() as RigidBody3D
+	get_tree().current_scene.add_child(pellet)
+	pellet.global_position = gun_muzzle.global_position
+	pellet.global_basis = camera.global_basis
+	pellet.linear_velocity = -camera.global_basis.z * 18.0
+	_fire_sound.play()
+	await get_tree().create_timer(0.25).timeout
+	_can_fire = true
 
 
 func _physics_process(delta: float) -> void:

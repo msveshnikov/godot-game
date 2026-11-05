@@ -5,6 +5,7 @@
 [ext_resource type="Script" path="res://fruit_pickup.gd" id="3_fruit_pickup"]
 [ext_resource type="Script" path="res://interactable_door.gd" id="4_interactable_door"]
 [ext_resource type="Script" path="res://room_light_switch.gd" id="5_room_light_switch"]
+[ext_resource type="Script" path="res://locker_gun.gd" id="7_locker_gun"]
 [ext_resource type="PackedScene" path="res://street_house.tscn" id="6_street_house"]
 
 [sub_resource type="Environment" id="Environment_diorama"]
@@ -92,6 +93,14 @@ albedo_color = Color(0.68, 0.62, 0.46, 1)
 metallic = 0.72
 roughness = 0.3
 
+[sub_resource type="StandardMaterial3D" id="Material_foam_pistol"]
+albedo_color = Color(0.12, 0.42, 0.72, 1)
+roughness = 0.52
+
+[sub_resource type="StandardMaterial3D" id="Material_foam_pistol_accent"]
+albedo_color = Color(0.95, 0.43, 0.13, 1)
+roughness = 0.55
+
 [sub_resource type="StandardMaterial3D" id="Material_ceiling_light"]
 albedo_color = Color(1, 0.87, 0.65, 1)
 emission_enabled = true
@@ -158,6 +167,18 @@ size = Vector3(1.65, 0.52, 0.16)
 
 [sub_resource type="BoxMesh" id="Mesh_drawer_handle"]
 size = Vector3(0.42, 0.08, 0.08)
+
+[sub_resource type="BoxMesh" id="Mesh_foam_pistol_body"]
+size = Vector3(0.52, 0.16, 0.18)
+
+[sub_resource type="BoxMesh" id="Mesh_foam_pistol_barrel"]
+size = Vector3(0.22, 0.1, 0.14)
+
+[sub_resource type="BoxMesh" id="Mesh_foam_pistol_grip"]
+size = Vector3(0.16, 0.3, 0.15)
+
+[sub_resource type="BoxMesh" id="Mesh_foam_pistol_trigger"]
+size = Vector3(0.11, 0.12, 0.11)
 
 [sub_resource type="SphereMesh" id="Mesh_fruit"]
 radius = 0.2
@@ -275,6 +296,9 @@ size = Vector3(2.2, 3.4, 1.2)
 [sub_resource type="BoxShape3D" id="Shape_locker_drawer"]
 size = Vector3(1.65, 0.52, 0.16)
 
+[sub_resource type="BoxShape3D" id="Shape_locker_gun"]
+size = Vector3(0.68, 0.4, 0.28)
+
 [sub_resource type="CapsuleShape3D" id="Shape_player"]
 radius = 0.32
 height = 1.8
@@ -311,6 +335,7 @@ groups = ["room_lights"]
 position = Vector3(4, 0.9, 4)
 rotation_degrees = Vector3(0, 45, 0)
 script = ExtResource("1_player_controller")
+groups = ["player"]
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Player"]
 shape = SubResource("Shape_player")
@@ -358,6 +383,9 @@ current = true
 target_position = Vector3(0, 0, -3.5)
 collide_with_areas = true
 
+[node name="GunMuzzle" type="Marker3D" parent="Player/Camera3D"]
+position = Vector3(0.34, -0.28, -0.86)
+
 [node name="HUD" type="CanvasLayer" parent="Player"]
 
 [node name="FruitCounter" type="Label" parent="Player/HUD"]
@@ -370,6 +398,17 @@ theme_override_colors/font_outline_color = Color(0.12, 0.08, 0.04, 1)
 theme_override_constants/outline_size = 5
 theme_override_font_sizes/font_size = 24
 text = "Fruit taken: 0"
+
+[node name="GunStatus" type="Label" parent="Player/HUD"]
+offset_left = 24.0
+offset_top = 62.0
+offset_right = 320.0
+offset_bottom = 90.0
+theme_override_colors/font_color = Color(1, 0.94, 0.75, 1)
+theme_override_colors/font_outline_color = Color(0.12, 0.08, 0.04, 1)
+theme_override_constants/outline_size = 5
+theme_override_font_sizes/font_size = 20
+text = "Foam pistol: Not collected"
 
 [node name="Diorama" type="Node3D" parent="."]
 
@@ -769,6 +808,7 @@ position = Vector3(-0.52, 1.27, 0.58)
 [node name="Apple" type="Area3D" parent="Diorama/Table/FruitBowl"]
 position = Vector3(-0.22, 0.2, 0)
 script = ExtResource("3_fruit_pickup")
+groups = ["fruit_pickups"]
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Diorama/Table/FruitBowl/Apple"]
 shape = SubResource("Shape_fruit")
@@ -791,6 +831,7 @@ surface_material_override/0 = SubResource("Material_wood")
 [node name="Orange" type="Area3D" parent="Diorama/Table/FruitBowl"]
 position = Vector3(0.18, 0.19, 0.03)
 script = ExtResource("3_fruit_pickup")
+groups = ["fruit_pickups"]
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Diorama/Table/FruitBowl/Orange"]
 shape = SubResource("Shape_fruit")
@@ -807,13 +848,14 @@ text = "E - TAKE"
 
 [node name="Pear" type="Area3D" parent="Diorama/Table/FruitBowl"]
 position = Vector3(0, 0.2, -0.24)
-scale = Vector3(0.85, 1.15, 0.85)
 script = ExtResource("3_fruit_pickup")
+groups = ["fruit_pickups"]
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Diorama/Table/FruitBowl/Pear"]
 shape = SubResource("Shape_fruit")
 
 [node name="Mesh" type="MeshInstance3D" parent="Diorama/Table/FruitBowl/Pear"]
+scale = Vector3(0.85, 1.15, 0.85)
 mesh = SubResource("Mesh_fruit")
 surface_material_override/0 = SubResource("Material_pear")
 
@@ -826,6 +868,7 @@ text = "E - TAKE"
 [node name="Banana" type="Area3D" parent="Diorama/Table/FruitBowl"]
 position = Vector3(-0.02, 0, 0.32)
 script = ExtResource("3_fruit_pickup")
+groups = ["fruit_pickups"]
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Diorama/Table/FruitBowl/Banana"]
 position = Vector3(0, 0.05, 0)
@@ -960,3 +1003,39 @@ position = Vector3(0, 0.42, 0.12)
 pixel_size = 0.004
 billboard = 1
 text = "E - PULL"
+
+[node name="FoamPistol" type="Area3D" parent="Diorama/Wardrobe/LockerDrawer"]
+position = Vector3(0, 0.34, 0.2)
+scale = Vector3(0.65, 0.65, 0.65)
+visible = false
+script = ExtResource("7_locker_gun")
+groups = ["gun_pickups"]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Diorama/Wardrobe/LockerDrawer/FoamPistol"]
+shape = SubResource("Shape_locker_gun")
+
+[node name="Body" type="MeshInstance3D" parent="Diorama/Wardrobe/LockerDrawer/FoamPistol"]
+mesh = SubResource("Mesh_foam_pistol_body")
+surface_material_override/0 = SubResource("Material_foam_pistol")
+
+[node name="Barrel" type="MeshInstance3D" parent="Diorama/Wardrobe/LockerDrawer/FoamPistol"]
+position = Vector3(-0.34, 0, 0)
+mesh = SubResource("Mesh_foam_pistol_barrel")
+surface_material_override/0 = SubResource("Material_foam_pistol_accent")
+
+[node name="Grip" type="MeshInstance3D" parent="Diorama/Wardrobe/LockerDrawer/FoamPistol"]
+position = Vector3(0.1, -0.21, 0)
+rotation_degrees = Vector3(0, 0, -12)
+mesh = SubResource("Mesh_foam_pistol_grip")
+surface_material_override/0 = SubResource("Material_foam_pistol")
+
+[node name="Trigger" type="MeshInstance3D" parent="Diorama/Wardrobe/LockerDrawer/FoamPistol"]
+position = Vector3(-0.02, -0.12, 0)
+mesh = SubResource("Mesh_foam_pistol_trigger")
+surface_material_override/0 = SubResource("Material_foam_pistol_accent")
+
+[node name="Prompt" type="Label3D" parent="Diorama/Wardrobe/LockerDrawer/FoamPistol"]
+position = Vector3(0, 0.34, 0)
+pixel_size = 0.004
+billboard = 1
+text = "E - TAKE FOAM PISTOL"

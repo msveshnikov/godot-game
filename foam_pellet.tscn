@@ -1,0 +1,33 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://foam_pellet.gd" id="1_foam_pellet"]
+
+[sub_resource type="SphereMesh" id="SphereMesh_foam_pellet"]
+radius = 0.09
+height = 0.18
+radial_segments = 12
+rings = 6
+
+[sub_resource type="StandardMaterial3D" id="Material_foam_pellet"]
+albedo_color = Color(0.98, 0.37, 0.12, 1)
+roughness = 0.48
+
+[sub_resource type="SphereShape3D" id="Shape_foam_pellet"]
+radius = 0.09
+
+[node name="FoamPellet" type="RigidBody3D"]
+collision_layer = 1
+collision_mask = 1
+mass = 0.04
+gravity_scale = 0.2
+continuous_cd = true
+contact_monitor = true
+max_contacts_reported = 1
+script = ExtResource("1_foam_pellet")
+
+[node name="Mesh" type="MeshInstance3D" parent="."]
+mesh = SubResource("SphereMesh_foam_pellet")
+surface_material_override/0 = SubResource("Material_foam_pellet")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("Shape_foam_pellet")

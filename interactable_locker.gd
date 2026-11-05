@@ -6,6 +6,7 @@ const SLIDE_SOUND: AudioStream = preload("res://addons/cogito/Assets/Audio/squid
 @export var pull_duration := 0.3
 
 @onready var prompt: Label3D = $Prompt
+@onready var foam_pistol: Area3D = $FoamPistol
 
 var is_open := false
 var _closed_position: Vector3
@@ -15,6 +16,7 @@ var _audio_player: AudioStreamPlayer3D
 
 func _ready() -> void:
 	_closed_position = position
+	_set_pistol_available(false)
 	_audio_player = AudioStreamPlayer3D.new()
 	_audio_player.stream = SLIDE_SOUND
 	_audio_player.unit_size = 3.0
@@ -34,3 +36,13 @@ func interact() -> void:
 		target_position.z += pull_distance
 	_pull_tween = create_tween()
 	_pull_tween.tween_property(self, "position", target_position, pull_duration)
+	_pull_tween.tween_callback(_set_pistol_available.bind(is_open))
+
+
+func _set_pistol_available(available: bool) -> void:
+	if foam_pistol.get_parent() != self:
+		return
+
+	foam_pistol.visible = available
+	foam_pistol.monitoring = available
+	foam_pistol.monitorable = available
