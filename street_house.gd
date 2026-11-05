@@ -8,6 +8,10 @@ const DOOR_SCRIPT: Script = preload("res://interactable_door.gd")
 const FRUIT_SCRIPT: Script = preload("res://fruit_pickup.gd")
 const GUN_SCRIPT: Script = preload("res://locker_gun.gd")
 const LOCKER_SCRIPT: Script = preload("res://interactable_locker.gd")
+const WALL_TEXTURE: Texture2D = preload("res://textures/stone_blocks.svg")
+const FLOOR_TEXTURE: Texture2D = preload("res://textures/wood_planks.svg")
+const WOOD_TEXTURE: Texture2D = preload("res://textures/wood_planks.svg")
+const ROOF_TEXTURE: Texture2D = preload("res://textures/wood_planks.svg")
 const HOUSE_FRONT_Z := -3.5
 const WALL_COLOR := Color(0.72, 0.68, 0.58, 1)
 const FLOOR_COLOR := Color(0.28, 0.39, 0.35, 1)
@@ -27,16 +31,16 @@ func _ready() -> void:
 
 
 func _build_shell() -> void:
-	_add_box("Floor", Vector3(0, 0.1, 0), Vector3(7.5, 0.2, 6.5), FLOOR_COLOR, true)
-	_add_box("LeftWall", Vector3(-3.875, 2.8, 0), Vector3(0.25, 5.6, 7), WALL_COLOR, true)
-	_add_box("RightWall", Vector3(3.875, 2.8, 0), Vector3(0.25, 5.6, 7), WALL_COLOR, true)
-	_add_box("BackWall", Vector3(0, 2.8, 3.375), Vector3(8, 5.6, 0.25), WALL_COLOR, true)
-	_add_box("FrontLeft", Vector3(-2.375, 2.8, HOUSE_FRONT_Z), Vector3(3.25, 5.6, 0.25), facade_color, true)
-	_add_box("FrontRight", Vector3(2.375, 2.8, HOUSE_FRONT_Z), Vector3(3.25, 5.6, 0.25), facade_color, true)
-	_add_box("FrontHeader", Vector3(0, 4, HOUSE_FRONT_Z), Vector3(1.5, 3.2, 0.25), facade_color, true)
-	_add_box("Ceiling", Vector3(0, 5.55, 0), Vector3(7.5, 0.2, 6.5), WALL_COLOR, true)
-	_add_box("RoofFront", Vector3(0, 6.35, -1.72), Vector3(9, 0.32, 4.3), roof_color, false, Vector3(-28, 0, 0))
-	_add_box("RoofBack", Vector3(0, 6.35, 1.72), Vector3(9, 0.32, 4.3), roof_color, false, Vector3(28, 0, 0))
+	_add_box("Floor", Vector3(0, 0.1, 0), Vector3(7.5, 0.2, 6.5), FLOOR_COLOR, true, Vector3.ZERO, null, FLOOR_TEXTURE)
+	_add_box("LeftWall", Vector3(-3.875, 2.8, 0), Vector3(0.25, 5.6, 7), WALL_COLOR, true, Vector3.ZERO, null, WALL_TEXTURE)
+	_add_box("RightWall", Vector3(3.875, 2.8, 0), Vector3(0.25, 5.6, 7), WALL_COLOR, true, Vector3.ZERO, null, WALL_TEXTURE)
+	_add_box("BackWall", Vector3(0, 2.8, 3.375), Vector3(8, 5.6, 0.25), WALL_COLOR, true, Vector3.ZERO, null, WALL_TEXTURE)
+	_add_box("FrontLeft", Vector3(-2.375, 2.8, HOUSE_FRONT_Z), Vector3(3.25, 5.6, 0.25), facade_color, true, Vector3.ZERO, null, WALL_TEXTURE)
+	_add_box("FrontRight", Vector3(2.375, 2.8, HOUSE_FRONT_Z), Vector3(3.25, 5.6, 0.25), facade_color, true, Vector3.ZERO, null, WALL_TEXTURE)
+	_add_box("FrontHeader", Vector3(0, 4, HOUSE_FRONT_Z), Vector3(1.5, 3.2, 0.25), facade_color, true, Vector3.ZERO, null, WALL_TEXTURE)
+	_add_box("Ceiling", Vector3(0, 5.55, 0), Vector3(7.5, 0.2, 6.5), WALL_COLOR, true, Vector3.ZERO, null, FLOOR_TEXTURE)
+	_add_box("RoofFront", Vector3(0, 6.35, -1.72), Vector3(9, 0.32, 4.3), roof_color, false, Vector3(-28, 0, 0), null, ROOF_TEXTURE)
+	_add_box("RoofBack", Vector3(0, 6.35, 1.72), Vector3(9, 0.32, 4.3), roof_color, false, Vector3(28, 0, 0), null, ROOF_TEXTURE)
 	_add_box("Chimney", Vector3(2.7, 6.7, 1.6), Vector3(0.75, 1.5, 0.75), trim_color)
 
 
@@ -78,7 +82,7 @@ func _build_door() -> void:
 	var door_box_mesh := BoxMesh.new()
 	door_box_mesh.size = door_box.size
 	door_mesh.mesh = door_box_mesh
-	door_mesh.material_override = _make_material(roof_color)
+	door_mesh.material_override = _make_material(roof_color, WOOD_TEXTURE)
 	door_body.add_child(door_mesh)
 
 	var prompt := Label3D.new()
@@ -92,10 +96,10 @@ func _build_door() -> void:
 
 
 func _build_room_furnishings() -> void:
-	_add_box("TableTop", Vector3(-1.25, 1.15, 0.7), Vector3(2.6, 0.18, 1.6), WOOD_COLOR, true)
+	_add_box("TableTop", Vector3(-1.25, 1.15, 0.7), Vector3(2.6, 0.18, 1.6), WOOD_COLOR, true, Vector3.ZERO, null, WOOD_TEXTURE)
 	for x in [-2.32, -0.18]:
 		for z in [0.1, 1.3]:
-			_add_box("TableLeg", Vector3(x, 0.58, z), Vector3(0.14, 1.15, 0.14), WOOD_COLOR)
+			_add_box("TableLeg", Vector3(x, 0.58, z), Vector3(0.14, 1.15, 0.14), WOOD_COLOR, false, Vector3.ZERO, null, WOOD_TEXTURE)
 
 	_add_fruit("Apple", Vector3(-1.65, 1.42, 0.55), Color(0.75, 0.12, 0.09, 1))
 	_add_fruit("Orange", Vector3(-1.05, 1.42, 0.48), Color(0.95, 0.42, 0.08, 1))
@@ -164,7 +168,7 @@ func _build_wardrobe() -> void:
 	wardrobe_box_mesh.size = wardrobe_box.size
 	wardrobe_mesh.mesh = wardrobe_box_mesh
 	wardrobe_mesh.position = wardrobe_shape.position
-	wardrobe_mesh.material_override = _make_material(WOOD_COLOR)
+	wardrobe_mesh.material_override = _make_material(WOOD_COLOR, WOOD_TEXTURE)
 	wardrobe.add_child(wardrobe_mesh)
 
 	var drawer := StaticBody3D.new()
@@ -183,7 +187,7 @@ func _build_wardrobe() -> void:
 	var drawer_box_mesh := BoxMesh.new()
 	drawer_box_mesh.size = drawer_box.size
 	drawer_mesh.mesh = drawer_box_mesh
-	drawer_mesh.material_override = _make_material(TRIM_WOOD_COLOR)
+	drawer_mesh.material_override = _make_material(TRIM_WOOD_COLOR, WOOD_TEXTURE)
 	drawer.add_child(drawer_mesh)
 
 	var handle := MeshInstance3D.new()
@@ -297,10 +301,15 @@ func _add_banana(banana_position: Vector3) -> void:
 		banana.add_child(tip)
 
 
-func _make_material(color: Color) -> StandardMaterial3D:
+func _make_material(color: Color, texture: Texture2D = null) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
-	material.albedo_color = color
+	material.albedo_color = color if texture == null or texture == WALL_TEXTURE else Color.WHITE
 	material.roughness = 0.82
+	if texture != null:
+		material.albedo_texture = texture
+		material.uv1_triplanar = true
+		material.uv1_world_triplanar = true
+		material.uv1_scale = Vector3(0.42, 0.42, 0.42) if texture == WALL_TEXTURE else Vector3(0.48, 0.48, 0.48)
 	return material
 
 
@@ -311,7 +320,8 @@ func _add_box(
 	color: Color,
 	with_collision := false,
 	box_rotation := Vector3.ZERO,
-	parent: Node3D = null
+	parent: Node3D = null,
+	surface_texture: Texture2D = null
 ) -> void:
 	var target_parent := self if parent == null else parent
 	var mesh_instance := MeshInstance3D.new()
@@ -321,7 +331,7 @@ func _add_box(
 	var box_mesh := BoxMesh.new()
 	box_mesh.size = box_size
 	mesh_instance.mesh = box_mesh
-	mesh_instance.material_override = _make_material(color)
+	mesh_instance.material_override = _make_material(color, surface_texture)
 	target_parent.add_child(mesh_instance)
 
 	if with_collision:

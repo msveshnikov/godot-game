@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#30241c"/>
+  <g stroke="#30241c" stroke-width="5">
+    <path fill="#9b6845" d="M2 2h164v122H2z"/>
+    <path fill="#815638" d="M171 2h168v122H171z"/>
+    <path fill="#a27450" d="M344 2h166v122H344z"/>
+    <path fill="#805437" d="M2 130h111v122H2z"/>
+    <path fill="#a3714a" d="M118 130h169v122H118z"/>
+    <path fill="#8d6040" d="M292 130h218v122H292z"/>
+    <path fill="#a47550" d="M2 258h164v122H2z"/>
+    <path fill="#895a3a" d="M171 258h168v122H171z"/>
+    <path fill="#a06d48" d="M344 258h166v122H344z"/>
+    <path fill="#8b5c3c" d="M2 386h111v122H2z"/>
+    <path fill="#a5744f" d="M118 386h169v122H118z"/>
+    <path fill="#815538" d="M292 386h218v122H292z"/>
+  </g>
+  <g fill="none" stroke-linecap="round">
+    <g stroke="#d0a079" stroke-width="3" opacity=".42">
+      <path d="M15 22c40 9 72-9 135 3M20 33c56 8 82-8 133 1M21 75c44-8 78 8 128-4"/>
+      <path d="M187 18c49 8 91-6 137 4M184 47c57-11 91 8 143-2M189 94c42-7 83 7 132-3"/>
+      <path d="M359 26c47-7 83 8 139-3M355 53c62 9 94-7 143 2M359 100c49-8 83 8 133-2"/>
+      <path d="M18 151c36 9 56-8 85 1M16 193c31-8 59 8 86-3M128 165c49-8 99 8 151-2"/>
+      <path d="M127 220c42 7 98-8 147 1M305 147c55 9 114-7 195 2M302 196c73-9 128 8 192-3"/>
+      <path d="M15 280c47 8 86-7 137 2M19 330c39-7 81 8 133-2M185 278c54 8 91-7 147 2"/>
+      <path d="M187 346c49-8 96 8 145-2M359 284c46 7 88-8 139 1M356 341c52-8 96 8 142-2"/>
+      <path d="M17 411c36 8 62-7 87 2M16 459c42-7 67 8 87-2M129 411c52 8 102-8 151 2"/>
+      <path d="M126 471c48-8 96 7 149-2M305 410c55 8 111-8 193 2M301 462c65-8 130 8 195-2"/>
+    </g>
+    <g stroke="#35271d" stroke-width="2" opacity=".35">
+      <path d="M28 52c45 8 78-6 117 2M193 69c43-7 92 8 127-1M361 77c50 7 81-6 130 1"/>
+      <path d="M18 174c35 7 57-5 83 2M131 201c49-8 89 6 144-2M307 177c54 8 110-6 185 2"/>
+      <path d="M20 306c46-8 90 7 131-2M184 315c50 8 103-7 146 1M358 316c53-8 90 8 140-2"/>
+      <path d="M19 439c37-7 63 8 83 0M130 445c48 7 105-8 146 2M305 438c57-8 117 7 187-1"/>
+    </g>
+  </g>
+  <g fill="none" stroke="#573a28" stroke-width="4" opacity=".75">
+    <ellipse cx="92" cy="61" rx="14" ry="8"/>
+    <ellipse cx="263" cy="185" rx="15" ry="9"/>
+    <ellipse cx="424" cy="319" rx="15" ry="8"/>
+    <ellipse cx="57" cy="449" rx="13" ry="8"/>
+  </g>
+  <g fill="none" stroke="#d0a079" stroke-width="2" opacity=".55">
+    <ellipse cx="92" cy="61" rx="7" ry="3"/>
+    <ellipse cx="263" cy="185" rx="7" ry="4"/>
+    <ellipse cx="424" cy="319" rx="7" ry="3"/>
+    <ellipse cx="57" cy="449" rx="6" ry="3"/>
+  </g>
+</svg>

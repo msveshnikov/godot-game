@@ -7,6 +7,8 @@
 [ext_resource type="Script" path="res://room_light_switch.gd" id="5_room_light_switch"]
 [ext_resource type="Script" path="res://locker_gun.gd" id="7_locker_gun"]
 [ext_resource type="PackedScene" path="res://street_house.tscn" id="6_street_house"]
+[ext_resource type="Texture2D" path="res://textures/stone_blocks.svg" id="8_texture_stone"]
+[ext_resource type="Texture2D" path="res://textures/wood_planks.svg" id="9_texture_wood"]
 
 [sub_resource type="Environment" id="Environment_diorama"]
 background_mode = 1
@@ -21,8 +23,12 @@ albedo_color = Color(0.28, 0.39, 0.35, 1)
 roughness = 0.9
 
 [sub_resource type="StandardMaterial3D" id="Material_wood"]
-albedo_color = Color(0.48, 0.27, 0.14, 1)
+albedo_color = Color(0.96, 0.9, 0.8, 1)
+albedo_texture = ExtResource("9_texture_wood")
 roughness = 0.82
+uv1_triplanar = true
+uv1_world_triplanar = true
+uv1_scale = Vector3(0.48, 0.48, 0.48)
 
 [sub_resource type="StandardMaterial3D" id="Material_lamp"]
 albedo_color = Color(0.92, 0.65, 0.24, 1)
@@ -54,19 +60,31 @@ roughness = 0.8
 
 [sub_resource type="StandardMaterial3D" id="Material_wall"]
 albedo_color = Color(0.72, 0.68, 0.58, 1)
+albedo_texture = ExtResource("8_texture_stone")
 roughness = 0.92
+uv1_triplanar = true
+uv1_world_triplanar = true
+uv1_scale = Vector3(0.42, 0.42, 0.42)
 
 [sub_resource type="StandardMaterial3D" id="Material_ceiling"]
 albedo_color = Color(0.56, 0.58, 0.55, 1)
 roughness = 0.95
 
 [sub_resource type="StandardMaterial3D" id="Material_wardrobe"]
-albedo_color = Color(0.3, 0.17, 0.1, 1)
+albedo_color = Color(0.96, 0.9, 0.8, 1)
+albedo_texture = ExtResource("9_texture_wood")
 roughness = 0.84
+uv1_triplanar = true
+uv1_world_triplanar = true
+uv1_scale = Vector3(0.48, 0.48, 0.48)
 
 [sub_resource type="StandardMaterial3D" id="Material_wardrobe_trim"]
-albedo_color = Color(0.55, 0.34, 0.18, 1)
+albedo_color = Color(0.96, 0.9, 0.8, 1)
+albedo_texture = ExtResource("9_texture_wood")
 roughness = 0.72
+uv1_triplanar = true
+uv1_world_triplanar = true
+uv1_scale = Vector3(0.48, 0.48, 0.48)
 
 [sub_resource type="StandardMaterial3D" id="Material_apple"]
 albedo_color = Color(0.75, 0.12, 0.09, 1)
@@ -110,11 +128,19 @@ roughness = 0.35
 
 [sub_resource type="StandardMaterial3D" id="Material_street_asphalt"]
 albedo_color = Color(0.14, 0.16, 0.19, 1)
+albedo_texture = ExtResource("8_texture_stone")
 roughness = 0.96
+uv1_triplanar = true
+uv1_world_triplanar = true
+uv1_scale = Vector3(0.3, 0.3, 0.3)
 
 [sub_resource type="StandardMaterial3D" id="Material_street_sidewalk"]
 albedo_color = Color(0.57, 0.55, 0.5, 1)
+albedo_texture = ExtResource("8_texture_stone")
 roughness = 0.92
+uv1_triplanar = true
+uv1_world_triplanar = true
+uv1_scale = Vector3(0.42, 0.42, 0.42)
 
 [sub_resource type="StandardMaterial3D" id="Material_street_marking"]
 albedo_color = Color(0.91, 0.78, 0.4, 1)
@@ -122,6 +148,9 @@ roughness = 0.9
 
 [sub_resource type="PlaneMesh" id="Mesh_ground"]
 size = Vector2(200, 200)
+
+[sub_resource type="PlaneMesh" id="Mesh_room_floor"]
+size = Vector2(14, 14)
 
 [sub_resource type="BoxMesh" id="Mesh_street_asphalt"]
 size = Vector3(60, 0.06, 8)
@@ -413,6 +442,11 @@ text = "Foam pistol: Not collected"
 [node name="Diorama" type="Node3D" parent="."]
 
 [node name="Room" type="Node3D" parent="Diorama"]
+
+[node name="RoomFloor" type="MeshInstance3D" parent="Diorama/Room"]
+position = Vector3(0, 0.015, 0)
+mesh = SubResource("Mesh_room_floor")
+surface_material_override/0 = SubResource("Material_wood")
 
 [node name="BackWall" type="StaticBody3D" parent="Diorama/Room"]
 position = Vector3(0, 2.5, -7)
