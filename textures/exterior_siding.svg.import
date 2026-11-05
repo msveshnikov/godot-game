@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://qvd15wcncx33"
 path.s3tc="res://.godot/imported/exterior_siding.svg-880e9131f1c4a32e6afc8ea9f3e980e9.s3tc.ctex"
+path.etc2="res://.godot/imported/exterior_siding.svg-880e9131f1c4a32e6afc8ea9f3e980e9.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://textures/exterior_siding.svg"
-dest_files=["res://.godot/imported/exterior_siding.svg-880e9131f1c4a32e6afc8ea9f3e980e9.s3tc.ctex"]
+dest_files=["res://.godot/imported/exterior_siding.svg-880e9131f1c4a32e6afc8ea9f3e980e9.s3tc.ctex", "res://.godot/imported/exterior_siding.svg-880e9131f1c4a32e6afc8ea9f3e980e9.etc2.ctex"]
 
 [params]
 

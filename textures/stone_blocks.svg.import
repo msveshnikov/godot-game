@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bvn84vb6bsx57"
 path.s3tc="res://.godot/imported/stone_blocks.svg-9e8a0f26d5a48d27913800b27a6ef0fa.s3tc.ctex"
+path.etc2="res://.godot/imported/stone_blocks.svg-9e8a0f26d5a48d27913800b27a6ef0fa.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://textures/stone_blocks.svg"
-dest_files=["res://.godot/imported/stone_blocks.svg-9e8a0f26d5a48d27913800b27a6ef0fa.s3tc.ctex"]
+dest_files=["res://.godot/imported/stone_blocks.svg-9e8a0f26d5a48d27913800b27a6ef0fa.s3tc.ctex", "res://.godot/imported/stone_blocks.svg-9e8a0f26d5a48d27913800b27a6ef0fa.etc2.ctex"]
 
 [params]
 

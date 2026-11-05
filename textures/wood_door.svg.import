@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://q8oc7pyc08l0"
 path.s3tc="res://.godot/imported/wood_door.svg-2f8d24267ebb96b33b1a8217304dde8d.s3tc.ctex"
+path.etc2="res://.godot/imported/wood_door.svg-2f8d24267ebb96b33b1a8217304dde8d.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://textures/wood_door.svg"
-dest_files=["res://.godot/imported/wood_door.svg-2f8d24267ebb96b33b1a8217304dde8d.s3tc.ctex"]
+dest_files=["res://.godot/imported/wood_door.svg-2f8d24267ebb96b33b1a8217304dde8d.s3tc.ctex", "res://.godot/imported/wood_door.svg-2f8d24267ebb96b33b1a8217304dde8d.etc2.ctex"]
 
 [params]
 

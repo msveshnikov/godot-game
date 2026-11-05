@@ -7,7 +7,7 @@
 [ext_resource type="Script" uid="uid://cypwbscgbkdes" path="res://room_light_switch.gd" id="5_room_light_switch"]
 [ext_resource type="PackedScene" path="res://street_house.tscn" id="6_street_house"]
 [ext_resource type="Script" uid="uid://b1yklxtwv56ji" path="res://locker_gun.gd" id="7_locker_gun"]
-[ext_resource type="Texture2D" path="res://textures/interior_plaster.svg" id="8_texture_interior"]
+[ext_resource type="Texture2D" uid="uid://dxy4bfajmuq2b" path="res://textures/interior_plaster.svg" id="8_texture_interior"]
 [ext_resource type="Texture2D" uid="uid://1q4pljsl2xaq" path="res://textures/wood_planks.svg" id="9_texture_wood"]
 [ext_resource type="Shader" uid="uid://c6g50xf51rf35" path="res://sky.gdshader" id="10_sky_shader"]
 [ext_resource type="Script" uid="uid://bncu8krclsne" path="res://forest.gd" id="11_forest"]
@@ -16,11 +16,11 @@
 [ext_resource type="PackedScene" uid="uid://b2cccsfb5tikx" path="res://addons/cogito/CogitoNPC/cogito_npc.tscn" id="14_cogito_npc"]
 [ext_resource type="Script" uid="uid://1v4pe24bf3gy" path="res://villager_walk.gd" id="15_villager_walk"]
 [ext_resource type="PackedScene" path="res://foam_pistol_model.tscn" id="16_foam_pistol_model"]
-[ext_resource type="Shader" path="res://grass.gdshader" id="17_grass_shader"]
-[ext_resource type="Texture2D" path="res://textures/exterior_siding.svg" id="18_texture_siding"]
-[ext_resource type="Texture2D" path="res://textures/concrete_pavers.svg" id="19_texture_pavers"]
-[ext_resource type="Texture2D" path="res://textures/wood_furniture.svg" id="20_texture_furniture"]
-[ext_resource type="Texture2D" path="res://textures/wood_door.svg" id="21_texture_door"]
+[ext_resource type="Shader" uid="uid://c32mqlfwtjqa7" path="res://grass.gdshader" id="17_grass_shader"]
+[ext_resource type="Texture2D" uid="uid://qvd15wcncx33" path="res://textures/exterior_siding.svg" id="18_texture_siding"]
+[ext_resource type="Texture2D" uid="uid://ws8ray76lyaa" path="res://textures/concrete_pavers.svg" id="19_texture_pavers"]
+[ext_resource type="Texture2D" uid="uid://bapaldxyqmn2b" path="res://textures/wood_furniture.svg" id="20_texture_furniture"]
+[ext_resource type="Texture2D" uid="uid://q8oc7pyc08l0" path="res://textures/wood_door.svg" id="21_texture_door"]
 
 [sub_resource type="ShaderMaterial" id="Material_sky"]
 shader = ExtResource("10_sky_shader")
@@ -72,13 +72,6 @@ uv1_scale = Vector3(0.48, 0.48, 0.48)
 uv1_triplanar = true
 uv1_world_triplanar = true
 
-[sub_resource type="StandardMaterial3D" id="Material_table"]
-albedo_texture = ExtResource("20_texture_furniture")
-roughness = 0.68
-uv1_scale = Vector3(0.48, 0.48, 0.48)
-uv1_triplanar = true
-uv1_world_triplanar = true
-
 [sub_resource type="BoxShape3D" id="Shape_wall"]
 size = Vector3(14, 5, 0.25)
 
@@ -89,32 +82,6 @@ size = Vector3(14, 5, 0.25)
 albedo_texture = ExtResource("8_texture_interior")
 roughness = 0.94
 uv1_scale = Vector3(0.42, 0.42, 0.42)
-uv1_triplanar = true
-uv1_world_triplanar = true
-
-[sub_resource type="StandardMaterial3D" id="Material_exterior"]
-albedo_texture = ExtResource("18_texture_siding")
-roughness = 0.88
-uv1_scale = Vector3(0.48, 0.48, 0.48)
-uv1_triplanar = true
-uv1_world_triplanar = true
-
-[sub_resource type="BoxMesh" id="Mesh_exterior_back"]
-size = Vector3(14, 5, 0.03)
-
-[sub_resource type="BoxMesh" id="Mesh_exterior_side"]
-size = Vector3(0.03, 5, 14)
-
-[sub_resource type="BoxMesh" id="Mesh_exterior_front_side"]
-size = Vector3(5.7, 5, 0.03)
-
-[sub_resource type="BoxMesh" id="Mesh_exterior_front_header"]
-size = Vector3(2.6, 1.3, 0.03)
-
-[sub_resource type="StandardMaterial3D" id="Material_door"]
-albedo_texture = ExtResource("21_texture_door")
-roughness = 0.78
-uv1_scale = Vector3(0.48, 0.48, 0.48)
 uv1_triplanar = true
 uv1_world_triplanar = true
 
@@ -150,10 +117,9 @@ size = Vector3(2.4, 3.7, 0.18)
 [sub_resource type="BoxMesh" id="Mesh_outside_door"]
 size = Vector3(2.4, 3.7, 0.18)
 
-[sub_resource type="StandardMaterial3D" id="Material_wardrobe"]
-albedo_color = Color(0.96, 0.9, 0.8, 1)
-albedo_texture = ExtResource("20_texture_furniture")
-roughness = 0.84
+[sub_resource type="StandardMaterial3D" id="Material_door"]
+albedo_texture = ExtResource("21_texture_door")
+roughness = 0.78
 uv1_scale = Vector3(0.48, 0.48, 0.48)
 uv1_triplanar = true
 uv1_world_triplanar = true
@@ -173,6 +139,14 @@ size = Vector3(0.34, 0.48, 0.16)
 [sub_resource type="BoxMesh" id="Mesh_switch_plate"]
 size = Vector3(0.34, 0.48, 0.08)
 
+[sub_resource type="StandardMaterial3D" id="Material_wardrobe"]
+albedo_color = Color(0.96, 0.9, 0.8, 1)
+albedo_texture = ExtResource("20_texture_furniture")
+roughness = 0.84
+uv1_scale = Vector3(0.48, 0.48, 0.48)
+uv1_triplanar = true
+uv1_world_triplanar = true
+
 [sub_resource type="BoxMesh" id="Mesh_switch_toggle"]
 size = Vector3(0.12, 0.2, 0.08)
 
@@ -181,6 +155,25 @@ size = Vector3(0.25, 5, 14)
 
 [sub_resource type="BoxMesh" id="Mesh_side_wall"]
 size = Vector3(0.25, 5, 14)
+
+[sub_resource type="BoxMesh" id="Mesh_exterior_back"]
+size = Vector3(14, 5, 0.03)
+
+[sub_resource type="StandardMaterial3D" id="Material_exterior"]
+albedo_texture = ExtResource("18_texture_siding")
+roughness = 0.88
+uv1_scale = Vector3(0.48, 0.48, 0.48)
+uv1_triplanar = true
+uv1_world_triplanar = true
+
+[sub_resource type="BoxMesh" id="Mesh_exterior_side"]
+size = Vector3(0.03, 5, 14)
+
+[sub_resource type="BoxMesh" id="Mesh_exterior_front_side"]
+size = Vector3(5.7, 5, 0.03)
+
+[sub_resource type="BoxMesh" id="Mesh_exterior_front_header"]
+size = Vector3(2.6, 1.3, 0.03)
 
 [sub_resource type="BoxShape3D" id="Shape_ceiling"]
 size = Vector3(14, 0.2, 14)
@@ -208,6 +201,7 @@ emission_energy_multiplier = 1.5
 size = Vector2(200, 200)
 
 [sub_resource type="ShaderMaterial" id="Material_floor"]
+render_priority = 0
 shader = ExtResource("17_grass_shader")
 shader_parameter/grass_dark = Color(0.12, 0.31, 0.16, 1)
 shader_parameter/grass_mid = Color(0.25, 0.47, 0.23, 1)
@@ -248,6 +242,13 @@ size = Vector3(3.2, 0.22, 2.1)
 
 [sub_resource type="BoxMesh" id="Mesh_table_top"]
 size = Vector3(3.2, 0.22, 2.1)
+
+[sub_resource type="StandardMaterial3D" id="Material_table"]
+albedo_texture = ExtResource("20_texture_furniture")
+roughness = 0.68
+uv1_scale = Vector3(0.48, 0.48, 0.48)
+uv1_triplanar = true
+uv1_world_triplanar = true
 
 [sub_resource type="BoxMesh" id="Mesh_table_leg"]
 size = Vector3(0.18, 1.15, 0.18)
@@ -607,34 +608,34 @@ shape = SubResource("Shape_side_wall")
 mesh = SubResource("Mesh_side_wall")
 surface_material_override/0 = SubResource("Material_wall")
 
-[node name="ExteriorFinish" type="Node3D" parent="Diorama/Room"]
+[node name="ExteriorFinish" type="Node3D" parent="Diorama/Room" unique_id=343789171]
 
-[node name="BackSiding" type="MeshInstance3D" parent="Diorama/Room/ExteriorFinish"]
+[node name="BackSiding" type="MeshInstance3D" parent="Diorama/Room/ExteriorFinish" unique_id=1805778785]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, -7.14)
 mesh = SubResource("Mesh_exterior_back")
 surface_material_override/0 = SubResource("Material_exterior")
 
-[node name="LeftSiding" type="MeshInstance3D" parent="Diorama/Room/ExteriorFinish"]
+[node name="LeftSiding" type="MeshInstance3D" parent="Diorama/Room/ExteriorFinish" unique_id=1060810563]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.14, 2.5, 0)
 mesh = SubResource("Mesh_exterior_side")
 surface_material_override/0 = SubResource("Material_exterior")
 
-[node name="RightSiding" type="MeshInstance3D" parent="Diorama/Room/ExteriorFinish"]
+[node name="RightSiding" type="MeshInstance3D" parent="Diorama/Room/ExteriorFinish" unique_id=512540707]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.14, 2.5, 0)
 mesh = SubResource("Mesh_exterior_side")
 surface_material_override/0 = SubResource("Material_exterior")
 
-[node name="FrontSidingLeft" type="MeshInstance3D" parent="Diorama/Room/ExteriorFinish"]
+[node name="FrontSidingLeft" type="MeshInstance3D" parent="Diorama/Room/ExteriorFinish" unique_id=1121064393]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.15, 2.5, 7.14)
 mesh = SubResource("Mesh_exterior_front_side")
 surface_material_override/0 = SubResource("Material_exterior")
 
-[node name="FrontSidingRight" type="MeshInstance3D" parent="Diorama/Room/ExteriorFinish"]
+[node name="FrontSidingRight" type="MeshInstance3D" parent="Diorama/Room/ExteriorFinish" unique_id=579898776]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.15, 2.5, 7.14)
 mesh = SubResource("Mesh_exterior_front_side")
 surface_material_override/0 = SubResource("Material_exterior")
 
-[node name="FrontSidingHeader" type="MeshInstance3D" parent="Diorama/Room/ExteriorFinish"]
+[node name="FrontSidingHeader" type="MeshInstance3D" parent="Diorama/Room/ExteriorFinish" unique_id=1105420735]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.35, 7.14)
 mesh = SubResource("Mesh_exterior_front_header")
 surface_material_override/0 = SubResource("Material_exterior")
@@ -1110,7 +1111,7 @@ script = ExtResource("7_locker_gun")
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Diorama/Wardrobe/LockerDrawer/FoamPistol" unique_id=440954532]
 shape = SubResource("Shape_locker_gun")
 
-[node name="PistolModel" parent="Diorama/Wardrobe/LockerDrawer/FoamPistol" instance=ExtResource("16_foam_pistol_model")]
+[node name="PistolModel" parent="Diorama/Wardrobe/LockerDrawer/FoamPistol" unique_id=685619950 instance=ExtResource("16_foam_pistol_model")]
 
 [node name="Prompt" type="Label3D" parent="Diorama/Wardrobe/LockerDrawer/FoamPistol" unique_id=648393638]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.34, 0)

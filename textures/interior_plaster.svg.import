@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dxy4bfajmuq2b"
 path.s3tc="res://.godot/imported/interior_plaster.svg-909ce83a95a2d8448b5df6a070b7285e.s3tc.ctex"
+path.etc2="res://.godot/imported/interior_plaster.svg-909ce83a95a2d8448b5df6a070b7285e.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://textures/interior_plaster.svg"
-dest_files=["res://.godot/imported/interior_plaster.svg-909ce83a95a2d8448b5df6a070b7285e.s3tc.ctex"]
+dest_files=["res://.godot/imported/interior_plaster.svg-909ce83a95a2d8448b5df6a070b7285e.s3tc.ctex", "res://.godot/imported/interior_plaster.svg-909ce83a95a2d8448b5df6a070b7285e.etc2.ctex"]
 
 [params]
 
