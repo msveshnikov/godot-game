@@ -16,6 +16,7 @@
 [ext_resource type="PackedScene" uid="uid://b2cccsfb5tikx" path="res://addons/cogito/CogitoNPC/cogito_npc.tscn" id="14_cogito_npc"]
 [ext_resource type="Script" uid="uid://1v4pe24bf3gy" path="res://villager_walk.gd" id="15_villager_walk"]
 [ext_resource type="PackedScene" path="res://foam_pistol_model.tscn" id="16_foam_pistol_model"]
+[ext_resource type="Shader" path="res://grass.gdshader" id="17_grass_shader"]
 
 [sub_resource type="ShaderMaterial" id="Material_sky"]
 shader = ExtResource("10_sky_shader")
@@ -170,9 +171,11 @@ emission_energy_multiplier = 1.5
 [sub_resource type="PlaneMesh" id="Mesh_ground"]
 size = Vector2(200, 200)
 
-[sub_resource type="StandardMaterial3D" id="Material_floor"]
-albedo_color = Color(0.28, 0.39, 0.35, 1)
-roughness = 0.9
+[sub_resource type="ShaderMaterial" id="Material_floor"]
+shader = ExtResource("17_grass_shader")
+shader_parameter/grass_dark = Color(0.12, 0.31, 0.16, 1)
+shader_parameter/grass_mid = Color(0.25, 0.47, 0.23, 1)
+shader_parameter/grass_light = Color(0.46, 0.72, 0.36, 1)
 
 [sub_resource type="BoxMesh" id="Mesh_street_asphalt"]
 size = Vector3(60, 0.06, 8)
