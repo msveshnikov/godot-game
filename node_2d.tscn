@@ -11,6 +11,9 @@
 [ext_resource type="Texture2D" path="res://textures/wood_planks.svg" id="9_texture_wood"]
 [ext_resource type="Shader" path="res://sky.gdshader" id="10_sky_shader"]
 [ext_resource type="Script" path="res://forest.gd" id="11_forest"]
+[ext_resource type="PackedScene" path="res://addons/cogito/DemoScenes/DemoPrefabs/potted_plant.tscn" id="12_cogito_plant"]
+[ext_resource type="PackedScene" path="res://addons/cogito/DemoScenes/DemoPrefabs/trashcan.tscn" id="13_cogito_trashcan"]
+[ext_resource type="PackedScene" path="res://addons/cogito/CogitoNPC/cogito_npc.tscn" id="14_cogito_npc"]
 
 [sub_resource type="ShaderMaterial" id="Material_sky"]
 shader = ExtResource("10_sky_shader")
@@ -769,6 +772,30 @@ roof_color = Color(0.27, 0.23, 0.34, 1)
 position = Vector3(20, 0, 27)
 facade_color = Color(0.83, 0.7, 0.39, 1)
 roof_color = Color(0.34, 0.28, 0.2, 1)
+
+[node name="CogitoTown" type="Node3D" parent="Diorama/Street"]
+
+[node name="PottedPlantLeft" parent="Diorama/Street/CogitoTown" instance=ExtResource("12_cogito_plant")]
+position = Vector3(-25.5, 0.4, 25.5)
+
+[node name="PottedPlantRight" parent="Diorama/Street/CogitoTown" instance=ExtResource("12_cogito_plant")]
+position = Vector3(25.5, 0.4, 25.5)
+
+[node name="TrashcanNear" parent="Diorama/Street/CogitoTown" instance=ExtResource("13_cogito_trashcan")]
+position = Vector3(-28, 0.4, 12.35)
+
+[node name="TrashcanFar" parent="Diorama/Street/CogitoTown" instance=ExtResource("13_cogito_trashcan")]
+position = Vector3(28, 0.4, 21.65)
+
+[node name="VillagerNear" parent="Diorama/Street/CogitoTown" instance=ExtResource("14_cogito_npc")]
+position = Vector3(-25, 0.9, 12.35)
+display_name = "Villager"
+response_to_player = "Friendly"
+
+[node name="VillagerFar" parent="Diorama/Street/CogitoTown" instance=ExtResource("14_cogito_npc")]
+position = Vector3(25, 0.9, 21.65)
+display_name = "Villager"
+response_to_player = "Friendly"
 
 [node name="Table" type="Node3D" parent="Diorama"]
 
