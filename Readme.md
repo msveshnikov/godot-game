@@ -4,14 +4,14 @@
 [![GodotEngine](https://img.shields.io/badge/Godot_4.6.3_stable-blue?logo=godotengine&logoColor=white)](https://godotengine.org/) [![COGITO](https://img.shields.io/badge/version_1.2.0-35A1D7?label=COGITO&labelColor=0E887A)](https://codeberg.org/Phazorknight/Cogito)
 
 ## Playable room
-The main scene (`node_2d.tscn`) is a small, warmly lit first-person room with ceiling lights, collectible fruit including a curved banana, and a collectible Cogito-style foam pistol in the wardrobe drawer. It also has a wall-mounted light switch, enclosing walls and ceiling, an opening door, and a street lined with five differently colored houses. Interactions use sound effects from the included Cogito audio assets.
+The main scene (`node_2d.tscn`) is a small, warmly lit first-person room with ceiling lights, collectible fruit including a curved banana, and a collectible Cogito-style foam pistol in the wardrobe drawer. It also has a wall-mounted light switch, enclosing walls and ceiling, an opening door, and a street lined with five differently colored, enterable houses. Each house has an opening door and a furnished room with a table, collectible fruit, and a wardrobe with a foam pistol.
 
 ### Controls
 - **WASD**: Move
 - **Shift**: Run
 - **Space**: Jump
 - **Mouse**: Look around
-- **E**: Take fruit or the foam pistol, pull/push the wardrobe drawer, open/close the outside door, or toggle the wall switch near the entrance while aiming at the object. The pistol only appears when the drawer is open; the HUD shows your fruit count and pistol status.
+- **E**: Open/close doors, take fruit or the foam pistol, pull/push a wardrobe drawer, or toggle the wall switch while aiming at the object. The pistols only appear when their drawers are open; the HUD shows your fruit count and pistol status.
 - **Q or left mouse button**: Fire a foam pellet with the collected pistol
 - **Esc**: Release the mouse; click to capture it again
 
