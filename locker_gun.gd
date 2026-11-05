@@ -20,7 +20,6 @@ func interact() -> String:
 	monitorable = false
 	collision_layer = 0
 	collision_mask = 0
-	$CollisionShape3D.disabled = true
 	$Prompt.visible = false
 
 	reparent(camera, false)
