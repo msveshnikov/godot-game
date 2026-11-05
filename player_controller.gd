@@ -26,7 +26,7 @@ var fruits_taken := 0
 var has_gun := false
 var _can_fire := true
 var _fire_sound: AudioStreamPlayer
-var _footstep_sound: AudioStreamPlayer3D
+var _footstep_sound: AudioStreamPlayer
 var _footstep_timer := 0.0
 
 
@@ -38,12 +38,9 @@ func _ready() -> void:
 	_fire_sound.stream = FOAM_FIRE_SOUND
 	_fire_sound.volume_db = -4.0
 	add_child(_fire_sound)
-	_footstep_sound = AudioStreamPlayer3D.new()
+	_footstep_sound = AudioStreamPlayer.new()
 	_footstep_sound.name = "RunFootsteps"
-	_footstep_sound.position.y = -0.75
-	_footstep_sound.max_distance = 18.0
-	_footstep_sound.unit_size = 8.0
-	_footstep_sound.volume_db = -7.0
+	_footstep_sound.volume_db = -2.0
 	add_child(_footstep_sound)
 
 

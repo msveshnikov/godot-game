@@ -10,6 +10,7 @@
 [ext_resource type="Texture2D" path="res://textures/stone_blocks.svg" id="8_texture_stone"]
 [ext_resource type="Texture2D" path="res://textures/wood_planks.svg" id="9_texture_wood"]
 [ext_resource type="Shader" path="res://sky.gdshader" id="10_sky_shader"]
+[ext_resource type="Script" path="res://forest.gd" id="11_forest"]
 
 [sub_resource type="ShaderMaterial" id="Material_sky"]
 shader = ExtResource("10_sky_shader")
@@ -448,6 +449,9 @@ theme_override_font_sizes/font_size = 20
 text = "Foam pistol: Not collected"
 
 [node name="Diorama" type="Node3D" parent="."]
+
+[node name="Forest" type="Node3D" parent="Diorama"]
+script = ExtResource("11_forest")
 
 [node name="Room" type="Node3D" parent="Diorama"]
 
