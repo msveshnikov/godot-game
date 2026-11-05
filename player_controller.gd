@@ -22,7 +22,8 @@ const RUN_FOOTSTEP_INTERVAL := 0.3
 @onready var interact_ray: RayCast3D = $Camera3D/InteractRay
 @onready var fruit_counter: Label = $HUD/FruitCounter
 @onready var gun_status: Label = $HUD/GunStatus
-@onready var gun_muzzle: Marker3D = $Camera3D/GunMuzzle
+@onready var held_gun: Node3D = $Camera3D/HeldGunPivot
+@onready var gun_muzzle: Marker3D = $Camera3D/HeldGunPivot/HeldPistol/GunMuzzle
 
 var fruits_taken := 0
 var has_gun := false
@@ -44,6 +45,10 @@ func _ready() -> void:
 	_footstep_sound.name = "RunFootsteps"
 	_footstep_sound.volume_db = -2.0
 	add_child(_footstep_sound)
+
+
+func _process(_delta: float) -> void:
+	held_gun.look_at(_get_aim_target(), Vector3.UP)
 
 
 func _input(event: InputEvent) -> void:
@@ -82,6 +87,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func collect_gun() -> void:
 	has_gun = true
+	held_gun.visible = true
 	gun_status.text = "Foam pistol: Collected (Q/click to fire)"
 
 
@@ -95,10 +101,14 @@ func _fire_foam_pellet() -> void:
 	pellet.add_collision_exception_with(self)
 	pellet.global_position = gun_muzzle.global_position
 	pellet.global_basis = camera.global_basis
-	pellet.linear_velocity = -camera.global_basis.z * 18.0
+	pellet.linear_velocity = gun_muzzle.global_position.direction_to(_get_aim_target()) * 18.0
 	_fire_sound.play()
 	await get_tree().create_timer(0.25).timeout
 	_can_fire = true
+
+
+func _get_aim_target() -> Vector3:
+	return camera.global_position - camera.global_basis.z * 50.0
 
 
 func _physics_process(delta: float) -> void:
