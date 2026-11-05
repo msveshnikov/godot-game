@@ -1,6 +1,18 @@
 ![COGITO_banner](addons/cogito/COGITO_banner.jpg)
 # COGITO
+
 [![GodotEngine](https://img.shields.io/badge/Godot_4.6.3_stable-blue?logo=godotengine&logoColor=white)](https://godotengine.org/) [![COGITO](https://img.shields.io/badge/version_1.2.0-35A1D7?label=COGITO&labelColor=0E887A)](https://codeberg.org/Phazorknight/Cogito)
+
+## Playable room
+The main scene (`node_2d.tscn`) is a small, warmly lit first-person room with ceiling lights, a furnished table, fruit, enclosing walls and ceiling, and a wardrobe with a pull-out drawer.
+
+### Controls
+- **WASD**: Move
+- **Shift**: Run
+- **Space**: Jump
+- **Mouse**: Look around
+- **E**: Take fruit or pull/push the wardrobe drawer while aiming at it
+- **Esc**: Release the mouse; click to capture it again
 
 ## What is it?
 Cogito is a First Person Immersive Sim Template Project for Godot 4, providing a framework for creating interactable objects, various items to use and mechanics to influence the player and game environment.

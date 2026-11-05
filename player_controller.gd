@@ -6,6 +6,7 @@ extends CharacterBody3D
 @export var mouse_sensitivity := 0.0025
 
 @onready var camera: Camera3D = $Camera3D
+@onready var interact_ray: RayCast3D = $Camera3D/InteractRay
 
 
 func _ready() -> void:
@@ -19,6 +20,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		camera.rotation.x = clampf(camera.rotation.x, deg_to_rad(-80.0), deg_to_rad(80.0))
 	elif event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	elif event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_E:
+		if interact_ray.is_colliding():
+			var target := interact_ray.get_collider()
+			if target.has_method("interact"):
+				target.call("interact")
 	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
