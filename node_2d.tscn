@@ -9,9 +9,17 @@
 [ext_resource type="PackedScene" path="res://street_house.tscn" id="6_street_house"]
 [ext_resource type="Texture2D" path="res://textures/stone_blocks.svg" id="8_texture_stone"]
 [ext_resource type="Texture2D" path="res://textures/wood_planks.svg" id="9_texture_wood"]
+[ext_resource type="Shader" path="res://sky.gdshader" id="10_sky_shader"]
+
+[sub_resource type="ShaderMaterial" id="Material_sky"]
+shader = ExtResource("10_sky_shader")
+
+[sub_resource type="Sky" id="Sky_diorama"]
+sky_material = SubResource("Material_sky")
 
 [sub_resource type="Environment" id="Environment_diorama"]
-background_mode = 1
+background_mode = 2
+sky = SubResource("Sky_diorama")
 background_color = Color(0.13, 0.19, 0.25, 1)
 ambient_light_source = 3
 ambient_light_color = Color(0.88, 0.9, 0.92, 1)

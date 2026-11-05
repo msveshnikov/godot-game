@@ -2,6 +2,14 @@ extends CharacterBody3D
 
 const FOAM_PELLET_SCENE: PackedScene = preload("res://foam_pellet.tscn")
 const FOAM_FIRE_SOUND: AudioStream = preload("res://addons/cogito/Assets/Audio/Spray.ogg")
+const RUN_FOOTSTEP_SOUNDS: Array[AudioStream] = [
+	preload("res://addons/cogito/Assets/Audio/Kenney/Footsteps/footstep00.ogg"),
+	preload("res://addons/cogito/Assets/Audio/Kenney/Footsteps/footstep01.ogg"),
+	preload("res://addons/cogito/Assets/Audio/Kenney/Footsteps/footstep02.ogg"),
+	preload("res://addons/cogito/Assets/Audio/Kenney/Footsteps/footstep03.ogg"),
+	preload("res://addons/cogito/Assets/Audio/Kenney/Footsteps/footstep04.ogg"),
+]
+const RUN_FOOTSTEP_INTERVAL := 0.3
 
 @export var walk_speed := 4.5
 @export var run_speed := 7.5
@@ -18,6 +26,8 @@ var fruits_taken := 0
 var has_gun := false
 var _can_fire := true
 var _fire_sound: AudioStreamPlayer
+var _footstep_sound: AudioStreamPlayer3D
+var _footstep_timer := 0.0
 
 
 func _ready() -> void:
@@ -28,6 +38,13 @@ func _ready() -> void:
 	_fire_sound.stream = FOAM_FIRE_SOUND
 	_fire_sound.volume_db = -4.0
 	add_child(_fire_sound)
+	_footstep_sound = AudioStreamPlayer3D.new()
+	_footstep_sound.name = "RunFootsteps"
+	_footstep_sound.position.y = -0.75
+	_footstep_sound.max_distance = 18.0
+	_footstep_sound.unit_size = 8.0
+	_footstep_sound.volume_db = -7.0
+	add_child(_footstep_sound)
 
 
 func _input(event: InputEvent) -> void:
@@ -103,3 +120,20 @@ func _physics_process(delta: float) -> void:
 	velocity.z = direction.z * speed
 
 	move_and_slide()
+	_update_running_footsteps(delta, input_direction.length_squared() > 0.0)
+
+
+func _update_running_footsteps(delta: float, has_movement_input: bool) -> void:
+	var is_running := Input.is_physical_key_pressed(KEY_SHIFT)
+	if not is_running or not has_movement_input or not is_on_floor():
+		_footstep_timer = 0.0
+		return
+
+	_footstep_timer -= delta
+	if _footstep_timer > 0.0:
+		return
+
+	_footstep_sound.stream = RUN_FOOTSTEP_SOUNDS[randi_range(0, RUN_FOOTSTEP_SOUNDS.size() - 1)]
+	_footstep_sound.pitch_scale = randf_range(0.94, 1.06)
+	_footstep_sound.play()
+	_footstep_timer = RUN_FOOTSTEP_INTERVAL
