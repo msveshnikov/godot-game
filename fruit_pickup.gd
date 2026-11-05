@@ -3,7 +3,7 @@ extends Area3D
 const PICKUP_SOUND: AudioStream = preload("res://addons/cogito/Assets/Audio/Kenney/woosh1.ogg")
 
 
-func interact() -> void:
+func interact() -> String:
 	var sound := AudioStreamPlayer3D.new()
 	sound.stream = PICKUP_SOUND
 	sound.volume_db = -3.0
@@ -13,4 +13,6 @@ func interact() -> void:
 	sound.global_position = global_position
 	sound.finished.connect(sound.queue_free)
 	sound.play()
+	var fruit_name := name
 	queue_free()
+	return fruit_name

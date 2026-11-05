@@ -4,6 +4,7 @@
 [ext_resource type="Script" path="res://interactable_locker.gd" id="2_interactable_locker"]
 [ext_resource type="Script" path="res://fruit_pickup.gd" id="3_fruit_pickup"]
 [ext_resource type="Script" path="res://interactable_door.gd" id="4_interactable_door"]
+[ext_resource type="Script" path="res://room_light_switch.gd" id="5_room_light_switch"]
 
 [sub_resource type="Environment" id="Environment_diorama"]
 background_mode = 1
@@ -112,6 +113,12 @@ size = Vector3(5.7, 5, 0.25)
 [sub_resource type="BoxMesh" id="Mesh_front_wall_header"]
 size = Vector3(2.6, 1.3, 0.25)
 
+[sub_resource type="BoxMesh" id="Mesh_switch_plate"]
+size = Vector3(0.34, 0.48, 0.08)
+
+[sub_resource type="BoxMesh" id="Mesh_switch_toggle"]
+size = Vector3(0.12, 0.2, 0.08)
+
 [sub_resource type="BoxMesh" id="Mesh_ceiling"]
 size = Vector3(14, 0.2, 14)
 
@@ -152,6 +159,9 @@ size = Vector3(5.7, 5, 0.25)
 
 [sub_resource type="BoxShape3D" id="Shape_front_wall_header"]
 size = Vector3(2.6, 1.3, 0.25)
+
+[sub_resource type="BoxShape3D" id="Shape_switch"]
+size = Vector3(0.34, 0.48, 0.16)
 
 [sub_resource type="BoxShape3D" id="Shape_outside_door"]
 size = Vector3(2.4, 3.7, 0.18)
@@ -267,6 +277,7 @@ rotation_degrees = Vector3(-48, -32, 0)
 light_color = Color(1, 0.88, 0.69, 1)
 light_energy = 1.25
 shadow_enabled = true
+groups = ["room_lights"]
 
 [node name="Player" type="CharacterBody3D" parent="."]
 position = Vector3(4, 0.9, 4)
@@ -318,6 +329,19 @@ current = true
 [node name="InteractRay" type="RayCast3D" parent="Player/Camera3D"]
 target_position = Vector3(0, 0, -3.5)
 collide_with_areas = true
+
+[node name="HUD" type="CanvasLayer" parent="Player"]
+
+[node name="FruitCounter" type="Label" parent="Player/HUD"]
+offset_left = 24.0
+offset_top = 24.0
+offset_right = 320.0
+offset_bottom = 62.0
+theme_override_colors/font_color = Color(1, 0.94, 0.75, 1)
+theme_override_colors/font_outline_color = Color(0.12, 0.08, 0.04, 1)
+theme_override_constants/outline_size = 5
+theme_override_font_sizes/font_size = 24
+text = "Fruit taken: 0"
 
 [node name="Diorama" type="Node3D" parent="."]
 
@@ -411,6 +435,29 @@ pixel_size = 0.004
 billboard = 1
 text = "E - OPEN"
 
+[node name="WallLightSwitch" type="StaticBody3D" parent="Diorama/Room"]
+position = Vector3(6.78, 1.5, 4)
+rotation_degrees = Vector3(0, 90, 0)
+script = ExtResource("5_room_light_switch")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Diorama/Room/WallLightSwitch"]
+shape = SubResource("Shape_switch")
+
+[node name="Plate" type="MeshInstance3D" parent="Diorama/Room/WallLightSwitch"]
+mesh = SubResource("Mesh_switch_plate")
+surface_material_override/0 = SubResource("Material_wardrobe")
+
+[node name="Toggle" type="MeshInstance3D" parent="Diorama/Room/WallLightSwitch"]
+position = Vector3(0, 0, -0.07)
+mesh = SubResource("Mesh_switch_toggle")
+surface_material_override/0 = SubResource("Material_metal")
+
+[node name="Prompt" type="Label3D" parent="Diorama/Room/WallLightSwitch"]
+position = Vector3(0, 0.4, -0.08)
+pixel_size = 0.004
+billboard = 1
+text = "E - LIGHTS OFF"
+
 [node name="LeftWall" type="StaticBody3D" parent="Diorama/Room"]
 position = Vector3(-7, 2.5, 0)
 
@@ -448,45 +495,53 @@ surface_material_override/0 = SubResource("Material_ceiling")
 position = Vector3(-3.5, 4.82, -3.5)
 mesh = SubResource("Mesh_ceiling_light")
 surface_material_override/0 = SubResource("Material_ceiling_light")
+groups = ["room_light_fixtures"]
 
 [node name="LightFrontLeft" type="OmniLight3D" parent="Diorama/Room/CeilingLights"]
 position = Vector3(-3.5, 4.55, -3.5)
 light_color = Color(1, 0.84, 0.65, 1)
 light_energy = 3.0
 omni_range = 9.0
+groups = ["room_lights"]
 
 [node name="LightFixtureFrontRight" type="MeshInstance3D" parent="Diorama/Room/CeilingLights"]
 position = Vector3(3.5, 4.82, -3.5)
 mesh = SubResource("Mesh_ceiling_light")
 surface_material_override/0 = SubResource("Material_ceiling_light")
+groups = ["room_light_fixtures"]
 
 [node name="LightFrontRight" type="OmniLight3D" parent="Diorama/Room/CeilingLights"]
 position = Vector3(3.5, 4.55, -3.5)
 light_color = Color(1, 0.84, 0.65, 1)
 light_energy = 3.0
 omni_range = 9.0
+groups = ["room_lights"]
 
 [node name="LightFixtureBackLeft" type="MeshInstance3D" parent="Diorama/Room/CeilingLights"]
 position = Vector3(-3.5, 4.82, 3.5)
 mesh = SubResource("Mesh_ceiling_light")
 surface_material_override/0 = SubResource("Material_ceiling_light")
+groups = ["room_light_fixtures"]
 
 [node name="LightBackLeft" type="OmniLight3D" parent="Diorama/Room/CeilingLights"]
 position = Vector3(-3.5, 4.55, 3.5)
 light_color = Color(1, 0.84, 0.65, 1)
 light_energy = 3.0
 omni_range = 9.0
+groups = ["room_lights"]
 
 [node name="LightFixtureBackRight" type="MeshInstance3D" parent="Diorama/Room/CeilingLights"]
 position = Vector3(3.5, 4.82, 3.5)
 mesh = SubResource("Mesh_ceiling_light")
 surface_material_override/0 = SubResource("Material_ceiling_light")
+groups = ["room_light_fixtures"]
 
 [node name="LightBackRight" type="OmniLight3D" parent="Diorama/Room/CeilingLights"]
 position = Vector3(3.5, 4.55, 3.5)
 light_color = Color(1, 0.84, 0.65, 1)
 light_energy = 3.0
 omni_range = 9.0
+groups = ["room_lights"]
 
 [node name="GroundBody" type="StaticBody3D" parent="Diorama"]
 
@@ -553,6 +608,7 @@ light_color = Color(1, 0.71, 0.37, 1)
 light_energy = 0.7
 omni_range = 4.0
 shadow_enabled = true
+groups = ["room_lights"]
 
 [node name="Books" type="Node3D" parent="Diorama/Table"]
 position = Vector3(0.05, 1.27, -0.42)

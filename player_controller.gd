@@ -7,6 +7,9 @@ extends CharacterBody3D
 
 @onready var camera: Camera3D = $Camera3D
 @onready var interact_ray: RayCast3D = $Camera3D/InteractRay
+@onready var fruit_counter: Label = $HUD/FruitCounter
+
+var fruits_taken := 0
 
 
 func _ready() -> void:
@@ -24,7 +27,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		if interact_ray.is_colliding():
 			var target := interact_ray.get_collider()
 			if target.has_method("interact"):
-				target.call("interact")
+				var result: Variant = target.call("interact")
+				if result is String and not result.is_empty():
+					fruits_taken += 1
+					fruit_counter.text = "Fruit taken: %d (%s)" % [fruits_taken, result]
 	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
