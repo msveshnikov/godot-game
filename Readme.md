@@ -4,7 +4,7 @@
 [![GodotEngine](https://img.shields.io/badge/Godot_4.6.3_stable-blue?logo=godotengine&logoColor=white)](https://godotengine.org/) [![COGITO](https://img.shields.io/badge/version_1.2.0-35A1D7?label=COGITO&labelColor=0E887A)](https://codeberg.org/Phazorknight/Cogito)
 
 ## Playable room
-The main scene (`node_2d.tscn`) is a small, warmly lit first-person room with ceiling lights, a furnished table with collectible fruit including a curved banana, a wall-mounted light switch, enclosing walls and ceiling, a wardrobe with a pull-out drawer, and an opening door to the outside. Interactions use sound effects from the included Cogito audio assets.
+The main scene (`node_2d.tscn`) is a small, warmly lit first-person room with ceiling lights, a furnished table with collectible fruit including a curved banana, a wall-mounted light switch, enclosing walls and ceiling, a wardrobe with a pull-out drawer, and an opening door to a street lined with five differently colored houses. Interactions use sound effects from the included Cogito audio assets.
 
 ### Controls
 - **WASD**: Move

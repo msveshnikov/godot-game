@@ -5,6 +5,7 @@
 [ext_resource type="Script" path="res://fruit_pickup.gd" id="3_fruit_pickup"]
 [ext_resource type="Script" path="res://interactable_door.gd" id="4_interactable_door"]
 [ext_resource type="Script" path="res://room_light_switch.gd" id="5_room_light_switch"]
+[ext_resource type="PackedScene" path="res://street_house.tscn" id="6_street_house"]
 
 [sub_resource type="Environment" id="Environment_diorama"]
 background_mode = 1
@@ -98,8 +99,29 @@ emission = Color(1, 0.78, 0.48, 1)
 emission_energy_multiplier = 1.5
 roughness = 0.35
 
+[sub_resource type="StandardMaterial3D" id="Material_street_asphalt"]
+albedo_color = Color(0.14, 0.16, 0.19, 1)
+roughness = 0.96
+
+[sub_resource type="StandardMaterial3D" id="Material_street_sidewalk"]
+albedo_color = Color(0.57, 0.55, 0.5, 1)
+roughness = 0.92
+
+[sub_resource type="StandardMaterial3D" id="Material_street_marking"]
+albedo_color = Color(0.91, 0.78, 0.4, 1)
+roughness = 0.9
+
 [sub_resource type="PlaneMesh" id="Mesh_ground"]
 size = Vector2(200, 200)
+
+[sub_resource type="BoxMesh" id="Mesh_street_asphalt"]
+size = Vector3(60, 0.06, 8)
+
+[sub_resource type="BoxMesh" id="Mesh_street_sidewalk"]
+size = Vector3(60, 0.12, 1.2)
+
+[sub_resource type="BoxMesh" id="Mesh_street_marking"]
+size = Vector3(2.6, 0.025, 0.12)
 
 [sub_resource type="BoxMesh" id="Mesh_wall"]
 size = Vector3(14, 5, 0.25)
@@ -240,6 +262,12 @@ size = Vector3(0.25, 5, 14)
 
 [sub_resource type="BoxShape3D" id="Shape_ceiling"]
 size = Vector3(14, 0.2, 14)
+
+[sub_resource type="BoxShape3D" id="Shape_street_asphalt"]
+size = Vector3(60, 0.06, 8)
+
+[sub_resource type="BoxShape3D" id="Shape_street_sidewalk"]
+size = Vector3(60, 0.12, 1.2)
 
 [sub_resource type="BoxShape3D" id="Shape_wardrobe"]
 size = Vector3(2.2, 3.4, 1.2)
@@ -551,6 +579,111 @@ shape = SubResource("Shape_ground")
 [node name="Ground" type="MeshInstance3D" parent="Diorama"]
 mesh = SubResource("Mesh_ground")
 surface_material_override/0 = SubResource("Material_floor")
+
+[node name="Street" type="Node3D" parent="Diorama"]
+
+[node name="Road" type="MeshInstance3D" parent="Diorama/Street"]
+position = Vector3(0, 0.035, 17)
+mesh = SubResource("Mesh_street_asphalt")
+surface_material_override/0 = SubResource("Material_street_asphalt")
+
+[node name="RoadBody" type="StaticBody3D" parent="Diorama/Street"]
+position = Vector3(0, 0.035, 17)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Diorama/Street/RoadBody"]
+shape = SubResource("Shape_street_asphalt")
+
+[node name="SidewalkNear" type="MeshInstance3D" parent="Diorama/Street"]
+position = Vector3(0, 0.07, 12.35)
+mesh = SubResource("Mesh_street_sidewalk")
+surface_material_override/0 = SubResource("Material_street_sidewalk")
+
+[node name="SidewalkNearBody" type="StaticBody3D" parent="Diorama/Street"]
+position = Vector3(0, 0.07, 12.35)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Diorama/Street/SidewalkNearBody"]
+shape = SubResource("Shape_street_sidewalk")
+
+[node name="SidewalkFar" type="MeshInstance3D" parent="Diorama/Street"]
+position = Vector3(0, 0.07, 21.65)
+mesh = SubResource("Mesh_street_sidewalk")
+surface_material_override/0 = SubResource("Material_street_sidewalk")
+
+[node name="SidewalkFarBody" type="StaticBody3D" parent="Diorama/Street"]
+position = Vector3(0, 0.07, 21.65)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Diorama/Street/SidewalkFarBody"]
+shape = SubResource("Shape_street_sidewalk")
+
+[node name="LaneMarking01" type="MeshInstance3D" parent="Diorama/Street"]
+position = Vector3(-24, 0.08, 17)
+mesh = SubResource("Mesh_street_marking")
+surface_material_override/0 = SubResource("Material_street_marking")
+
+[node name="LaneMarking02" type="MeshInstance3D" parent="Diorama/Street"]
+position = Vector3(-18, 0.08, 17)
+mesh = SubResource("Mesh_street_marking")
+surface_material_override/0 = SubResource("Material_street_marking")
+
+[node name="LaneMarking03" type="MeshInstance3D" parent="Diorama/Street"]
+position = Vector3(-12, 0.08, 17)
+mesh = SubResource("Mesh_street_marking")
+surface_material_override/0 = SubResource("Material_street_marking")
+
+[node name="LaneMarking04" type="MeshInstance3D" parent="Diorama/Street"]
+position = Vector3(-6, 0.08, 17)
+mesh = SubResource("Mesh_street_marking")
+surface_material_override/0 = SubResource("Material_street_marking")
+
+[node name="LaneMarking05" type="MeshInstance3D" parent="Diorama/Street"]
+position = Vector3(0, 0.08, 17)
+mesh = SubResource("Mesh_street_marking")
+surface_material_override/0 = SubResource("Material_street_marking")
+
+[node name="LaneMarking06" type="MeshInstance3D" parent="Diorama/Street"]
+position = Vector3(6, 0.08, 17)
+mesh = SubResource("Mesh_street_marking")
+surface_material_override/0 = SubResource("Material_street_marking")
+
+[node name="LaneMarking07" type="MeshInstance3D" parent="Diorama/Street"]
+position = Vector3(12, 0.08, 17)
+mesh = SubResource("Mesh_street_marking")
+surface_material_override/0 = SubResource("Material_street_marking")
+
+[node name="LaneMarking08" type="MeshInstance3D" parent="Diorama/Street"]
+position = Vector3(18, 0.08, 17)
+mesh = SubResource("Mesh_street_marking")
+surface_material_override/0 = SubResource("Material_street_marking")
+
+[node name="LaneMarking09" type="MeshInstance3D" parent="Diorama/Street"]
+position = Vector3(24, 0.08, 17)
+mesh = SubResource("Mesh_street_marking")
+surface_material_override/0 = SubResource("Material_street_marking")
+
+[node name="HouseBlue" parent="Diorama/Street" instance=ExtResource("6_street_house")]
+position = Vector3(-20, 0, 27)
+facade_color = Color(0.32, 0.51, 0.7, 1)
+roof_color = Color(0.19, 0.24, 0.32, 1)
+
+[node name="HouseGreen" parent="Diorama/Street" instance=ExtResource("6_street_house")]
+position = Vector3(-10, 0, 27)
+facade_color = Color(0.46, 0.65, 0.42, 1)
+roof_color = Color(0.29, 0.27, 0.22, 1)
+
+[node name="HouseTerracotta" parent="Diorama/Street" instance=ExtResource("6_street_house")]
+position = Vector3(0, 0, 27)
+facade_color = Color(0.79, 0.43, 0.31, 1)
+roof_color = Color(0.38, 0.21, 0.19, 1)
+
+[node name="HouseLavender" parent="Diorama/Street" instance=ExtResource("6_street_house")]
+position = Vector3(10, 0, 27)
+facade_color = Color(0.62, 0.48, 0.7, 1)
+roof_color = Color(0.27, 0.23, 0.34, 1)
+
+[node name="HouseYellow" parent="Diorama/Street" instance=ExtResource("6_street_house")]
+position = Vector3(20, 0, 27)
+facade_color = Color(0.83, 0.7, 0.39, 1)
+roof_color = Color(0.34, 0.28, 0.2, 1)
 
 [node name="Table" type="Node3D" parent="Diorama"]
 
