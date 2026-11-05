@@ -28,7 +28,7 @@ func interact() -> String:
 
 	reparent(camera, false)
 	position = Vector3(0.34, -0.28, -0.55)
-	rotation_degrees = Vector3(0, -90, 0)
+	rotation_degrees = Vector3(0, -45, 0)
 	scale = Vector3.ONE * 0.55
 	visible = true
 	player.call("collect_gun")

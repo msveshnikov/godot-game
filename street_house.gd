@@ -7,6 +7,7 @@ extends Node3D
 const DOOR_SCRIPT: Script = preload("res://interactable_door.gd")
 const FRUIT_SCRIPT: Script = preload("res://fruit_pickup.gd")
 const GUN_SCRIPT: Script = preload("res://locker_gun.gd")
+const PISTOL_MODEL_SCENE: PackedScene = preload("res://foam_pistol_model.tscn")
 const LOCKER_SCRIPT: Script = preload("res://interactable_locker.gd")
 const WALL_TEXTURE: Texture2D = preload("res://textures/stone_blocks.svg")
 const FLOOR_TEXTURE: Texture2D = preload("res://textures/wood_planks.svg")
@@ -19,10 +20,6 @@ const WOOD_COLOR := Color(0.48, 0.27, 0.14, 1)
 const TRIM_WOOD_COLOR := Color(0.55, 0.34, 0.18, 1)
 const BANANA_COLOR := Color(1, 0.79, 0.16, 1)
 const BANANA_TIP_COLOR := Color(0.34, 0.2, 0.08, 1)
-const PISTOL_COLOR := Color(0.12, 0.42, 0.72, 1)
-const PISTOL_ACCENT_COLOR := Color(0.95, 0.43, 0.13, 1)
-
-
 func _ready() -> void:
 	_build_shell()
 	_build_facade()
@@ -216,14 +213,14 @@ func _build_wardrobe() -> void:
 	pistol.add_to_group("gun_pickups")
 	drawer.add_child(pistol)
 
+	var pistol_model := PISTOL_MODEL_SCENE.instantiate() as Node3D
+	pistol.add_child(pistol_model)
+
 	var pistol_shape := CollisionShape3D.new()
 	var pistol_box := BoxShape3D.new()
 	pistol_box.size = Vector3(0.68, 0.4, 0.28)
 	pistol_shape.shape = pistol_box
 	pistol.add_child(pistol_shape)
-	_add_box("PistolBody", Vector3.ZERO, Vector3(0.52, 0.16, 0.18), PISTOL_COLOR, false, Vector3.ZERO, pistol)
-	_add_box("PistolBarrel", Vector3(-0.34, 0, 0), Vector3(0.22, 0.1, 0.14), PISTOL_ACCENT_COLOR, false, Vector3.ZERO, pistol)
-	_add_box("PistolGrip", Vector3(0.1, -0.21, 0), Vector3(0.16, 0.3, 0.15), PISTOL_COLOR, false, Vector3(0, 0, -12), pistol)
 
 	var pistol_prompt := Label3D.new()
 	pistol_prompt.name = "Prompt"
