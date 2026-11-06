@@ -208,6 +208,8 @@ shader = ExtResource("17_grass_shader")
 shader_parameter/grass_dark = Color(0.12, 0.31, 0.16, 1)
 shader_parameter/grass_mid = Color(0.25, 0.47, 0.23, 1)
 shader_parameter/grass_light = Color(0.46, 0.72, 0.36, 1)
+shader_parameter/grass_exclusion_center = Vector2(0, 0)
+shader_parameter/grass_exclusion_half_extents = Vector2(7.1, 7.1)
 
 [sub_resource type="BoxMesh" id="Mesh_street_asphalt"]
 size = Vector3(60, 0.06, 8)

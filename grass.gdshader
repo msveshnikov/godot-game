@@ -5,6 +5,8 @@ render_mode cull_disabled, fog_disabled;
 uniform vec3 grass_dark : source_color = vec3(0.12, 0.31, 0.16);
 uniform vec3 grass_mid : source_color = vec3(0.25, 0.47, 0.23);
 uniform vec3 grass_light : source_color = vec3(0.46, 0.72, 0.36);
+uniform vec2 grass_exclusion_center = vec2(0.0);
+uniform vec2 grass_exclusion_half_extents = vec2(7.1);
 
 varying vec3 world_position;
 
@@ -57,6 +59,12 @@ void vertex() {
 }
 
 void fragment() {
+	vec2 room_offset = abs(world_position.xz - grass_exclusion_center);
+	if (room_offset.x < grass_exclusion_half_extents.x
+		&& room_offset.y < grass_exclusion_half_extents.y) {
+		discard;
+	}
+
 	float field = fbm(world_position.xz * 0.24 + vec2(5.0, 9.0));
 	float fine_variation = noise(world_position.xz * 2.2);
 	float patches = smoothstep(0.2, 0.85, field);
