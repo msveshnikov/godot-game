@@ -14,6 +14,7 @@ The main scene (`node_2d.tscn`) is a small, warmly lit first-person room with ce
 - **E**: Open/close doors, take fruit or the foam pistol, pull/push a wardrobe drawer, or toggle the wall switch while aiming at the object. The pistols only appear when their drawers are open; the HUD shows your fruit count and pistol status.
 - **Q or left mouse button**: Fire a foam pellet with the collected pistol
 - **Esc**: Release the mouse; click to capture it again
+- **Android/mobile**: Use the on-screen joystick to move, drag on the right side to look, and tap **E** to interact. The on-screen buttons also provide jump, run, and pistol fire.
 
 ## What is it?
 Cogito is a First Person Immersive Sim Template Project for Godot 4, providing a framework for creating interactable objects, various items to use and mechanics to influence the player and game environment.

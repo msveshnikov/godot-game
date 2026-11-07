@@ -2,6 +2,7 @@ extends CharacterBody3D
 
 const FOAM_PELLET_SCENE: PackedScene = preload("res://foam_pellet.tscn")
 const FOAM_FIRE_SOUND: AudioStream = preload("res://addons/cogito/Assets/Audio/Spray.ogg")
+const MOBILE_CONTROLS_SCRIPT = preload("res://mobile_controls.gd")
 const RUN_FOOTSTEP_SOUNDS: Array[AudioStream] = [
 	preload("res://addons/cogito/Assets/Audio/Kenney/Footsteps/footstep00.ogg"),
 	preload("res://addons/cogito/Assets/Audio/Kenney/Footsteps/footstep01.ogg"),
@@ -31,11 +32,18 @@ var _can_fire := true
 var _fire_sound: AudioStreamPlayer
 var _footstep_sound: AudioStreamPlayer
 var _footstep_timer := 0.0
+var _mobile_controls: MobileControls
 
 
 func _ready() -> void:
 	add_to_group("player")
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	if OS.has_feature("mobile"):
+		_mobile_controls = MOBILE_CONTROLS_SCRIPT.new()
+		add_child(_mobile_controls)
+		_mobile_controls.interact_pressed.connect(_interact)
+		_mobile_controls.fire_pressed.connect(_fire_foam_pellet)
+		_mobile_controls.look_delta.connect(_apply_look_delta)
 	_fire_sound = AudioStreamPlayer.new()
 	_fire_sound.name = "FoamFireSound"
 	_fire_sound.stream = FOAM_FIRE_SOUND
@@ -55,7 +63,7 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_Q:
 		if has_gun:
 			_fire_foam_pellet()
-	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+	elif _mobile_controls == null and event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 		if has_gun:
@@ -64,31 +72,45 @@ func _input(event: InputEvent) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		rotate_y(-event.relative.x * mouse_sensitivity)
-		var vertical_mouse_direction := 1.0 if invert_mouse_y else -1.0
-		camera.rotate_x(event.relative.y * mouse_sensitivity * vertical_mouse_direction)
-		camera.rotation.x = clampf(camera.rotation.x, deg_to_rad(-80.0), deg_to_rad(80.0))
+		_apply_look_delta(event.relative)
 	elif event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	elif event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_E:
-		if interact_ray.is_colliding():
-			var target := interact_ray.get_collider()
-			if target.has_method("interact"):
-				var result: Variant = target.call("interact")
-				if result is String and not result.is_empty():
-					if target.is_in_group("fruit_pickups"):
-						fruits_taken += 1
-						fruit_counter.text = "Fruit taken: %d (%s)" % [fruits_taken, result]
-					elif target.is_in_group("gun_pickups") or result == "Foam pistol":
-						collect_gun()
-					else:
-						push_warning("Interaction returned an unrecognized collectible: %s" % result)
+		_interact()
+
+
+func _apply_look_delta(relative: Vector2) -> void:
+	rotate_y(-relative.x * mouse_sensitivity)
+	var vertical_mouse_direction := 1.0 if invert_mouse_y else -1.0
+	camera.rotate_x(relative.y * mouse_sensitivity * vertical_mouse_direction)
+	camera.rotation.x = clampf(camera.rotation.x, deg_to_rad(-80.0), deg_to_rad(80.0))
+
+
+func _interact() -> void:
+	if not interact_ray.is_colliding():
+		return
+
+	var target := interact_ray.get_collider()
+	if not target.has_method("interact"):
+		return
+
+	var result: Variant = target.call("interact")
+	if result is String and not result.is_empty():
+		if target.is_in_group("fruit_pickups"):
+			fruits_taken += 1
+			fruit_counter.text = "Fruit taken: %d (%s)" % [fruits_taken, result]
+		elif target.is_in_group("gun_pickups") or result == "Foam pistol":
+			collect_gun()
+		else:
+			push_warning("Interaction returned an unrecognized collectible: %s" % result)
 
 
 func collect_gun() -> void:
 	has_gun = true
 	held_gun.visible = true
 	gun_status.text = "Foam pistol: Collected (Q/click to fire)"
+	if _mobile_controls != null:
+		_mobile_controls.set_fire_visible(true)
 
 
 func _fire_foam_pellet() -> void:
@@ -114,27 +136,29 @@ func _get_aim_target() -> Vector3:
 func _physics_process(delta: float) -> void:
 	if not is_on_floor():
 		velocity += get_gravity() * delta
-	elif Input.is_physical_key_pressed(KEY_SPACE):
+	elif Input.is_physical_key_pressed(KEY_SPACE) or (_mobile_controls != null and _mobile_controls.jump_pressed):
 		velocity.y = jump_velocity
 
 	var input_direction := Vector2.ZERO
 	input_direction.x = float(Input.is_physical_key_pressed(KEY_D)) - float(Input.is_physical_key_pressed(KEY_A))
 	input_direction.y = float(Input.is_physical_key_pressed(KEY_S)) - float(Input.is_physical_key_pressed(KEY_W))
-	input_direction = input_direction.normalized()
+	if _mobile_controls != null:
+		input_direction += _mobile_controls.movement_direction
+	input_direction = input_direction.limit_length(1.0)
 
 	var direction := transform.basis * Vector3(input_direction.x, 0.0, input_direction.y)
 	direction.y = 0.0
 	direction = direction.normalized()
-	var speed := run_speed if Input.is_physical_key_pressed(KEY_SHIFT) else walk_speed
+	var is_running := Input.is_physical_key_pressed(KEY_SHIFT) or (_mobile_controls != null and _mobile_controls.run_pressed)
+	var speed := run_speed if is_running else walk_speed
 	velocity.x = direction.x * speed
 	velocity.z = direction.z * speed
 
 	move_and_slide()
-	_update_footsteps(delta, input_direction.length_squared() > 0.0)
+	_update_footsteps(delta, input_direction.length_squared() > 0.0, is_running)
 
 
-func _update_footsteps(delta: float, has_movement_input: bool) -> void:
-	var is_running := Input.is_physical_key_pressed(KEY_SHIFT)
+func _update_footsteps(delta: float, has_movement_input: bool, is_running: bool) -> void:
 	if not has_movement_input or not is_on_floor() or Vector2(velocity.x, velocity.z).length_squared() < 0.01:
 		_footstep_timer = 0.0
 		return
