@@ -841,6 +841,9 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -25, 0, 12.35)
 script = ExtResource("15_villager_walk")
 walk_points = Array[Vector3]([Vector3(-27, 0, 12.35), Vector3(27, 0, 12.35)])
 pause_at_waypoint = 1.5
+firing_range = 50.0
+fire_interval = 2.2
+respawn_delay = 6.0
 display_name = "Villager"
 response_to_player = "Friendly"
 
@@ -849,6 +852,9 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 25, 0, 21.65)
 script = ExtResource("15_villager_walk")
 walk_points = Array[Vector3]([Vector3(27, 0, 21.65), Vector3(-27, 0, 21.65)])
 pause_at_waypoint = 1.5
+firing_range = 50.0
+fire_interval = 2.2
+respawn_delay = 6.0
 display_name = "Villager"
 response_to_player = "Friendly"
 

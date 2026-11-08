@@ -3,6 +3,7 @@ class_name MobileControls
 
 signal interact_pressed
 signal fire_pressed
+signal reload_pressed
 signal look_delta(delta: Vector2)
 
 const STICK_RADIUS := 72.0
@@ -25,6 +26,7 @@ var _root: Control
 var _stick: JoystickVisual
 var _buttons: Array[Button] = []
 var _fire_button: Button
+var _reload_button: Button
 var _stick_touch := -1
 var _look_touch := -1
 
@@ -51,6 +53,9 @@ func _ready() -> void:
 	_fire_button = _make_button("FIRE")
 	_fire_button.pressed.connect(func() -> void: fire_pressed.emit())
 	_fire_button.hide()
+	_reload_button = _make_button("RELOAD")
+	_reload_button.pressed.connect(func() -> void: reload_pressed.emit())
+	_reload_button.hide()
 
 	_root.resized.connect(_layout_controls)
 	_layout_controls()
@@ -71,6 +76,10 @@ func _input(event: InputEvent) -> void:
 
 func set_fire_visible(is_visible: bool) -> void:
 	_fire_button.visible = is_visible
+
+
+func set_reload_visible(is_visible: bool) -> void:
+	_reload_button.visible = is_visible
 
 
 func _make_button(label: String) -> Button:
@@ -112,6 +121,7 @@ func _layout_controls() -> void:
 		Vector2(screen_size.x * 0.72, screen_size.y * 0.79),
 		Vector2(screen_size.x * 0.72, screen_size.y * 0.59),
 		Vector2(screen_size.x * 0.88, screen_size.y * 0.59),
+		Vector2(screen_size.x * 0.88, screen_size.y * 0.39),
 	]
 	for index in _buttons.size():
 		_buttons[index].size = BUTTON_SIZE
