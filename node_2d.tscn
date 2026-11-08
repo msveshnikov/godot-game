@@ -25,6 +25,7 @@
 [ext_resource type="PackedScene" path="res://mermaid_villager.tscn" id="23_mermaid_villager"]
 [ext_resource type="PackedScene" uid="uid://ckl1eq73jpwqu" path="res://main_player.glb" id="24_main_player"]
 [ext_resource type="Script" path="res://player_model_animator.gd" id="25_player_model_animator"]
+[ext_resource type="PackedScene" path="res://doberman.tscn" id="26_doberman"]
 
 [sub_resource type="ShaderMaterial" id="Material_sky"]
 shader = ExtResource("10_sky_shader")
@@ -1107,3 +1108,6 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.34, 0)
 pixel_size = 0.004
 billboard = 1
 text = "E - TAKE FOAM PISTOL"
+
+[node name="Doberman" parent="." unique_id=1739204561 instance=ExtResource("26_doberman")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.5, 0.05, 5.5)
