@@ -21,6 +21,7 @@
 [ext_resource type="Texture2D" uid="uid://ws8ray76lyaa" path="res://textures/concrete_pavers.svg" id="19_texture_pavers"]
 [ext_resource type="Texture2D" uid="uid://bapaldxyqmn2b" path="res://textures/wood_furniture.svg" id="20_texture_furniture"]
 [ext_resource type="Texture2D" uid="uid://q8oc7pyc08l0" path="res://textures/wood_door.svg" id="21_texture_door"]
+[ext_resource type="PackedScene" path="res://avocado_villager.tscn" id="22_avocado_villager"]
 
 [sub_resource type="ShaderMaterial" id="Material_sky"]
 shader = ExtResource("10_sky_shader")
@@ -857,6 +858,9 @@ fire_interval = 2.2
 respawn_delay = 6.0
 display_name = "Villager"
 response_to_player = "Friendly"
+
+[node name="AvocadoVillager" parent="Diorama/Street/CogitoTown" unique_id=2073594585 instance=ExtResource("22_avocado_villager")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -22.5, 0.13, 21.65)
 
 [node name="Table" type="Node3D" parent="Diorama" unique_id=362545288]
 

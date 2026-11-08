@@ -1,0 +1,16 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://avocado_villager.glb" id="1_model"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_character"]
+radius = 0.3
+height = 1.8
+
+[node name="AvocadoVillager" type="StaticBody3D"]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+position = Vector3(0, 0.9, 0)
+shape = SubResource("CapsuleShape3D_character")
+
+[node name="Model" parent="." instance=ExtResource("1_model")]
+scale = Vector3(0.26, 0.26, 0.26)
