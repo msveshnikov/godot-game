@@ -23,7 +23,7 @@
 [ext_resource type="Texture2D" uid="uid://q8oc7pyc08l0" path="res://textures/wood_door.svg" id="21_texture_door"]
 [ext_resource type="PackedScene" path="res://avocado_villager.tscn" id="22_avocado_villager"]
 [ext_resource type="PackedScene" path="res://mermaid_villager.tscn" id="23_mermaid_villager"]
-[ext_resource type="PackedScene" path="res://main_player.glb" id="24_main_player"]
+[ext_resource type="PackedScene" uid="uid://ckl1eq73jpwqu" path="res://main_player.glb" id="24_main_player"]
 
 [sub_resource type="ShaderMaterial" id="Material_sky"]
 shader = ExtResource("10_sky_shader")
@@ -390,14 +390,13 @@ script = ExtResource("1_player_controller")
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Player" unique_id=814239469]
 shape = SubResource("Shape_player")
 
-[node name="MainPlayerModel" parent="Player" instance=ExtResource("24_main_player")]
+[node name="MainPlayerModel" parent="Player" unique_id=360605334 instance=ExtResource("24_main_player")]
 transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, -0.9, 0)
 
-[node name="CameraPivot" type="Node3D" parent="Player"]
-position = Vector3(0.38, 1.45, 0)
-rotation = Vector3(-0.08, 0, 0)
+[node name="CameraPivot" type="Node3D" parent="Player" unique_id=1242920948]
+transform = Transform3D(1, 0, 0, 0, 0.99680173, 0.07991469, 0, -0.07991469, 0.99680173, 0.38, 1.45, 0)
 
-[node name="SpringArm3D" type="SpringArm3D" parent="Player/CameraPivot"]
+[node name="SpringArm3D" type="SpringArm3D" parent="Player/CameraPivot" unique_id=1159937652]
 spring_length = 3.2
 margin = 0.25
 
