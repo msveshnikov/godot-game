@@ -23,12 +23,13 @@ const RUN_FOOTSTEP_INTERVAL := 0.3
 @export var mouse_sensitivity := 0.0025
 @export var invert_mouse_y := false
 
-@onready var camera: Camera3D = $Camera3D
-@onready var interact_ray: RayCast3D = $Camera3D/InteractRay
+@onready var camera_pivot: Node3D = $CameraPivot
+@onready var camera: Camera3D = $CameraPivot/SpringArm3D/Camera3D
+@onready var interact_ray: RayCast3D = $CameraPivot/SpringArm3D/Camera3D/InteractRay
 @onready var fruit_counter: Label = $HUD/FruitCounter
 @onready var gun_status: Label = $HUD/GunStatus
-@onready var held_gun: Node3D = $Camera3D/HeldGunPivot
-@onready var gun_muzzle: Marker3D = $Camera3D/HeldGunPivot/HeldPistol/GunMuzzle
+@onready var held_gun: Node3D = $CameraPivot/SpringArm3D/Camera3D/HeldGunPivot
+@onready var gun_muzzle: Marker3D = $CameraPivot/SpringArm3D/Camera3D/HeldGunPivot/HeldPistol/GunMuzzle
 @onready var hud: CanvasLayer = $HUD
 
 var fruits_taken := 0
@@ -106,8 +107,8 @@ func _unhandled_input(event: InputEvent) -> void:
 func _apply_look_delta(relative: Vector2) -> void:
 	rotate_y(-relative.x * mouse_sensitivity)
 	var vertical_mouse_direction := 1.0 if invert_mouse_y else -1.0
-	camera.rotate_x(relative.y * mouse_sensitivity * vertical_mouse_direction)
-	camera.rotation.x = clampf(camera.rotation.x, deg_to_rad(-80.0), deg_to_rad(80.0))
+	camera_pivot.rotate_x(relative.y * mouse_sensitivity * vertical_mouse_direction)
+	camera_pivot.rotation.x = clampf(camera_pivot.rotation.x, deg_to_rad(-60.0), deg_to_rad(35.0))
 
 
 func _interact() -> void:

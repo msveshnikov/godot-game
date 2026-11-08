@@ -23,6 +23,7 @@
 [ext_resource type="Texture2D" uid="uid://q8oc7pyc08l0" path="res://textures/wood_door.svg" id="21_texture_door"]
 [ext_resource type="PackedScene" path="res://avocado_villager.tscn" id="22_avocado_villager"]
 [ext_resource type="PackedScene" path="res://mermaid_villager.tscn" id="23_mermaid_villager"]
+[ext_resource type="PackedScene" path="res://main_player.glb" id="24_main_player"]
 
 [sub_resource type="ShaderMaterial" id="Material_sky"]
 shader = ExtResource("10_sky_shader")
@@ -46,22 +47,6 @@ tonemap_mode = 2
 [sub_resource type="CapsuleShape3D" id="Shape_player"]
 radius = 0.32
 height = 1.8
-
-[sub_resource type="CapsuleMesh" id="Mesh_player_torso"]
-radius = 0.26
-height = 0.9
-
-[sub_resource type="SphereMesh" id="Mesh_player_head"]
-radius = 0.17
-height = 0.34
-
-[sub_resource type="CapsuleMesh" id="Mesh_player_arm"]
-radius = 0.085
-height = 0.62
-
-[sub_resource type="CapsuleMesh" id="Mesh_player_leg"]
-radius = 0.12
-height = 0.82
 
 [sub_resource type="PlaneMesh" id="Mesh_room_floor"]
 size = Vector2(14, 14)
@@ -405,54 +390,32 @@ script = ExtResource("1_player_controller")
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Player" unique_id=814239469]
 shape = SubResource("Shape_player")
 
-[node name="ShadowCaster" type="Node3D" parent="Player" unique_id=678421245]
+[node name="MainPlayerModel" parent="Player" instance=ExtResource("24_main_player")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, -0.9, 0)
 
-[node name="Torso" type="MeshInstance3D" parent="Player/ShadowCaster" unique_id=2128718249]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, 0)
-cast_shadow = 3
-mesh = SubResource("Mesh_player_torso")
+[node name="CameraPivot" type="Node3D" parent="Player"]
+position = Vector3(0.38, 1.45, 0)
+rotation = Vector3(-0.08, 0, 0)
 
-[node name="Head" type="MeshInstance3D" parent="Player/ShadowCaster" unique_id=544838583]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.79, 0)
-cast_shadow = 3
-mesh = SubResource("Mesh_player_head")
+[node name="SpringArm3D" type="SpringArm3D" parent="Player/CameraPivot"]
+spring_length = 3.2
+margin = 0.25
 
-[node name="LeftArm" type="MeshInstance3D" parent="Player/ShadowCaster" unique_id=1037038468]
-transform = Transform3D(0.95105654, 0.309017, 0, -0.309017, 0.95105654, 0, 0, 0, 1, -0.34, 0.15, 0)
-cast_shadow = 3
-mesh = SubResource("Mesh_player_arm")
-
-[node name="RightArm" type="MeshInstance3D" parent="Player/ShadowCaster" unique_id=904404673]
-transform = Transform3D(0.95105654, -0.309017, 0, 0.309017, 0.95105654, 0, 0, 0, 1, 0.34, 0.15, 0)
-cast_shadow = 3
-mesh = SubResource("Mesh_player_arm")
-
-[node name="LeftLeg" type="MeshInstance3D" parent="Player/ShadowCaster" unique_id=1346223852]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.14, -0.48, 0)
-cast_shadow = 3
-mesh = SubResource("Mesh_player_leg")
-
-[node name="RightLeg" type="MeshInstance3D" parent="Player/ShadowCaster" unique_id=653912495]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.14, -0.48, 0)
-cast_shadow = 3
-mesh = SubResource("Mesh_player_leg")
-
-[node name="Camera3D" type="Camera3D" parent="Player" unique_id=402927814]
-transform = Transform3D(1, 0, 0, 0, 0.9781476, 0.2079117, 0, -0.2079117, 0.9781476, 0, 0.62, 0)
+[node name="Camera3D" type="Camera3D" parent="Player/CameraPivot/SpringArm3D" unique_id=402927814]
 current = true
 
-[node name="InteractRay" type="RayCast3D" parent="Player/Camera3D" unique_id=2016618824]
+[node name="InteractRay" type="RayCast3D" parent="Player/CameraPivot/SpringArm3D/Camera3D" unique_id=2016618824]
 target_position = Vector3(0, 0, -3.5)
 collide_with_areas = true
 
-[node name="HeldGunPivot" type="Node3D" parent="Player/Camera3D" unique_id=1633883114]
+[node name="HeldGunPivot" type="Node3D" parent="Player/CameraPivot/SpringArm3D/Camera3D" unique_id=1633883114]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.25, -0.24, -0.35)
 visible = false
 
-[node name="HeldPistol" parent="Player/Camera3D/HeldGunPivot" unique_id=824863700 instance=ExtResource("16_foam_pistol_model")]
+[node name="HeldPistol" parent="Player/CameraPivot/SpringArm3D/Camera3D/HeldGunPivot" unique_id=824863700 instance=ExtResource("16_foam_pistol_model")]
 transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, 0, 0, 0)
 
-[node name="GunMuzzle" type="Marker3D" parent="Player/Camera3D/HeldGunPivot/HeldPistol" unique_id=633968944]
+[node name="GunMuzzle" type="Marker3D" parent="Player/CameraPivot/SpringArm3D/Camera3D/HeldGunPivot/HeldPistol" unique_id=633968944]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.447, 0.12, 0)
 
 [node name="HUD" type="CanvasLayer" parent="Player" unique_id=294564265]
