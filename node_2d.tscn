@@ -24,6 +24,7 @@
 [ext_resource type="PackedScene" path="res://avocado_villager.tscn" id="22_avocado_villager"]
 [ext_resource type="PackedScene" path="res://mermaid_villager.tscn" id="23_mermaid_villager"]
 [ext_resource type="PackedScene" uid="uid://ckl1eq73jpwqu" path="res://main_player.glb" id="24_main_player"]
+[ext_resource type="Script" path="res://player_model_animator.gd" id="25_player_model_animator"]
 
 [sub_resource type="ShaderMaterial" id="Material_sky"]
 shader = ExtResource("10_sky_shader")
@@ -392,6 +393,7 @@ shape = SubResource("Shape_player")
 
 [node name="MainPlayerModel" parent="Player" unique_id=360605334 instance=ExtResource("24_main_player")]
 transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, -0.9, 0)
+script = ExtResource("25_player_model_animator")
 
 [node name="CameraPivot" type="Node3D" parent="Player" unique_id=1242920948]
 transform = Transform3D(1, 0, 0, 0, 0.99680173, 0.07991469, 0, -0.07991469, 0.99680173, 0.38, 1.45, 0)
