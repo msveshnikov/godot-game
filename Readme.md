@@ -1,5 +1,9 @@
 # Gacha Village
 
+**▶ Play: https://severance.lol/3/**
+
+Web deploy: `godot --headless --export-release "Web" build/web/index.html` then `scp build/web/* ubuntu@severance.lol:/var/www/severance/3/`
+
 ![alt text](image.png)
 
 ## Playable room

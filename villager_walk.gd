@@ -1,6 +1,5 @@
 extends "res://addons/cogito/CogitoNPC/cogito_npc.gd"
 
-const FACE_TEXTURE := preload("res://villager_face_texture.png")
 const FOAM_PELLET_SCENE: PackedScene = preload("res://foam_pellet.tscn")
 const FOAM_PISTOL_SCENE: PackedScene = preload("res://foam_pistol_model.tscn")
 const FOAM_FIRE_SOUND: AudioStream = preload("res://addons/cogito/Assets/Audio/Spray.ogg")
@@ -47,31 +46,6 @@ func _ready() -> void:
 
 	if walk_points.size() > 1 and global_position.distance_to(_route_parent.to_global(walk_points[0])) < 0.8:
 		_waypoint_index = 1
-
-	_apply_face_texture()
-
-
-func _apply_face_texture() -> void:
-	var head_attachment := get_node_or_null("Rig/Skeleton3D/HeadAttachment") as BoneAttachment3D
-	if head_attachment == null:
-		push_error("Villager face requires the NPC head bone attachment.")
-		return
-
-	if head_attachment.get_node_or_null("FaceSprite") != null:
-		return
-
-	var face := Sprite3D.new()
-	face.name = "FaceSprite"
-	face.texture = FACE_TEXTURE
-	face.billboard = BaseMaterial3D.BILLBOARD_DISABLED
-	face.pixel_size = 0.00038
-	face.scale.x = 0.8
-	face.position = Vector3(0.0, 0.02, 0.27)
-	face.shaded = false
-	face.double_sided = true
-	face.render_priority = 5
-	head_attachment.add_child(face)
-	face.owner = self
 
 
 func _physics_process(delta: float) -> void:

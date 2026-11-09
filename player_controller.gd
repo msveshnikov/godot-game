@@ -53,7 +53,7 @@ var _game_over_screen: Control
 func _ready() -> void:
 	add_to_group("player")
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	if OS.has_feature("mobile"):
+	if _is_touch_device():
 		_mobile_controls = MOBILE_CONTROLS_SCRIPT.new()
 		add_child(_mobile_controls)
 		_mobile_controls.interact_pressed.connect(_interact)
@@ -73,6 +73,12 @@ func _ready() -> void:
 	_update_health_ui()
 	_update_ammo_ui()
 	get_tree().paused = true
+
+
+func _is_touch_device() -> bool:
+	if OS.has_feature("mobile") or OS.has_feature("web_android") or OS.has_feature("web_ios"):
+		return true
+	return OS.has_feature("web") and DisplayServer.is_touchscreen_available()
 
 
 func _process(_delta: float) -> void:
