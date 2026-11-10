@@ -5,7 +5,7 @@
 [ext_resource type="Script" uid="uid://co4rks5mjje4g" path="res://fruit_pickup.gd" id="3_fruit_pickup"]
 [ext_resource type="Script" uid="uid://c6uk7d2nxm1b5" path="res://interactable_door.gd" id="4_interactable_door"]
 [ext_resource type="Script" uid="uid://cypwbscgbkdes" path="res://room_light_switch.gd" id="5_room_light_switch"]
-[ext_resource type="PackedScene" path="res://street_house.tscn" id="6_street_house"]
+[ext_resource type="Script" uid="uid://mquprc1ferm7" path="res://district.gd" id="6_district"]
 [ext_resource type="Script" uid="uid://b1yklxtwv56ji" path="res://locker_gun.gd" id="7_locker_gun"]
 [ext_resource type="Texture2D" uid="uid://dxy4bfajmuq2b" path="res://textures/interior_plaster.svg" id="8_texture_interior"]
 [ext_resource type="Texture2D" uid="uid://1q4pljsl2xaq" path="res://textures/wood_planks.svg" id="9_texture_wood"]
@@ -24,7 +24,7 @@
 [ext_resource type="PackedScene" path="res://avocado_villager.tscn" id="22_avocado_villager"]
 [ext_resource type="PackedScene" path="res://mermaid_villager.tscn" id="23_mermaid_villager"]
 [ext_resource type="PackedScene" uid="uid://ckl1eq73jpwqu" path="res://main_player.glb" id="24_main_player"]
-[ext_resource type="Script" path="res://player_model_animator.gd" id="25_player_model_animator"]
+[ext_resource type="Script" uid="uid://d3c347li8bopb" path="res://player_model_animator.gd" id="25_player_model_animator"]
 [ext_resource type="PackedScene" path="res://doberman.tscn" id="26_doberman"]
 
 [sub_resource type="ShaderMaterial" id="Material_sky"]
@@ -187,9 +187,9 @@ emission_energy_multiplier = 1.5
 [sub_resource type="WorldBoundaryShape3D" id="Shape_ground"]
 
 [sub_resource type="PlaneMesh" id="Mesh_ground"]
-size = Vector2(200, 200)
-subdivide_width = 200
-subdivide_depth = 200
+size = Vector2(340, 340)
+subdivide_width = 170
+subdivide_depth = 170
 
 [sub_resource type="ShaderMaterial" id="Material_floor"]
 render_priority = 0
@@ -201,17 +201,17 @@ shader_parameter/grass_exclusion_center = Vector2(0, 0)
 shader_parameter/grass_exclusion_half_extents = Vector2(7.1, 7.1)
 
 [sub_resource type="BoxMesh" id="Mesh_street_asphalt"]
-size = Vector3(60, 0.06, 8)
+size = Vector3(160, 0.06, 8)
 
 [sub_resource type="StandardMaterial3D" id="Material_street_asphalt"]
 albedo_color = Color(0.14, 0.16, 0.19, 1)
 roughness = 0.96
 
 [sub_resource type="BoxShape3D" id="Shape_street_asphalt"]
-size = Vector3(60, 0.06, 8)
+size = Vector3(160, 0.06, 8)
 
 [sub_resource type="BoxMesh" id="Mesh_street_sidewalk"]
-size = Vector3(60, 0.12, 1.2)
+size = Vector3(160, 0.12, 1.2)
 
 [sub_resource type="StandardMaterial3D" id="Material_street_sidewalk"]
 albedo_texture = ExtResource("19_texture_pavers")
@@ -221,7 +221,7 @@ uv1_triplanar = true
 uv1_world_triplanar = true
 
 [sub_resource type="BoxShape3D" id="Shape_street_sidewalk"]
-size = Vector3(60, 0.12, 1.2)
+size = Vector3(160, 0.12, 1.2)
 
 [sub_resource type="BoxMesh" id="Mesh_street_marking"]
 size = Vector3(2.6, 0.025, 0.12)
@@ -764,38 +764,13 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24, 0.08, 17)
 mesh = SubResource("Mesh_street_marking")
 surface_material_override/0 = SubResource("Material_street_marking")
 
-[node name="HouseBlue" parent="Diorama/Street" unique_id=1664553871 instance=ExtResource("6_street_house")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -20, 0, 27)
-facade_color = Color(0.32, 0.51, 0.7, 1)
-roof_color = Color(0.19, 0.24, 0.32, 1)
-
-[node name="HouseGreen" parent="Diorama/Street" unique_id=1139424295 instance=ExtResource("6_street_house")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 0, 27)
-facade_color = Color(0.46, 0.65, 0.42, 1)
-roof_color = Color(0.29, 0.27, 0.22, 1)
-
-[node name="HouseTerracotta" parent="Diorama/Street" unique_id=997402785 instance=ExtResource("6_street_house")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 27)
-facade_color = Color(0.79, 0.43, 0.31, 1)
-roof_color = Color(0.38, 0.21, 0.19, 1)
-
-[node name="HouseLavender" parent="Diorama/Street" unique_id=554501656 instance=ExtResource("6_street_house")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 0, 27)
-facade_color = Color(0.62, 0.48, 0.7, 1)
-roof_color = Color(0.27, 0.23, 0.34, 1)
-
-[node name="HouseYellow" parent="Diorama/Street" unique_id=1105625123 instance=ExtResource("6_street_house")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 0, 27)
-facade_color = Color(0.83, 0.7, 0.39, 1)
-roof_color = Color(0.34, 0.28, 0.2, 1)
-
 [node name="CogitoTown" type="Node3D" parent="Diorama/Street" unique_id=1858662191]
 
 [node name="PottedPlantLeft" parent="Diorama/Street/CogitoTown" unique_id=1109618407 instance=ExtResource("12_cogito_plant")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -25.5, 0.4, 25.5)
 
 [node name="PottedPlantRight" parent="Diorama/Street/CogitoTown" unique_id=934716789 instance=ExtResource("12_cogito_plant")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 25.5, 0.4, 25.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 52.5, 0.4, 25.5)
 
 [node name="TrashcanNear" parent="Diorama/Street/CogitoTown" unique_id=1273526913 instance=ExtResource("13_cogito_trashcan")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -28, 0.4, 12.35)
@@ -830,6 +805,9 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -28.537872, 0.13, 32.477108)
 
 [node name="MermaidVillager" parent="Diorama/Street/CogitoTown" unique_id=1799140852 instance=ExtResource("23_mermaid_villager")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -16.5, 0.13, 36.181763)
+
+[node name="District" type="Node3D" parent="Diorama" unique_id=1733920451]
+script = ExtResource("6_district")
 
 [node name="Table" type="Node3D" parent="Diorama" unique_id=362545288]
 

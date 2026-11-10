@@ -3,6 +3,8 @@ extends Node3D
 @export var facade_color := Color(0.7, 0.55, 0.42, 1)
 @export var roof_color := Color(0.24, 0.25, 0.28, 1)
 @export var trim_color := Color(0.91, 0.84, 0.7, 1)
+## Ground-floor flat built into a panel block: skips the roof, chimney and hidden outer walls.
+@export var apartment_mode := false
 
 const DOOR_SCRIPT: Script = preload("res://interactable_door.gd")
 const FRUIT_SCRIPT: Script = preload("res://fruit_pickup.gd")
@@ -48,18 +50,25 @@ func _build_shell() -> void:
 	_add_box("FrontRight", Vector3(2.375, 2.8, HOUSE_FRONT_Z), Vector3(3.25, 5.6, 0.25), WALL_COLOR, true, Vector3.ZERO, null, WALL_TEXTURE)
 	_add_box("FrontHeader", Vector3(0, 4, HOUSE_FRONT_Z), Vector3(1.5, 3.2, 0.25), WALL_COLOR, true, Vector3.ZERO, null, WALL_TEXTURE)
 	_add_box("Ceiling", Vector3(0, 5.55, 0), Vector3(7.5, 0.2, 6.5), WALL_COLOR, true, Vector3.ZERO, null, WALL_TEXTURE)
+	if apartment_mode:
+		return
 	_add_box("RoofFront", Vector3(0, 6.35, -1.72), Vector3(9, 0.32, 4.3), roof_color, false, Vector3(-28, 0, 0), null, ROOF_TEXTURE)
 	_add_box("RoofBack", Vector3(0, 6.35, 1.72), Vector3(9, 0.32, 4.3), roof_color, false, Vector3(28, 0, 0), null, ROOF_TEXTURE)
 	_add_box("Chimney", Vector3(2.7, 6.7, 1.6), Vector3(0.75, 1.5, 0.75), trim_color)
 
 
 func _build_exterior_finish() -> void:
-	_add_box("ExteriorLeft", Vector3(-4.015, 2.8, 0), Vector3(0.03, 5.6, 7), facade_color, false, Vector3.ZERO, null, FACADE_TEXTURE)
-	_add_box("ExteriorRight", Vector3(4.015, 2.8, 0), Vector3(0.03, 5.6, 7), facade_color, false, Vector3.ZERO, null, FACADE_TEXTURE)
-	_add_box("ExteriorBack", Vector3(0, 2.8, 3.515), Vector3(8, 5.6, 0.03), facade_color, false, Vector3.ZERO, null, FACADE_TEXTURE)
+	if not apartment_mode:
+		_build_outer_side_walls()
 	_add_box("ExteriorFrontLeft", Vector3(-2.375, 2.8, HOUSE_FRONT_Z - 0.14), Vector3(3.25, 5.6, 0.03), facade_color, false, Vector3.ZERO, null, FACADE_TEXTURE)
 	_add_box("ExteriorFrontRight", Vector3(2.375, 2.8, HOUSE_FRONT_Z - 0.14), Vector3(3.25, 5.6, 0.03), facade_color, false, Vector3.ZERO, null, FACADE_TEXTURE)
 	_add_box("ExteriorFrontHeader", Vector3(0, 4, HOUSE_FRONT_Z - 0.14), Vector3(1.5, 3.2, 0.03), facade_color, false, Vector3.ZERO, null, FACADE_TEXTURE)
+
+
+func _build_outer_side_walls() -> void:
+	_add_box("ExteriorLeft", Vector3(-4.015, 2.8, 0), Vector3(0.03, 5.6, 7), facade_color, false, Vector3.ZERO, null, FACADE_TEXTURE)
+	_add_box("ExteriorRight", Vector3(4.015, 2.8, 0), Vector3(0.03, 5.6, 7), facade_color, false, Vector3.ZERO, null, FACADE_TEXTURE)
+	_add_box("ExteriorBack", Vector3(0, 2.8, 3.515), Vector3(8, 5.6, 0.03), facade_color, false, Vector3.ZERO, null, FACADE_TEXTURE)
 
 
 func _build_facade() -> void:

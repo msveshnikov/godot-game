@@ -1,6 +1,6 @@
 extends Node3D
 
-const TREE_COUNT := 180
+const TREE_COUNT := 480
 const MIN_TREE_SPACING := 4.5
 
 
@@ -16,9 +16,10 @@ func _ready() -> void:
 
 	while positions.size() < TREE_COUNT and attempts < TREE_COUNT * 40:
 		attempts += 1
-		var x := rng.randf_range(-88.0, 88.0)
-		var z := rng.randf_range(-85.0, 85.0)
-		if absf(x) < 36.0 and z > -20.0 and z < 44.0:
+		var x := rng.randf_range(-150.0, 150.0)
+		var z := rng.randf_range(-150.0, 165.0)
+		# Keep the street and the panel-block district (district.gd) clear.
+		if absf(x) < 68.0 and z > -20.0 and z < 157.0:
 			continue
 
 		var candidate := Vector2(x, z)
