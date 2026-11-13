@@ -41,6 +41,13 @@ func _ready() -> void:
 	mesh_instance.material_override = _material
 
 
+## Multiplies the model colour, so other players are told apart at a glance.
+func set_tint(tint: Color) -> void:
+	if _material != null:
+		var base: Variant = _material.get_shader_parameter("albedo_color")
+		_material.set_shader_parameter("albedo_color", (base if base is Color else Color.WHITE) * tint)
+
+
 func _process(delta: float) -> void:
 	if _body == null or _material == null:
 		return
@@ -48,7 +55,7 @@ func _process(delta: float) -> void:
 	var horizontal := Vector3(_body.velocity.x, 0.0, _body.velocity.z)
 	var speed := horizontal.length()
 	var local := _body.global_basis.inverse() * horizontal
-	var grounded := _body.is_on_floor()
+	var grounded: bool = _body.call("net_grounded") if _body.has_method("net_grounded") else _body.is_on_floor()
 	var moving := speed > 0.15 and grounded
 	var backwards := local.z > 0.05
 	var run_t := clampf((speed - WALK_SPEED) / (RUN_SPEED - WALK_SPEED), 0.0, 1.0)

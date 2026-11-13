@@ -1,0 +1,9 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" uid="uid://b2cccsfb5tikx" path="res://addons/cogito/CogitoNPC/cogito_npc.tscn" id="1_npc"]
+[ext_resource type="Script" uid="uid://1v4pe24bf3gy" path="res://villager_walk.gd" id="2_walk"]
+
+[node name="VillagerBot" instance=ExtResource("1_npc")]
+script = ExtResource("2_walk")
+display_name = "Villager"
+response_to_player = "Friendly"

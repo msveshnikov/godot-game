@@ -13,8 +13,6 @@
 [ext_resource type="Script" uid="uid://bncu8krclsne" path="res://forest.gd" id="11_forest"]
 [ext_resource type="PackedScene" uid="uid://duxk3xlhddnvt" path="res://addons/cogito/DemoScenes/DemoPrefabs/potted_plant.tscn" id="12_cogito_plant"]
 [ext_resource type="PackedScene" uid="uid://3rlbofuf3x5s" path="res://addons/cogito/DemoScenes/DemoPrefabs/trashcan.tscn" id="13_cogito_trashcan"]
-[ext_resource type="PackedScene" uid="uid://b2cccsfb5tikx" path="res://addons/cogito/CogitoNPC/cogito_npc.tscn" id="14_cogito_npc"]
-[ext_resource type="Script" uid="uid://1v4pe24bf3gy" path="res://villager_walk.gd" id="15_villager_walk"]
 [ext_resource type="PackedScene" path="res://foam_pistol_model.tscn" id="16_foam_pistol_model"]
 [ext_resource type="Shader" uid="uid://c32mqlfwtjqa7" path="res://grass.gdshader" id="17_grass_shader"]
 [ext_resource type="Texture2D" uid="uid://qvd15wcncx33" path="res://textures/exterior_siding.svg" id="18_texture_siding"]
@@ -26,6 +24,8 @@
 [ext_resource type="PackedScene" uid="uid://ckl1eq73jpwqu" path="res://main_player.glb" id="24_main_player"]
 [ext_resource type="Script" uid="uid://d3c347li8bopb" path="res://player_model_animator.gd" id="25_player_model_animator"]
 [ext_resource type="PackedScene" path="res://doberman.tscn" id="26_doberman"]
+[ext_resource type="Script" path="res://net_world.gd" id="27_net_world"]
+[ext_resource type="Script" path="res://bot_crowd.gd" id="28_bot_crowd"]
 
 [sub_resource type="ShaderMaterial" id="Material_sky"]
 shader = ExtResource("10_sky_shader")
@@ -778,28 +778,6 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -28, 0.4, 12.35)
 [node name="TrashcanFar" parent="Diorama/Street/CogitoTown" unique_id=1656803761 instance=ExtResource("13_cogito_trashcan")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 28, 0.4, 21.65)
 
-[node name="VillagerNear" parent="Diorama/Street/CogitoTown" unique_id=254097283 instance=ExtResource("14_cogito_npc")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -25, 0, 12.35)
-script = ExtResource("15_villager_walk")
-walk_points = Array[Vector3]([Vector3(-27, 0, 12.35), Vector3(27, 0, 12.35)])
-pause_at_waypoint = 1.5
-firing_range = 50.0
-fire_interval = 2.2
-respawn_delay = 6.0
-display_name = "Villager"
-response_to_player = "Friendly"
-
-[node name="VillagerFar" parent="Diorama/Street/CogitoTown" unique_id=459009489 instance=ExtResource("14_cogito_npc")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 25, 0, 21.65)
-script = ExtResource("15_villager_walk")
-walk_points = Array[Vector3]([Vector3(27, 0, 21.65), Vector3(-27, 0, 21.65)])
-pause_at_waypoint = 1.5
-firing_range = 50.0
-fire_interval = 2.2
-respawn_delay = 6.0
-display_name = "Villager"
-response_to_player = "Friendly"
-
 [node name="AvocadoVillager" parent="Diorama/Street/CogitoTown" unique_id=2073594585 instance=ExtResource("22_avocado_villager")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -28.537872, 0.13, 32.477108)
 
@@ -1089,3 +1067,9 @@ text = "E - TAKE FOAM PISTOL"
 
 [node name="Doberman" parent="." unique_id=1739204561 instance=ExtResource("26_doberman")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.5, 0.05, 5.5)
+
+[node name="NetWorld" type="Node" parent="." unique_id=1427781003]
+script = ExtResource("27_net_world")
+
+[node name="BotCrowd" type="Node3D" parent="." unique_id=1427781004]
+script = ExtResource("28_bot_crowd")

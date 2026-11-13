@@ -48,10 +48,15 @@ var _health_label: Label
 var _ammo_label: Label
 var _start_screen: Control
 var _game_over_screen: Control
+var _name_edit: LineEdit
+var _spawn_transform: Transform3D
 
 
 func _ready() -> void:
 	add_to_group("player")
+	_spawn_transform = global_transform
+	# Small random offset so two players starting together don't stand inside each other.
+	global_position += Vector3(randf_range(-0.8, 0.8), 0.0, randf_range(-0.8, 0.8))
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	if _is_touch_device():
 		_mobile_controls = MOBILE_CONTROLS_SCRIPT.new()
@@ -72,7 +77,11 @@ func _ready() -> void:
 	_setup_game_ui()
 	_update_health_ui()
 	_update_ammo_ui()
-	get_tree().paused = true
+
+
+## True while this player is in the world and can be targeted (not on the start or game-over screen).
+func is_playing() -> bool:
+	return _game_started and not _game_over
 
 
 func _is_touch_device() -> bool:
@@ -100,6 +109,8 @@ func _input(event: InputEvent) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if not is_playing():
+		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		_apply_look_delta(event.relative)
 	elif event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
@@ -159,7 +170,11 @@ func _fire_foam_pellet() -> void:
 	get_tree().current_scene.add_child(pellet)
 	pellet.global_position = gun_muzzle.global_position
 	pellet.global_basis = camera.global_basis
-	pellet.launch(self, gun_muzzle.global_position.direction_to(_get_aim_target()), PLAYER_PROJECTILE_DAMAGE, &"villagers")
+	var shot_direction := gun_muzzle.global_position.direction_to(_get_aim_target())
+	pellet.launch(self, shot_direction, PLAYER_PROJECTILE_DAMAGE, &"villagers")
+	var net_world := get_tree().current_scene.get_node_or_null("NetWorld")
+	if net_world != null:
+		net_world.call("broadcast_shot", gun_muzzle.global_position, shot_direction)
 	ammunition -= 1
 	_update_ammo_ui()
 	_fire_sound.play()
@@ -245,14 +260,15 @@ func _setup_game_ui() -> void:
 	_ammo_label = _make_hud_label("Ammo: --", 130.0, 164.0, 22)
 	_start_screen = _make_game_screen(
 		"GACHA VILLAGE",
-		"Find the foam pistol and survive the villagers.\n\nWASD move  |  Shift run  |  Space jump\nMouse look  |  E interact  |  Q / click fire\nSix shots per magazine. Press R to reload.",
+		"Find the foam pistol and survive the villagers.\nPlay together: open the same game on another device.\n\nWASD move  |  Shift run  |  Space jump\nMouse look  |  E interact  |  Q / click fire\nSix shots per magazine. Press R to reload.",
 		"START GAME",
-		_start_game
+		_start_game,
+		true
 	)
 	_game_over_screen = _make_game_screen(
 		"GAME OVER",
 		"The villagers got you.",
-		"PLAY AGAIN",
+		"RESPAWN",
 		_restart_game
 	)
 	_game_over_screen.hide()
@@ -273,7 +289,7 @@ func _make_hud_label(label_text: String, top: float, bottom: float, font_size: i
 	return label
 
 
-func _make_game_screen(title_text: String, message: String, button_text: String, action: Callable) -> Control:
+func _make_game_screen(title_text: String, message: String, button_text: String, action: Callable, with_name := false) -> Control:
 	var overlay := ColorRect.new()
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay.color = Color(0.025, 0.045, 0.065, 0.84)
@@ -285,7 +301,7 @@ func _make_game_screen(title_text: String, message: String, button_text: String,
 	overlay.add_child(center)
 
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(520.0, 360.0)
+	panel.custom_minimum_size = Vector2(520.0, 420.0 if with_name else 360.0)
 	var panel_style := StyleBoxFlat.new()
 	panel_style.bg_color = Color(0.08, 0.13, 0.16, 0.98)
 	panel_style.border_color = Color(0.76, 0.57, 0.3, 1.0)
@@ -321,6 +337,18 @@ func _make_game_screen(title_text: String, message: String, button_text: String,
 	description.add_theme_color_override("font_color", Color(0.91, 0.94, 0.91, 1.0))
 	description.add_theme_font_size_override("font_size", 18)
 	contents.add_child(description)
+
+	if with_name:
+		_name_edit = LineEdit.new()
+		_name_edit.text = Net.player_name
+		_name_edit.placeholder_text = "Your name"
+		_name_edit.max_length = 16
+		_name_edit.alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_name_edit.custom_minimum_size = Vector2(260.0, 44.0)
+		_name_edit.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		_name_edit.add_theme_font_size_override("font_size", 20)
+		_name_edit.text_submitted.connect(func(_text: String) -> void: _start_game())
+		contents.add_child(_name_edit)
 
 	var button := Button.new()
 	button.text = button_text
@@ -358,8 +386,10 @@ func _start_game() -> void:
 	if _game_started:
 		return
 	_game_started = true
+	if _name_edit != null:
+		Net.set_player_name(_name_edit.text)
+		_name_edit.release_focus()
 	_start_screen.hide()
-	get_tree().paused = false
 	if _mobile_controls == null:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
@@ -370,9 +400,20 @@ func _end_game() -> void:
 	_game_over = true
 	_game_over_screen.show()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	get_tree().paused = true
+	velocity = Vector3.ZERO
 
 
+## Back to the start room with full health; the world (and the other players) carry on.
 func _restart_game() -> void:
-	get_tree().paused = false
-	get_tree().reload_current_scene()
+	global_transform = _spawn_transform
+	velocity = Vector3.ZERO
+	health = MAX_HEALTH
+	ammunition = MAGAZINE_SIZE
+	_reloading = false
+	_can_fire = true
+	_update_health_ui()
+	_update_ammo_ui()
+	_game_over_screen.hide()
+	_game_over = false
+	if _mobile_controls == null:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
