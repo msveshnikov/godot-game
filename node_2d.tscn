@@ -24,8 +24,8 @@
 [ext_resource type="PackedScene" uid="uid://ckl1eq73jpwqu" path="res://main_player.glb" id="24_main_player"]
 [ext_resource type="Script" uid="uid://d3c347li8bopb" path="res://player_model_animator.gd" id="25_player_model_animator"]
 [ext_resource type="PackedScene" path="res://doberman.tscn" id="26_doberman"]
-[ext_resource type="Script" path="res://net_world.gd" id="27_net_world"]
-[ext_resource type="Script" path="res://bot_crowd.gd" id="28_bot_crowd"]
+[ext_resource type="Script" uid="uid://caqqbn55qni76" path="res://net_world.gd" id="27_net_world"]
+[ext_resource type="Script" uid="uid://c2gkp5wvautff" path="res://bot_crowd.gd" id="28_bot_crowd"]
 
 [sub_resource type="ShaderMaterial" id="Material_sky"]
 shader = ExtResource("10_sky_shader")
