@@ -4,6 +4,7 @@ extends "res://addons/cogito/CogitoNPC/cogito_npc.gd"
 ## follows the host's network updates.
 
 const FOAM_PISTOL_SCENE: PackedScene = preload("res://foam_pistol_model.tscn")
+const OUTFIT = preload("res://villager_outfit.gd")
 const FOAM_FIRE_SOUND: AudioStream = preload("res://addons/cogito/Assets/Audio/Spray.ogg")
 const PUPPET_SNAP_DISTANCE := 5.0
 const HIT_GRACE := 1.5
@@ -39,6 +40,7 @@ var _net_age := 0.0
 func _ready() -> void:
 	super._ready()
 	add_to_group("villagers")
+	OUTFIT.apply(self, bot_index)
 	_rng.seed = hash(bot_index * 7919 + Time.get_ticks_usec())
 	_attack_timer = _rng.randf_range(0.5, fire_interval)
 	_spawn_collision_layer = collision_layer
