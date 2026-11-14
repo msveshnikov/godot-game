@@ -13,11 +13,11 @@
 
 [sub_resource type="ShaderMaterial" id="Material_sky"]
 shader = ExtResource("10_sky_shader")
-shader_parameter/zenith_color = Color(0.12, 0.29, 0.48, 1)
-shader_parameter/horizon_color = Color(0.91, 0.55, 0.38, 1)
-shader_parameter/sun_direction = Vector3(-0.4, 0.2, -0.9)
-shader_parameter/sun_color = Color(1, 0.79, 0.52, 1)
-shader_parameter/cloud_color = Color(0.95, 0.76, 0.62, 1)
+shader_parameter/zenith_color = Color(0.24, 0.47, 0.8, 1)
+shader_parameter/horizon_color = Color(0.78, 0.86, 0.94, 1)
+shader_parameter/sun_direction = Vector3(0.1484, 0.8192, -0.554)
+shader_parameter/sun_color = Color(1, 0.97, 0.88, 1)
+shader_parameter/cloud_color = Color(0.97, 0.97, 0.98, 1)
 
 [sub_resource type="Sky" id="Sky_diorama"]
 sky_material = SubResource("Material_sky")
@@ -48,7 +48,7 @@ shader_parameter/grass_dark = Color(0.12, 0.31, 0.16, 1)
 shader_parameter/grass_mid = Color(0.25, 0.47, 0.23, 1)
 shader_parameter/grass_light = Color(0.46, 0.72, 0.36, 1)
 shader_parameter/grass_exclusion_center = Vector2(0, 0)
-shader_parameter/grass_exclusion_half_extents = Vector2(7.1, 7.1)
+shader_parameter/grass_exclusion_half_extents = Vector2(0, 0)
 
 [node name="Node3D" type="Node3D" unique_id=2074553589]
 
@@ -56,13 +56,13 @@ shader_parameter/grass_exclusion_half_extents = Vector2(7.1, 7.1)
 environment = SubResource("Environment_diorama")
 
 [node name="Sun" type="DirectionalLight3D" parent="." unique_id=590089918]
-transform = Transform3D(0.8480481, 0.3938068, -0.35458517, 0, 0.66913056, 0.74314487, 0.52991927, -0.63022256, 0.5674549, 0, 0, 0)
-light_color = Color(1, 0.88, 0.69, 1)
-light_energy = 1.25
+transform = Transform3D(-0.9659258, -0.21201, 0.1484, 0, 0.5735764, 0.8191520, -0.2588190, 0.7912401, -0.5540323, 0, 0, 0)
+light_color = Color(1, 0.96, 0.9, 1)
+light_energy = 1.3
 shadow_enabled = true
 
 [node name="Player" type="CharacterBody3D" parent="." unique_id=253855974]
-transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 12, 0.9, 24)
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, -8.9, 0.9, -12.6)
 script = ExtResource("1_player_controller")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Player" unique_id=814239469]
@@ -106,7 +106,7 @@ surface_material_override/0 = SubResource("Material_floor")
 script = ExtResource("6_district")
 
 [node name="Doberman" parent="." unique_id=1739204561 instance=ExtResource("26_doberman")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 13.5, 0.05, 22.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -11, 0.05, -11.5)
 
 [node name="NetWorld" type="Node" parent="." unique_id=1427781003]
 script = ExtResource("27_net_world")

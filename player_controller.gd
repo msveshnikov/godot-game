@@ -14,12 +14,14 @@ const RUN_FOOTSTEP_SOUNDS: Array[AudioStream] = [
 ]
 const WALK_FOOTSTEP_INTERVAL := 0.48
 const RUN_FOOTSTEP_INTERVAL := 0.3
-## Open paved spots around the estate (x, z) where players appear, picked at random.
+## Open paved spots around the estate (game x, z) where players appear, picked at
+## random: the sidewalk in front of the home block's entrances (939 first), the
+## yard behind it and Za Jednotou. Facing +Z looks at the home block.
 const SPAWN_POINTS: Array[Vector2] = [
-	Vector2(12, 24), Vector2(-10, 24), Vector2(35, 24),
-	Vector2(-6, 66), Vector2(22, 66), Vector2(40, 66),
-	Vector2(22, 84.2), Vector2(0, 102.6), Vector2(30, 102.6),
-	Vector2(58, 84), Vector2(-50.5, 66),
+	Vector2(-8.9, -12.6), Vector2(9.0, -12.6), Vector2(-26.8, -12.6),
+	Vector2(26.9, -12.6), Vector2(-44.6, -12.6), Vector2(44.8, -12.6),
+	Vector2(-5.0, 19.9), Vector2(35.0, 19.9), Vector2(-35.0, 19.9),
+	Vector2(-15.0, 59.8), Vector2(25.0, 59.8),
 ]
 
 @export var walk_speed := 4.5

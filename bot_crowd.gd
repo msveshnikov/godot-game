@@ -14,34 +14,42 @@ const PELLET_SPEED := 18.0
 const PELLET_DAMAGE := 20.0
 const SAFE_RESPAWN_DISTANCE := 35.0
 
-## Walkable graph (x, z) over roads and paths; see district.gd for the layout.
-const NODES: Array[Vector2] = [
-	Vector2(-62, 24), Vector2(-50.5, 24), Vector2(-31, 24), Vector2(-10, 24), Vector2(6, 24), # 0-4 south edge
-	Vector2(25, 24), Vector2(47, 24), Vector2(58, 24), Vector2(66, 24), # 5-8 (along the parking lot)
-	Vector2(-31, 22.5), Vector2(-12.5, 46.3), Vector2(-9.7, 46.3), Vector2(-9.7, 31.65), # 9-12 diagonal, tower C
-	Vector2(19.7, 31.65), Vector2(47, 31.65), Vector2(58, 31.65), Vector2(-24, 31.65), # 13-16 walk behind parking
-	Vector2(19.7, 48.5), Vector2(47, 49.5), # 17-18 tower B / A spurs
-	Vector2(58, 66), Vector2(58, 84.2), Vector2(58, 102.6), Vector2(58, 131), Vector2(58, 148), # 19-23 west road
-	Vector2(-50.5, 66), Vector2(-50.5, 90), Vector2(-50.5, 102.6), Vector2(-50.5, 131), Vector2(-50.5, 148), # 24-28 east road
-	Vector2(-13, 66), Vector2(-6, 66), Vector2(22, 66), Vector2(50, 66), # 29-32 Na Skalkach
-	Vector2(-13, 77), Vector2(-13, 81), Vector2(-21, 81), # 33-35 shop
-	Vector2(-6, 84.2), Vector2(-6, 102.6), Vector2(22, 84.2), Vector2(50, 84.2), Vector2(50, 102.6), # 36-40 loops
-	Vector2(-28.4, 102.6), Vector2(22, 102.6), Vector2(-37, 90), # 41-43
-	Vector2(-28.4, 131), Vector2(-28.4, 148), Vector2(7.3, 131), Vector2(7.3, 148), Vector2(7.3, 119), # 44-48
+## Walkable graph over roads and paths, in district.gd's real (u, n) metres:
+## u along the blocks towards the south-east, n towards the north-east.
+const U0 := -5.0 # district.gd's game origin
+const UN_NODES: Array[Vector2] = [
+	Vector2(-105, -18.75), Vector2(-80, -18.75), Vector2(-65, -18.75), Vector2(-49.8, -18.75), Vector2(-30, -18.75), # 0-4 Na Skalkach
+	Vector2(-14, -18.75), Vector2(3.9, -18.75), Vector2(21.8, -18.75), Vector2(39.6, -18.75), Vector2(44.5, -18.75), # 5-9
+	Vector2(44.5, -45), Vector2(44.5, -70), Vector2(44.5, -100), # 10-12 branch south
+	Vector2(-65, -12.6), Vector2(-49.8, -12.6), Vector2(-31.9, -12.6), Vector2(-14, -12.6), # 13-16 home sidewalk
+	Vector2(3.9, -12.6), Vector2(21.8, -12.6), Vector2(39.6, -12.6), Vector2(56, -12.6), # 17-20
+	Vector2(-49.8, -4), Vector2(-31.9, -4), Vector2(-14, -4), Vector2(3.9, -4), Vector2(21.8, -4), Vector2(39.6, -4), # 21-26 entrances
+	Vector2(-65, 19.9), Vector2(-65, 59.8), Vector2(56, 19.9), Vector2(56, 59.8), # 27-30 paths round the ends
+	Vector2(-40, 19.9), Vector2(-14, 19.9), Vector2(10, 19.9), Vector2(30, 19.9), # 31-34 yard
+	Vector2(-70, 63.5), Vector2(-40, 63.5), Vector2(-11, 63.5), Vector2(24.7, 63.5), Vector2(50, 63.5), Vector2(62.7, 63.5), # 35-40 Za Jednotou
+	Vector2(62.7, -18.75), Vector2(62.7, 20), Vector2(62.7, 40), # 41-43 east link
+	Vector2(75, 2), Vector2(65, 8), # 44-45 playground
+	Vector2(-78, -56), Vector2(-30, -56), Vector2(0, -56), Vector2(40, -56), Vector2(44.5, -56), # 46-50 walk behind the towers
+	Vector2(-64.5, -26), # 51 tower W door
+	Vector2(-9.55, 30), Vector2(26.2, 30), Vector2(-11, 77), Vector2(24.7, 77), # 52-55 middle / north block doors
 ]
 const EDGES := [
-	[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [7, 8],
-	[2, 9], [9, 16], [16, 10], [10, 11], [11, 12], [16, 12], [12, 13], [13, 14], [14, 15],
-	[13, 17], [14, 18], [7, 15], [15, 19], [19, 20], [20, 21], [21, 22], [22, 23],
-	[1, 24], [24, 25], [25, 26], [26, 27], [27, 28], [25, 43],
-	[24, 29], [29, 30], [30, 31], [31, 32], [32, 19],
-	[29, 33], [33, 34], [34, 35], [34, 36],
-	[30, 36], [36, 37], [36, 38], [38, 39], [39, 20], [32, 39], [39, 40],
-	[26, 41], [41, 37], [37, 42], [42, 40], [40, 21],
-	[41, 44], [44, 45], [27, 44], [44, 46], [46, 22], [28, 45], [45, 47], [47, 23], [46, 47], [46, 48],
+	[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [7, 8], [8, 9],
+	[9, 10], [10, 50], [50, 11], [11, 12], [9, 41],
+	[13, 14], [14, 15], [15, 16], [16, 17], [17, 18], [18, 19], [19, 20],
+	[2, 13], [3, 14], [5, 16], [7, 18], [8, 19], [20, 41],
+	[14, 21], [15, 22], [16, 23], [17, 24], [18, 25], [19, 26],
+	[13, 27], [27, 28], [28, 35], [28, 36], [20, 29], [29, 30], [30, 39], [30, 40],
+	[27, 31], [31, 32], [32, 33], [33, 34], [34, 29],
+	[35, 36], [36, 37], [37, 38], [38, 39], [39, 40],
+	[41, 42], [42, 43], [43, 40], [29, 42], [42, 45], [45, 44],
+	[46, 47], [47, 48], [48, 49], [49, 50], [4, 47], [1, 46], [2, 51],
+	[32, 52], [34, 53], [37, 54], [38, 55],
 ]
 ## Nodes next to the busiest player spawn points (see player_controller.gd); bots never (re)spawn there.
-const NO_SPAWN := [3, 4, 5]
+const NO_SPAWN := [6, 16, 17, 18, 24]
+
+var NODES: Array[Vector2] = [] # game (x, z), built from UN_NODES
 
 var bots: Array = []
 var _adjacency: Array = []
@@ -49,6 +57,8 @@ var _send_timer := 0.0
 
 
 func _ready() -> void:
+	for point in UN_NODES:
+		NODES.append(Vector2(-(point.x - U0), point.y))
 	_adjacency.resize(NODES.size())
 	for index in NODES.size():
 		_adjacency[index] = []
