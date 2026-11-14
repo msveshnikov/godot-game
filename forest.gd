@@ -18,8 +18,8 @@ func _ready() -> void:
 		attempts += 1
 		var x := rng.randf_range(-150.0, 150.0)
 		var z := rng.randf_range(-150.0, 165.0)
-		# Keep the street and the panel-block district (district.gd) clear.
-		if absf(x) < 68.0 and z > -20.0 and z < 157.0:
+		# Keep the panel-block district (district.gd) clear.
+		if absf(x) < 68.0 and z > 16.0 and z < 157.0:
 			continue
 
 		var candidate := Vector2(x, z)

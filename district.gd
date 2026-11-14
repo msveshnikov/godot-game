@@ -4,8 +4,9 @@ extends Node3D
 ## north is +Z and map east is -X, so the view from the start room matches the
 ## map when facing north. Everything is built from boxes at runtime.
 ##
-## The five enterable flats (fruit + wardrobe with a foam pistol) that used to be
-## stand-alone street houses now sit on the ground floor of the panel blocks.
+## Five panel blocks have an enterable furnished flat on the ground floor.
+## Paving, steps and flat floors have no colliders and sit almost flush with the
+## ground, so players and bots run across them without catching on an edge.
 
 const STREET_HOUSE_SCENE: PackedScene = preload("res://street_house.tscn")
 
@@ -21,7 +22,6 @@ const ROAD_COLOR := Color(0.2, 0.21, 0.23)
 const LOT_COLOR := Color(0.27, 0.28, 0.3)
 const PATH_COLOR := Color(0.66, 0.65, 0.62)
 const ROOF_COLOR := Color(0.58, 0.58, 0.57)
-const MARKING_COLOR := Color(0.91, 0.78, 0.4)
 const LINE_COLOR := Color(0.9, 0.9, 0.88)
 const GLASS_COLOR := Color(0.16, 0.22, 0.28)
 const DOOR_COLOR := Color(0.3, 0.22, 0.16)
@@ -52,12 +52,6 @@ func _ready() -> void:
 # ---------------------------------------------------------------- layout ----
 
 func _build_roads() -> void:
-	# Main street (Dr. E. Beneše) lives in the scene; only extend its markings.
-	var marking_mat := _plain(MARKING_COLOR)
-	for x in range(30, 79, 6):
-		for side in [-1, 1]:
-			_box("LaneMarking", Vector3(x * side, 0.08, 17), Vector3(2.6, 0.025, 0.12), marking_mat, false)
-
 	# Vertical roads are a touch thicker than east-west ones so crossings don't z-fight.
 	_flat("EastRoad", -53.5, 22.25, -47.5, 150.5, 0.07, ROAD_COLOR)
 	_flat("WestRoad", 55.0, 22.25, 61.0, 150.5, 0.07, ROAD_COLOR)
@@ -82,7 +76,7 @@ func _build_paths() -> void:
 	var mid := (start + finish) * 0.5
 	var along := finish - start
 	var yaw := rad_to_deg(atan2(along.x, along.y))
-	_box("DiagonalPath", Vector3(mid.x, 0.045, mid.y), Vector3(2.0, 0.09, along.length()), _plain(PATH_COLOR), true, yaw)
+	_box("DiagonalPath", Vector3(mid.x, 0.027 - 0.045, mid.y), Vector3(2.0, 0.09, along.length()), _plain(PATH_COLOR), false, yaw)
 
 
 func _build_parking() -> void:
@@ -186,10 +180,6 @@ func _build_family_houses() -> void:
 func _build_trees() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 7731
-	# Villager NPCs stand here; keep trees off them.
-	_blocked.append(Rect2(-30.5, 30.5, 4.0, 4.0))
-	_blocked.append(Rect2(-18.5, 34.2, 4.0, 4.0))
-
 	var trees: Array[Vector3] = []
 	var attempts := 0
 	while trees.size() < 210 and attempts < 6000:
@@ -310,7 +300,7 @@ func _add_block(block_name: String, center: Vector2, size: Vector2, floors: int,
 		var ex := x0 + size.x * (index + 0.5) / entrances
 		_box(block_name + "EntranceDoor", Vector3(ex, 1.25, z1 + 0.06), Vector3(1.6, 2.5, 0.12), _plain(DOOR_COLOR), false)
 		_box(block_name + "EntranceCanopy", Vector3(ex, 2.75, z1 + 0.7), Vector3(2.6, 0.18, 1.4), _plain(ROOF_COLOR), false)
-		_box(block_name + "EntranceStep", Vector3(ex, 0.08, z1 + 0.7), Vector3(2.4, 0.16, 1.4), _plain(PATH_COLOR), true)
+		_box(block_name + "EntranceStep", Vector3(ex, 0.035 - 0.08, z1 + 0.7), Vector3(2.4, 0.16, 1.4), _plain(PATH_COLOR), false)
 
 
 func _add_gabled_house(house_name: String, center: Vector2, size: Vector2, wall_height: float, roof_height: float,
@@ -336,7 +326,7 @@ func _add_parking_row(spots: Array[Transform3D], rng: RandomNumberGenerator, fro
 	var line_mat := _plain(LINE_COLOR)
 	var x := from_x
 	while x <= to_x:
-		_box("ParkingLine", Vector3(x - 1.35, 0.05, z), Vector3(0.12, 0.02, 4.8), line_mat, false)
+		_box("ParkingLine", Vector3(x - 1.35, 0.015, z), Vector3(0.12, 0.02, 4.8), line_mat, false)
 		if rng.randf() < fill:
 			var jitter := Vector3(rng.randf_range(-0.15, 0.15), 0, rng.randf_range(-0.3, 0.3))
 			spots.append(Transform3D(Basis(Vector3.UP, deg_to_rad(yaw + rng.randf_range(-4, 4))), Vector3(x, 0, z) + jitter))
@@ -400,11 +390,14 @@ func _add_sign(text: String, sign_position: Vector3, color: Color, pixel_size: f
 
 # -------------------------------------------------------------- helpers ----
 
-## Paved surface lying on the ground between two XZ corners.
+## Paved surface between two XZ corners. It has no collider and its top sits just
+## above the grass (a few millimetres per layer, so crossings don't z-fight); the
+## ground plane carries whoever walks on it, so there is no curb to trip over.
 func _flat(node_name: String, x0: float, z0: float, x1: float, z1: float, thickness: float, color: Color) -> void:
-	var lo := Vector3(minf(x0, x1), 0, minf(z0, z1))
-	var hi := Vector3(maxf(x0, x1), thickness, maxf(z0, z1))
-	_box_between(node_name, lo, hi, _plain(color), true)
+	var top := thickness * 0.3
+	var lo := Vector3(minf(x0, x1), top - thickness, minf(z0, z1))
+	var hi := Vector3(maxf(x0, x1), top, maxf(z0, z1))
+	_box_between(node_name, lo, hi, _plain(color), false)
 	_blocked.append(Rect2(lo.x, lo.z, hi.x - lo.x, hi.z - lo.z))
 
 

@@ -16,8 +16,8 @@ const SAFE_RESPAWN_DISTANCE := 35.0
 
 ## Walkable graph (x, z) over roads and paths; see district.gd for the layout.
 const NODES: Array[Vector2] = [
-	Vector2(-75, 17), Vector2(-50.5, 17), Vector2(-31, 17), Vector2(-10, 17), Vector2(6, 17), # 0-4 main street
-	Vector2(25, 17), Vector2(47, 17), Vector2(58, 17), Vector2(75, 17), # 5-8
+	Vector2(-62, 24), Vector2(-50.5, 24), Vector2(-31, 24), Vector2(-10, 24), Vector2(6, 24), # 0-4 south edge
+	Vector2(25, 24), Vector2(47, 24), Vector2(58, 24), Vector2(66, 24), # 5-8 (along the parking lot)
 	Vector2(-31, 22.5), Vector2(-12.5, 46.3), Vector2(-9.7, 46.3), Vector2(-9.7, 31.65), # 9-12 diagonal, tower C
 	Vector2(19.7, 31.65), Vector2(47, 31.65), Vector2(58, 31.65), Vector2(-24, 31.65), # 13-16 walk behind parking
 	Vector2(19.7, 48.5), Vector2(47, 49.5), # 17-18 tower B / A spurs
@@ -40,7 +40,7 @@ const EDGES := [
 	[26, 41], [41, 37], [37, 42], [42, 40], [40, 21],
 	[41, 44], [44, 45], [27, 44], [44, 46], [46, 22], [28, 45], [45, 47], [47, 23], [46, 47], [46, 48],
 ]
-## Nodes close to the start room; bots never (re)spawn there.
+## Nodes next to the busiest player spawn points (see player_controller.gd); bots never (re)spawn there.
 const NO_SPAWN := [3, 4, 5]
 
 var bots: Array = []
