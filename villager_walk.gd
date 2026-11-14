@@ -10,6 +10,8 @@ const PUPPET_SNAP_DISTANCE := 5.0
 const HIT_GRACE := 1.5
 const STUCK_TIME := 2.5
 
+## Villagers only carry their pistols around; turn this on to let them fire at players again.
+@export var shoots_back := false
 @export var firing_range := 26.0
 @export var fire_interval := 2.8
 @export var respawn_delay := 6.0
@@ -71,7 +73,8 @@ func _physics_process(delta: float) -> void:
 	super._physics_process(delta)
 	_wander(delta)
 	move_and_slide()
-	_update_attack(delta)
+	if shoots_back:
+		_update_attack(delta)
 
 
 # ------------------------------------------------------------ simulation ----

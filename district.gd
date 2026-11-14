@@ -46,10 +46,19 @@ const GLASS := Color(0.32, 0.4, 0.46)
 const DOOR := Color(0.28, 0.2, 0.15)
 const ROOF := Color(0.55, 0.55, 0.54)
 
+## Car models built by blender/scripts/build_vehicles.py: [path, share, collision size].
+const CAR_MODELS := [
+	["res://assets/vehicles/car_octavia_combi.glb", 0.3, Vector3(1.81, 1.5, 4.69)],
+	["res://assets/vehicles/car_fabia.glb", 0.24, Vector3(1.73, 1.47, 4.0)],
+	["res://assets/vehicles/car_suv.glb", 0.2, Vector3(1.86, 1.65, 4.48)],
+	["res://assets/vehicles/car_octavia.glb", 0.16, Vector3(1.81, 1.46, 4.69)],
+	["res://assets/vehicles/car_mpv.glb", 0.1, Vector3(1.81, 1.62, 4.4)],
+]
+## Paint as seen on the street: mostly silver, white, greys and black, some blues and reds.
 const CAR_COLORS := [
-	Color(0.75, 0.1, 0.1), Color(0.92, 0.92, 0.9), Color(0.12, 0.13, 0.15),
-	Color(0.55, 0.57, 0.6), Color(0.15, 0.27, 0.55), Color(0.62, 0.64, 0.66),
-	Color(0.2, 0.42, 0.3), Color(0.35, 0.36, 0.4), Color(0.1, 0.3, 0.75),
+	[Color(0.66, 0.68, 0.7), 0.2], [Color(0.93, 0.93, 0.92), 0.18], [Color(0.36, 0.37, 0.4), 0.16],
+	[Color(0.06, 0.06, 0.07), 0.13], [Color(0.12, 0.2, 0.42), 0.09], [Color(0.25, 0.42, 0.7), 0.07],
+	[Color(0.62, 0.07, 0.07), 0.08], [Color(0.2, 0.36, 0.26), 0.04], [Color(0.52, 0.47, 0.4), 0.05],
 ]
 ## Loggia railings seen on the blocks: mostly brown wood-look panels, some white,
 ## a few red, some glass.
@@ -685,38 +694,71 @@ func _part(parts: Dictionary, key: String, part_scale: Vector3, at: Vector3, col
 
 # ------------------------------------------------------------------- cars ----
 
+## One MultiMesh per car model; the per-instance colour repaints only the Paint surface.
 func _spawn_cars() -> void:
-	var body_mesh := BoxMesh.new()
-	body_mesh.size = Vector3(1.8, 0.7, 4.3)
-	body_mesh.material = _vertex_material()
-	var cabin_mesh := BoxMesh.new()
-	cabin_mesh.size = Vector3(1.58, 0.62, 2.2)
-	cabin_mesh.material = _vertex_material()
-	var chassis_mesh := BoxMesh.new()
-	chassis_mesh.size = Vector3(1.7, 0.35, 3.5)
-	chassis_mesh.material = _vertex_material()
-	var bodies: Array[Transform3D] = []
-	var cabins: Array[Transform3D] = []
-	var chassis: Array[Transform3D] = []
-	var body_colors: Array[Color] = []
-	var cabin_colors: Array[Color] = []
-	var chassis_colors: Array[Color] = []
-	var car_shape := BoxShape3D.new()
-	car_shape.size = Vector3(1.8, 1.6, 4.3)
+	var per_model: Array = []
+	for model in CAR_MODELS:
+		var transforms: Array[Transform3D] = []
+		var colors: Array[Color] = []
+		per_model.append([transforms, colors])
+	var shapes := {}
 	for spot in _car_spots:
-		bodies.append(spot * Transform3D(Basis(), Vector3(0, 0.62, 0)))
-		cabins.append(spot * Transform3D(Basis(), Vector3(0, 1.28, -0.15)))
-		chassis.append(spot * Transform3D(Basis(), Vector3(0, 0.2, 0)))
-		body_colors.append(CAR_COLORS[_rng.randi() % CAR_COLORS.size()])
-		cabin_colors.append(Color(0.3, 0.38, 0.45))
-		chassis_colors.append(Color(0.06, 0.06, 0.07))
+		var model := _weighted_pick(CAR_MODELS)
+		per_model[model][0].append(spot)
+		per_model[model][1].append(CAR_COLORS[_weighted_pick(CAR_COLORS)][0])
+		var size: Vector3 = CAR_MODELS[model][2]
+		if not shapes.has(model):
+			var shape := BoxShape3D.new()
+			shape.size = Vector3(size.x, size.y - 0.15, size.z - 0.1)
+			shapes[model] = shape
 		var shape_node := CollisionShape3D.new()
-		shape_node.shape = car_shape
-		shape_node.transform = spot * Transform3D(Basis(), Vector3(0, 0.8, 0))
+		shape_node.shape = shapes[model]
+		shape_node.transform = spot * Transform3D(Basis(), Vector3(0, size.y * 0.5 + 0.07, 0))
 		_collision.add_child(shape_node)
-	_add_multimesh("CarBodies", body_mesh, bodies, body_colors)
-	_add_multimesh("CarCabins", cabin_mesh, cabins, cabin_colors)
-	_add_multimesh("CarChassis", chassis_mesh, chassis, chassis_colors)
+	for model in CAR_MODELS.size():
+		if per_model[model][0].is_empty():
+			continue
+		var mesh := _car_mesh(CAR_MODELS[model][0])
+		if mesh != null:
+			_add_multimesh("Cars_" + str(CAR_MODELS[model][0]).get_file().get_basename(), mesh, per_model[model][0], per_model[model][1])
+
+
+func _weighted_pick(table: Array) -> int:
+	var roll := _rng.randf()
+	for index in table.size():
+		roll -= float(table[index][1])
+		if roll <= 0.0:
+			return index
+	return 0
+
+
+## The car's joined mesh from its .glb, with the "Paint" surface switched to an instance-coloured paint.
+func _car_mesh(path: String) -> Mesh:
+	var scene := load(path) as PackedScene
+	if scene == null:
+		push_warning("Missing car model %s" % path)
+		return null
+	var root := scene.instantiate()
+	var found := root.find_children("*", "MeshInstance3D", true, false)
+	var mesh: Mesh = null
+	if not found.is_empty():
+		mesh = ((found[0] as MeshInstance3D).mesh as Mesh).duplicate()
+	root.free()
+	if mesh == null:
+		return null
+	if not _materials.has("car_paint"):
+		var paint := StandardMaterial3D.new()
+		paint.albedo_color = Color.WHITE
+		paint.vertex_color_use_as_albedo = true
+		paint.vertex_color_is_srgb = true
+		paint.metallic = 0.45
+		paint.roughness = 0.28
+		_materials["car_paint"] = paint
+	for surface in mesh.get_surface_count():
+		var material := mesh.surface_get_material(surface)
+		if material != null and material.resource_name == "Paint" and mesh is ArrayMesh:
+			(mesh as ArrayMesh).surface_set_material(surface, _materials["car_paint"])
+	return mesh
 
 
 # ---------------------------------------------------------------- helpers ----
