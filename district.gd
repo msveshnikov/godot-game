@@ -1,6 +1,7 @@
 extends Node3D
 ## The panel estate around Na Skalkách 939, Neratovice, built 1:1 in metres from
-## the satellite map and Street View (~100 m around the home block).
+## the satellite map and Street View: detailed ~100 m round the home block, and
+## the surrounding streets, blocks, towers and houses out to ~200 m.
 ##
 ## Frame: the long blocks run along X (real heading 121.5°, so game -X points
 ## south-east along Na Skalkách and +Z points north-east, away from the street).
@@ -28,12 +29,24 @@ const BAYS_PER_SECTION := 3
 const TOWER_W := Vector2(-64.6, -37.8)
 const TOWER_S := Vector2(3.9, -38.5)
 const TOWER_SE := Vector2(66.2, -42.3)
+const TOWER_SS := Vector2(30.0, -78.0)
+const TOWER_NW := Vector2(-118.0, -62.0)
 const TOWER_SIZE := 19.0
-const TOWER_FLOORS := 12
+const TOWER_FLOORS := 16
 const ROAD_N := -18.75 # Na Skalkách centre line
 const ROAD_HALF := 2.75
 const BRANCH_U := 44.5 # Na Skalkách branch running south-west
 const ZA_JEDNOTOU_N := 63.5
+# Outer ring (~200 m).
+const BENESE_N := -128.0 # Dr. E. Beneše
+const WEST_ROAD_U := -100.0 # Na Skalkách bending south-west to Beneše
+const SE_ROAD_N := -56.0 # Na Skalkách south-east, between the towers and the slabs
+const EAST_ROAD_U := 168.0 # 28. října
+const TYLA_N := 118.0 # J. K. Tyla
+const LOMENA_U := 0.0
+const TRAVNI_U := 90.0
+const HALL_CENTRE := Vector2(88.0, 50.0) # white commercial hall with the walk-in supermarket
+const HALL_HALF := 20.0
 
 const ROAD_COLOR := Color(0.62, 0.62, 0.6) # concrete slab road
 const ASPHALT_COLOR := Color(0.27, 0.28, 0.3)
@@ -68,8 +81,10 @@ const RAILINGS := [
 ]
 
 var _materials := {}
-var _solid := SurfaceTool.new()
-var _glass := SurfaceTool.new()
+## Merged detail meshes, one per CHUNK x CHUNK m cell and kind, so culling and shadow
+## cascades only draw the cells they touch.
+const CHUNK := 48.0
+var _chunks := {} # "kind|cx|cz" -> SurfaceTool
 var _collision: StaticBody3D
 ## Footprints (game XZ) of everything solid or paved, used to keep scattered trees off them.
 var _blocked: Array[Rect2] = []
@@ -80,8 +95,6 @@ var _trees: Array = [] # [kind, Vector2 game xz, scale]
 
 func _ready() -> void:
 	_rng.seed = 939
-	_solid.begin(Mesh.PRIMITIVE_TRIANGLES)
-	_glass.begin(Mesh.PRIMITIVE_TRIANGLES)
 	_collision = StaticBody3D.new()
 	_collision.name = "DistrictCollision"
 	add_child(_collision)
@@ -102,6 +115,11 @@ func _ready() -> void:
 	_build_tower("TowerW", TOWER_W, Color(0.8, 0.46, 0.38), "")
 	_build_tower("TowerS", TOWER_S, Color(0.88, 0.83, 0.71), "PÁNSKÝ, DÁMSKÝ SALON")
 	_build_tower("TowerSE", TOWER_SE, Color(0.86, 0.62, 0.5), "KVĚTINÁŘSTVÍ KVĚTKA")
+	_build_tower("TowerSS", TOWER_SS, Color(0.62, 0.7, 0.82), "")
+	_build_tower("TowerNW", TOWER_NW, Color(0.72, 0.82, 0.32), "")
+	_build_outer_streets()
+	_build_outer_buildings()
+	_build_family_houses()
 	_build_garages()
 	_build_bins()
 	_build_other_buildings()
@@ -110,8 +128,9 @@ func _ready() -> void:
 	_build_parking()
 	_build_trees()
 
-	_commit(_solid, "DistrictDetail", _vertex_material())
-	_commit(_glass, "DistrictGlass", _glass_material())
+	for key in _chunks:
+		var kind := str(key).get_slice("|", 0)
+		_commit(_chunks[key], "Detail_" + str(key).replace("|", "_"), _glass_material() if kind == "glass" else _vertex_material())
 	_spawn_cars()
 
 
@@ -125,10 +144,10 @@ func _w(u: float, n: float, y := 0.0) -> Vector3:
 func _build_streets() -> void:
 	# Na Skalkách: concrete-slab lane in front of the home block, from the north-west
 	# bend to the junction where it turns south-west between the towers.
-	_ground("NaSkalkach", -112.0, ROAD_N - ROAD_HALF, BRANCH_U + ROAD_HALF, ROAD_N + ROAD_HALF, 0.02, ROAD_COLOR)
-	for u in range(-110, int(BRANCH_U), 6): # slab joints
+	_ground("NaSkalkach", WEST_ROAD_U - ROAD_HALF, ROAD_N - ROAD_HALF, BRANCH_U + ROAD_HALF, ROAD_N + ROAD_HALF, 0.02, ROAD_COLOR)
+	for u in range(int(WEST_ROAD_U) + 4, int(BRANCH_U), 6): # slab joints
 		_ground("Joint", u, ROAD_N - ROAD_HALF, u + 0.08, ROAD_N + ROAD_HALF, 0.022, ROAD_COLOR.darkened(0.25), false)
-	_ground("NaSkalkachSouth", BRANCH_U - ROAD_HALF, -104.0, BRANCH_U + ROAD_HALF, ROAD_N - ROAD_HALF, 0.02, ROAD_COLOR)
+	_ground("NaSkalkachSouth", BRANCH_U - ROAD_HALF, BENESE_N, BRANCH_U + ROAD_HALF, ROAD_N - ROAD_HALF, 0.02, ROAD_COLOR)
 	# Za Jednotou behind the middle block, asphalt, with a parking strip on the north side.
 	_ground("ZaJednotou", -75.0, ZA_JEDNOTOU_N - 2.75, 66.0, ZA_JEDNOTOU_N + 2.75, 0.02, ASPHALT_COLOR)
 	_ground("ZaJednotouParking", -60.0, ZA_JEDNOTOU_N + 2.75, 50.0, ZA_JEDNOTOU_N + 5.0, 0.025, PAVER_COLOR.darkened(0.1))
@@ -164,54 +183,57 @@ func _build_streets() -> void:
 	_ground("TowerWPath", -66.0, -28.3, -63.0, ROAD_N - ROAD_HALF, 0.045, PATH_COLOR)
 
 
-func _entrance_u(centre: Vector2, section: int) -> float:
-	var section_length := SLAB_LENGTH / SECTIONS
-	return centre.x - SLAB_LENGTH * 0.5 + section_length * (section + 0.5)
+func _entrance_u(centre: Vector2, section: int, length := SLAB_LENGTH, sections := SECTIONS) -> float:
+	return centre.x - length * 0.5 + length / sections * (section + 0.5)
 
 
 # ------------------------------------------------------------ panel slabs ----
 
-## Five-storey panel block: full-width loggias on the street (south-west) face,
-## split into bays by vertical fins, with the stair entrance in the middle bay of
-## every section; plain windowed back, painted ends, flat roof.
-func _build_slab_block(block_name: String, centre: Vector2, palette: Dictionary, is_home := false) -> void:
-	var u0 := centre.x - SLAB_LENGTH * 0.5
-	var u1 := centre.x + SLAB_LENGTH * 0.5
-	var front := centre.y - SLAB_DEPTH * 0.5 # fin / slab line
-	var wall_n := front + LOGGIA_DEPTH # recessed wall behind the loggias
-	var back := centre.y + SLAB_DEPTH * 0.5
-	var top := PLINTH + 5 * FLOOR
-	var bays := SECTIONS * BAYS_PER_SECTION
-	var bay := SLAB_LENGTH / bays
+## Panel block: full-width loggias on one long face, split into bays by vertical
+## fins, with the stair entrance in the middle bay of every section; plain
+## windowed back, painted ends, flat roof. Loggias face -n (south-west) unless
+## `flip`, then +n. `length` and `floors` size it; sections are ~18 m.
+func _build_slab_block(block_name: String, centre: Vector2, palette: Dictionary, is_home := false,
+		length := SLAB_LENGTH, floors := 5, flip := false) -> void:
+	var s := -1.0 if flip else 1.0 # +1: loggia face towards -n
+	var sections := maxi(1, roundi(length / 17.9))
+	var u0 := centre.x - length * 0.5
+	var u1 := centre.x + length * 0.5
+	var front := centre.y - s * SLAB_DEPTH * 0.5 # fin / slab line
+	var wall_n := front + s * LOGGIA_DEPTH # recessed wall behind the loggias
+	var back := centre.y + s * SLAB_DEPTH * 0.5
+	var top := PLINTH + floors * FLOOR
+	var bays := sections * BAYS_PER_SECTION
+	var bay := length / bays
+	var white := Color(0.93, 0.93, 0.9)
 
 	# Main volume (collides) with a windowed back, painted ends and a loggia wall.
 	_textured_box(block_name, u0, wall_n, u1, back, 0.0, top, _facade(palette["back"], "back"))
 	_collider_between(_w(u1, wall_n), _w(u0, back, top))
-	# Blocks the loggia zone too, so nobody walks into the recess.
-	_collider_between(_w(u1, front, 0.0), _w(u0, wall_n, PLINTH + FLOOR))
-	_textured_box(block_name + "LoggiaWall", u0 + 0.05, wall_n - 0.04, u1 - 0.05, wall_n, PLINTH, top, _facade(palette["wall"], "loggia"))
+	_collider_between(_w(u1, front, 0.0), _w(u0, wall_n, PLINTH + FLOOR)) # keep out of the loggia recess
+	_textured_box(block_name + "LoggiaWall", u0 + 0.05, wall_n - s * 0.04, u1 - 0.05, wall_n, PLINTH, top, _facade(palette["wall"], "loggia"))
 	_box_un(u0 - 0.06, front, u0, back, 0.0, top + 0.5, palette["end"])
 	_box_un(u1, front, u1 + 0.06, back, 0.0, top + 0.5, palette["end"])
 	_blocked_un(u0, front, u1, back)
 
-	# Stairwell windows up the back of every section.
-	for section in SECTIONS:
-		var eu := _entrance_u(centre, section)
-		_glass_un(eu - 0.6, back, eu + 0.6, back + 0.04, PLINTH + 1.4, top - 0.6)
-		_box_un(eu - 1.4, back, eu + 1.4, back + 0.9, PLINTH + 2.6, PLINTH + 2.75, ROOF) # back door canopy
-		_box_un(eu - 0.8, back, eu + 0.8, back + 0.05, 0.0, PLINTH + 2.2, DOOR)
+	# Stairwell windows, back doors and canopies on the back of every section.
+	for section in sections:
+		var eu := _entrance_u(centre, section, length, sections)
+		_glass_un(eu - 0.6, back, eu + 0.6, back + s * 0.04, PLINTH + 1.4, top - 0.6)
+		_box_un(eu - 1.4, back, eu + 1.4, back + s * 0.9, PLINTH + 2.6, PLINTH + 2.75, ROOF)
+		_box_un(eu - 0.8, back, eu + 0.8, back + s * 0.05, 0.0, PLINTH + 2.2, DOOR)
 
 	# Roof: parapet ring, a few vents and lift rooms.
-	_box_un(u0 - 0.1, front - 0.1, u1 + 0.1, back + 0.1, top, top + 0.15, ROOF)
-	_box_un(u0 - 0.1, front - 0.1, u1 + 0.1, front + 0.25, top, top + 0.55, palette["fin"].darkened(0.1))
-	_box_un(u0 - 0.1, back - 0.25, u1 + 0.1, back + 0.1, top, top + 0.55, palette["back"].darkened(0.2))
-	for section in SECTIONS:
-		var eu := _entrance_u(centre, section)
-		_box_un(eu - 1.3, centre.y + 1.0, eu + 1.3, centre.y + 3.6, top, top + 1.8, palette["back"].darkened(0.08))
-		_box_un(eu + 4.0, centre.y - 2.0, eu + 4.6, centre.y - 1.4, top, top + 0.9, ROOF.darkened(0.2))
+	_box_un(u0 - 0.1, front - s * 0.1, u1 + 0.1, back + s * 0.1, top, top + 0.15, ROOF)
+	_box_un(u0 - 0.1, front - s * 0.1, u1 + 0.1, front + s * 0.25, top, top + 0.55, palette["fin"].darkened(0.1))
+	_box_un(u0 - 0.1, back - s * 0.25, u1 + 0.1, back + s * 0.1, top, top + 0.55, palette["back"].darkened(0.2))
+	for section in sections:
+		var eu := _entrance_u(centre, section, length, sections)
+		_box_un(eu - 1.3, centre.y + s * 1.0, eu + 1.3, centre.y + s * 3.6, top, top + 1.8, palette["back"].darkened(0.08))
+		_box_un(eu + 4.0, centre.y - s * 2.0, eu + 4.6, centre.y - s * 1.4, top, top + 0.9, ROOF.darkened(0.2))
 
 	# Plinth band along the front.
-	_box_un(u0, front - 0.02, u1, wall_n, 0.0, PLINTH, palette["plinth"])
+	_box_un(u0, front - s * 0.02, u1, wall_n, 0.0, PLINTH, palette["plinth"])
 
 	# Fins between bays, full height.
 	for index in bays + 1:
@@ -223,40 +245,38 @@ func _build_slab_block(block_name: String, centre: Vector2, palette: Dictionary,
 		var bu0 := u0 + index * bay + 0.16
 		var bu1 := u0 + (index + 1) * bay - 0.16
 		var is_entrance := index % BAYS_PER_SECTION == 1
-		for floor_index in 5:
+		for floor_index in floors:
 			var y := PLINTH + floor_index * FLOOR
 			if floor_index > 0 or not is_entrance:
-				_box_un(bu0, front, bu1, wall_n, y - 0.2, y, Color(0.93, 0.93, 0.9))
+				_box_un(bu0, front, bu1, wall_n, y - 0.2, y, white)
 			if floor_index == 0 and is_entrance:
 				continue
 			var railing_index := _pick_railing()
 			var railing: Color = RAILINGS[railing_index][0]
 			if railing_index == RAILINGS.size() - 1:
-				# Glass railing: thin frame plus a glass pane.
-				_glass_un(bu0, front + 0.02, bu1, front + 0.06, y, y + 1.05)
-				_box_un(bu0, front, bu1, front + 0.08, y + 1.0, y + 1.08, Color(0.85, 0.85, 0.82))
+				_glass_un(bu0, front + s * 0.02, bu1, front + s * 0.06, y, y + 1.05)
+				_box_un(bu0, front, bu1, front + s * 0.08, y + 1.0, y + 1.08, Color(0.85, 0.85, 0.82))
 			else:
-				_box_un(bu0, front, bu1, front + 0.08, y, y + 1.05, railing)
+				_box_un(bu0, front, bu1, front + s * 0.08, y, y + 1.05, railing)
 			if _rng.randf() < 0.42:
-				_glass_un(bu0, front + 0.03, bu1, front + 0.06, y + 1.08, y + FLOOR - 0.25)
+				_glass_un(bu0, front + s * 0.03, bu1, front + s * 0.06, y + 1.08, y + FLOOR - 0.25)
 				for mullion in 3:
 					var mu := lerpf(bu0, bu1, (mullion + 1) / 4.0)
-					_box_un(mu - 0.03, front + 0.02, mu + 0.03, front + 0.07, y + 1.05, y + FLOOR - 0.25, Color(0.9, 0.9, 0.88))
-		# Top slab.
-		_box_un(bu0, front, bu1, wall_n, top - 0.05, top + 0.15, Color(0.93, 0.93, 0.9))
+					_box_un(mu - 0.03, front + s * 0.02, mu + 0.03, front + s * 0.07, y + 1.05, y + FLOOR - 0.25, Color(0.9, 0.9, 0.88))
+		_box_un(bu0, front, bu1, wall_n, top - 0.05, top + 0.15, white)
 
-	# Entrances: yellow vestibule wall in the middle bay of each section.
-	for section in SECTIONS:
-		var eu := _entrance_u(centre, section)
+	# Entrances: coloured vestibule wall in the middle bay of each section.
+	for section in sections:
+		var eu := _entrance_u(centre, section, length, sections)
 		var half := bay * 0.5 - 0.16
-		_box_un(eu - half, front + 0.1, eu + half, wall_n, 0.0, PLINTH + FLOOR - 0.2, palette["entrance"])
-		_box_un(eu - 0.75, front + 0.05, eu + 0.75, front + 0.1, PLINTH, PLINTH + 2.15, DOOR)
-		_glass_un(eu - 0.62, front + 0.03, eu + 0.62, front + 0.06, PLINTH + 0.25, PLINTH + 1.95)
-		_box_un(eu - 1.35, front + 0.04, eu - 0.95, front + 0.1, PLINTH + 1.8, PLINTH + 2.2, Color(0.85, 0.82, 0.7)) # bell plate
-		_glass_un(eu + 1.0, front + 0.05, eu + 1.6, front + 0.08, PLINTH + 1.6, PLINTH + 2.2)
-		_glass_un(eu - 1.9, front + 0.05, eu - 1.3, front + 0.08, PLINTH + 1.6, PLINTH + 2.2)
-		_box_un(eu - 1.2, front - 1.2, eu + 1.2, front, 0.0, 0.18, CONCRETE) # step
-		_box_un(eu - 1.2, front - 0.6, eu + 1.2, front, 0.18, PLINTH, CONCRETE)
+		_box_un(eu - half, front + s * 0.1, eu + half, wall_n, 0.0, PLINTH + FLOOR - 0.2, palette["entrance"])
+		_box_un(eu - 0.75, front + s * 0.05, eu + 0.75, front + s * 0.1, PLINTH, PLINTH + 2.15, DOOR)
+		_glass_un(eu - 0.62, front + s * 0.03, eu + 0.62, front + s * 0.06, PLINTH + 0.25, PLINTH + 1.95)
+		_box_un(eu - 1.35, front + s * 0.04, eu - 0.95, front + s * 0.1, PLINTH + 1.8, PLINTH + 2.2, Color(0.85, 0.82, 0.7))
+		_glass_un(eu + 1.0, front + s * 0.05, eu + 1.6, front + s * 0.08, PLINTH + 1.6, PLINTH + 2.2)
+		_glass_un(eu - 1.9, front + s * 0.05, eu - 1.3, front + s * 0.08, PLINTH + 1.6, PLINTH + 2.2)
+		_box_un(eu - 1.2, front - s * 1.2, eu + 1.2, front, 0.0, 0.18, CONCRETE)
+		_box_un(eu - 1.2, front - s * 0.6, eu + 1.2, front, 0.18, PLINTH, CONCRETE)
 
 	if is_home:
 		var eu := _entrance_u(centre, 3) # Na Skalkách 939
@@ -414,17 +434,7 @@ func _bin(u: float, n: float, color: Color, large: bool) -> void:
 # --------------------------------------------------------- other places ----
 
 func _build_other_buildings() -> void:
-	# Big white commercial building east of the blocks (AlzaBox, Restaurace Skleník).
-	var c := Vector2(88.0, 50.0)
-	_textured_box("CommercialHall", c.x - 20.0, c.y - 20.0, c.x + 20.0, c.y + 20.0, 0.0, 7.5, _facade(Color(0.96, 0.96, 0.95), "shop"))
-	_collider_between(_w(c.x + 20.0, c.y - 20.0), _w(c.x - 20.0, c.y + 20.0, 7.5))
-	_blocked_un(c.x - 20.0, c.y - 20.0, c.x + 20.0, c.y + 20.0)
-	_box_un(c.x - 20.3, c.y - 20.3, c.x + 20.3, c.y + 20.3, 7.5, 7.9, Color(0.85, 0.85, 0.84))
-	_glass_un(c.x - 20.06, c.y - 16.0, c.x - 20.0, c.y + 4.0, 0.3, 3.2)
-	_box_un(c.x - 22.0, c.y - 16.0, c.x - 20.0, c.y + 4.0, 3.3, 3.5, Color(0.2, 0.42, 0.26)) # canopy
-	_add_sign("RESTAURACE SKLENÍK", _w(c.x - 20.08, c.y - 6.0, 4.6), 90.0, Color(0.2, 0.5, 0.25), 0.012, 64)
-	_box_un(c.x - 20.6, c.y + 6.0, c.x - 20.0, c.y + 9.0, 0.0, 2.0, Color(0.36, 0.7, 0.18)) # AlzaBox locker
-	_add_sign("AlzaBox", _w(c.x - 20.62, c.y + 7.5, 2.25), 90.0, Color(0.36, 0.7, 0.18), 0.006, 48)
+	_build_supermarket()
 
 	# Low shop with a purple hipped roof south-west of the towers.
 	var p := Vector2(-36.0, -79.0)
@@ -580,12 +590,282 @@ func _build_parking() -> void:
 			_car_spots.append(_car_transform(BRANCH_U + 3.7, n, 0.0))
 	for cu in [-74.0, -68.5, -52.0]:
 		_car_spots.append(_car_transform(cu, -23.2, 90.0))
+	# Kerbside parking along both sides of Dr. E. Beneše, clear of the junctions.
+	for side in [-1.0, 1.0]:
+		u = -195.0
+		while u < EAST_ROAD_U - 10.0:
+			var near_junction := absf(u - WEST_ROAD_U) < 6.0 or absf(u - BRANCH_U) < 6.0
+			if not near_junction and _rng.randf() < 0.55:
+				_car_spots.append(_car_transform(u, BENESE_N + side * 2.4, 90.0))
+			u += 5.4
 
 
 func _car_transform(u: float, n: float, yaw_degrees: float) -> Transform3D:
 	var jitter := Vector3(_rng.randf_range(-0.2, 0.2), 0.0, _rng.randf_range(-0.12, 0.12))
 	var flip := 180.0 if _rng.randf() < 0.5 else 0.0
 	return Transform3D(Basis(Vector3.UP, deg_to_rad(yaw_degrees + flip + _rng.randf_range(-2.0, 2.0))), _w(u, n) + jitter)
+
+
+# ------------------------------------------------------------- outer ring ----
+
+func _build_outer_streets() -> void:
+	# Na Skalkách turning south-west at its north-west end, down to Dr. E. Beneše.
+	_ground("NaSkalkachWest", WEST_ROAD_U - ROAD_HALF, BENESE_N, WEST_ROAD_U + ROAD_HALF, ROAD_N + ROAD_HALF, 0.021, ROAD_COLOR)
+	# Dr. E. Beneše: the wide asphalt street south-west of the towers, sidewalks on both sides.
+	_ground("Benese", -205.0, BENESE_N - 3.5, EAST_ROAD_U + 4.0, BENESE_N + 3.5, 0.02, ASPHALT_COLOR)
+	_ground("BeneseWalkN", -205.0, BENESE_N + 3.5, EAST_ROAD_U - 4.0, BENESE_N + 5.5, 0.035, PAVER_COLOR)
+	_ground("BeneseWalkS", -205.0, BENESE_N - 5.5, EAST_ROAD_U - 4.0, BENESE_N - 3.5, 0.035, PAVER_COLOR)
+	for u in range(-200, int(EAST_ROAD_U) - 4, 8): # centre line dashes
+		_ground("BeneseLine", u, BENESE_N - 0.07, u + 3.0, BENESE_N + 0.07, 0.022, LINE_COLOR, false)
+	# Na Skalkách south-east, from the branch past the slabs to 28. října.
+	_ground("NaSkalkachSE", BRANCH_U + ROAD_HALF, SE_ROAD_N - ROAD_HALF, EAST_ROAD_U - 4.0, SE_ROAD_N + ROAD_HALF, 0.021, ROAD_COLOR)
+	# 28. října along the east edge.
+	_ground("Rijna28", EAST_ROAD_U - 4.0, -205.0, EAST_ROAD_U + 4.0, 205.0, 0.023, ASPHALT_COLOR)
+	_ground("Rijna28Walk", EAST_ROAD_U - 6.0, -205.0, EAST_ROAD_U - 4.0, 205.0, 0.036, PAVER_COLOR)
+	for n in range(-200, 200, 8):
+		_ground("RijnaLine", EAST_ROAD_U - 0.07, n, EAST_ROAD_U + 0.07, n + 3.0, 0.025, LINE_COLOR, false)
+	# Za Jednotou on east to 28. října and west towards Alšova.
+	_ground("ZaJednotouEast", 66.0, ZA_JEDNOTOU_N - 2.75, EAST_ROAD_U - 4.0, ZA_JEDNOTOU_N + 2.75, 0.02, ASPHALT_COLOR)
+	_ground("ZaJednotouWest", -175.0, ZA_JEDNOTOU_N - 2.75, -75.0, ZA_JEDNOTOU_N + 2.75, 0.02, ASPHALT_COLOR)
+	# The family-house streets north of the blocks: J. K. Tyla, Lomená, Travní.
+	_ground("JKTyla", -70.0, TYLA_N - 2.5, EAST_ROAD_U - 4.0, TYLA_N + 2.5, 0.02, ASPHALT_COLOR)
+	_ground("Lomena", LOMENA_U - 2.5, TYLA_N + 2.5, LOMENA_U + 2.5, 205.0, 0.022, ASPHALT_COLOR)
+	_ground("Travni", TRAVNI_U - 2.5, TYLA_N + 2.5, TRAVNI_U + 2.5, 205.0, 0.022, ASPHALT_COLOR)
+	_ground("PathNWToTyla", -66.0, ZA_JEDNOTOU_N + 2.75, -63.8, TYLA_N - 2.5, 0.045, PATH_COLOR)
+	_ground("PathSEToTyla", 55.0, ZA_JEDNOTOU_N + 2.75, 57.0, TYLA_N - 2.5, 0.045, PATH_COLOR)
+	# Big car park between tower W's corner and Beneše.
+	_ground("BeneseParking", -88.0, -112.0, -6.0, -92.0, 0.03, ASPHALT_COLOR.lightened(0.05))
+	for row_n in [-108.0, -96.0]:
+		var u := -85.0
+		while u < -9.0:
+			_ground("ParkingLine", u - 1.35, row_n - 2.4, u - 1.23, row_n + 2.4, 0.035, LINE_COLOR, false)
+			if _rng.randf() < 0.7:
+				_car_spots.append(_car_transform(u, row_n, 0.0))
+			u += 2.7
+	_ground("ParkingAccess", WEST_ROAD_U + ROAD_HALF, -104.0, -88.0, -100.0, 0.03, ASPHALT_COLOR.lightened(0.05))
+
+
+func _build_outer_buildings() -> void:
+	# Two long seven-storey blocks across Beneše, loggias towards the street.
+	var benese_palette := {
+		"wall": Color(0.92, 0.9, 0.84), "fin": Color(0.55, 0.62, 0.72), "entrance": Color(0.45, 0.58, 0.75),
+		"plinth": Color(0.45, 0.47, 0.5), "end": Color(0.7, 0.76, 0.84), "back": Color(0.9, 0.9, 0.86),
+	}
+	_build_slab_block("BeneseBlockW", Vector2(-60.0, -155.0), benese_palette, false, 78.0, 7, true)
+	_build_slab_block("BeneseBlockE", Vector2(27.0, -155.0), benese_palette, false, 82.0, 7, true)
+	# Two five-storey slabs either side of Na Skalkách south-east.
+	var se_palette := {
+		"wall": Color(0.95, 0.93, 0.88), "fin": Color(0.78, 0.36, 0.3), "entrance": Color(0.85, 0.42, 0.32),
+		"plinth": Color(0.5, 0.32, 0.26), "end": Color(0.86, 0.5, 0.42), "back": Color(0.94, 0.92, 0.88),
+	}
+	_build_slab_block("SkalkachSlabN", Vector2(122.0, -26.0), se_palette, false, 52.0, 5)
+	_build_slab_block("SkalkachSlabS", Vector2(121.0, -76.0), se_palette, false, 52.0, 5, true)
+	# Alšova block to the north-west.
+	_build_slab_block("AlsovaBlock", Vector2(-134.0, 84.0), {
+		"wall": Color(0.92, 0.9, 0.82), "fin": Color(0.6, 0.66, 0.5), "entrance": Color(0.62, 0.7, 0.45),
+		"plinth": Color(0.42, 0.45, 0.38), "end": Color(0.7, 0.74, 0.58), "back": Color(0.9, 0.9, 0.84),
+	}, false, 45.0, 4)
+
+	# Red-roofed three-storey building east of the playground.
+	_gabled("RedRoofHall", Vector2(126.0, 10.0), Vector2(44.0, 15.0), 3, Color(0.95, 0.92, 0.84), Color(0.72, 0.2, 0.15), true)
+	# Poliklinika with its solar roof, and the ambulance station beside it.
+	var pk := Vector2(-140.0, -17.0)
+	_textured_box("Poliklinika", pk.x - 22.0, pk.y - 14.0, pk.x + 22.0, pk.y + 14.0, 0.0, 10.4, _facade(Color(0.93, 0.93, 0.9), "back"))
+	_collider_between(_w(pk.x + 22.0, pk.y - 14.0), _w(pk.x - 22.0, pk.y + 14.0, 10.4))
+	_blocked_un(pk.x - 22.0, pk.y - 14.0, pk.x + 22.0, pk.y + 14.0)
+	_box_un(pk.x - 22.2, pk.y - 14.2, pk.x + 22.2, pk.y + 14.2, 10.4, 10.7, ROOF)
+	for row in 5:
+		_glass_un(pk.x - 18.0, pk.y - 10.0 + row * 4.5, pk.x + 18.0, pk.y - 7.5 + row * 4.5, 10.7, 11.0)
+	_add_sign("POLIKLINIKA", _w(pk.x, pk.y + 14.06, 8.9), 0.0, Color(0.85, 0.12, 0.15), 0.014, 64)
+	var zs := Vector2(-153.0, -54.0)
+	_textured_box("Zachranka", zs.x - 12.5, zs.y - 7.0, zs.x + 12.5, zs.y + 7.0, 0.0, 4.2, _facade(Color(0.95, 0.95, 0.94), "shop"))
+	_collider_between(_w(zs.x + 12.5, zs.y - 7.0), _w(zs.x - 12.5, zs.y + 7.0, 4.2))
+	_blocked_un(zs.x - 12.5, zs.y - 7.0, zs.x + 12.5, zs.y + 7.0)
+	_box_un(zs.x - 12.5, zs.y + 7.0, zs.x + 12.5, zs.y + 7.15, 3.2, 3.6, Color(0.85, 0.12, 0.15))
+	_add_sign("ZÁCHRANNÁ SLUŽBA", _w(zs.x, zs.y + 7.2, 3.9), 0.0, Color(1, 1, 1), 0.008, 48)
+
+	# Pharmacy, drugstore and the small white shop block along J. K. Tyla / 28. října.
+	_shop_box("Lekarna", Vector2(104.0, 108.0), Vector2(18.0, 12.0), 4.0, "LÉKÁRNA SKALKA", Color(0.1, 0.6, 0.3), -1.0)
+	_shop_box("Drogerie", Vector2(136.0, 97.0), Vector2(40.0, 14.0), 5.0, "DROGERIE", Color(0.85, 0.1, 0.25), -1.0)
+	_shop_box("ShopBlock", Vector2(126.0, 78.0), Vector2(20.0, 16.0), 6.5, "RESTAURACE", Color(0.2, 0.5, 0.25), 1.0)
+
+
+## Low commercial box with a glass shopfront and a sign on its -n (or +n) face.
+func _shop_box(box_name: String, c: Vector2, size: Vector2, height: float, sign_text: String, sign_color: Color, face: float) -> void:
+	var hx := size.x * 0.5
+	var hn := size.y * 0.5
+	_textured_box(box_name, c.x - hx, c.y - hn, c.x + hx, c.y + hn, 0.0, height, _facade(Color(0.95, 0.95, 0.93), "shop"))
+	_collider_between(_w(c.x + hx, c.y - hn), _w(c.x - hx, c.y + hn, height))
+	_blocked_un(c.x - hx, c.y - hn, c.x + hx, c.y + hn)
+	_box_un(c.x - hx - 0.2, c.y - hn - 0.2, c.x + hx + 0.2, c.y + hn + 0.2, height, height + 0.35, ROOF)
+	var fn := c.y + face * hn
+	_box_un(c.x - hx * 0.8, fn, c.x + hx * 0.8, fn + face * 1.4, 3.0, 3.18, sign_color)
+	_add_sign(sign_text, _w(c.x, fn + face * 0.06, 3.7), 180.0 if face < 0.0 else 0.0, sign_color, 0.01, 64)
+
+
+## Gabled building: walls with a facade texture and a pitched roof merged into the detail mesh.
+func _gabled(house_name: String, c: Vector2, size: Vector2, floors: int, wall: Color, roof: Color, ridge_along_u: bool) -> void:
+	var height := floors * FLOOR + 0.4
+	var hx := size.x * 0.5
+	var hn := size.y * 0.5
+	_textured_box(house_name, c.x - hx, c.y - hn, c.x + hx, c.y + hn, 0.0, height, _facade(wall, "back"))
+	_collider_between(_w(c.x + hx, c.y - hn), _w(c.x - hx, c.y + hn, height))
+	_blocked_un(c.x - hx, c.y - hn, c.x + hx, c.y + hn)
+	var span := size.y if ridge_along_u else size.x
+	_prism_un(c, Vector2(size.x + 0.8, size.y + 0.8), height, minf(span * 0.45, 5.5), roof, ridge_along_u)
+
+
+## Pitched roof (two slopes and two gables) over a (u, n) rectangle, ridge along u or n.
+func _prism_un(c: Vector2, size: Vector2, base: float, rise: float, color: Color, ridge_along_u: bool) -> void:
+	var hx := size.x * 0.5
+	var hn := size.y * 0.5
+	var st := _tool("solid", _w(c.x, c.y))
+	var corners := [_w(c.x - hx, c.y - hn, base), _w(c.x + hx, c.y - hn, base), _w(c.x + hx, c.y + hn, base), _w(c.x - hx, c.y + hn, base)]
+	var r0: Vector3
+	var r1: Vector3
+	if ridge_along_u:
+		r0 = _w(c.x - hx, c.y, base + rise)
+		r1 = _w(c.x + hx, c.y, base + rise)
+		_quad(st, corners[0], corners[1], r1, r0, color)
+		_quad(st, corners[2], corners[3], r0, r1, color)
+		_tri(st, corners[3], corners[0], r0, color.darkened(0.15))
+		_tri(st, corners[1], corners[2], r1, color.darkened(0.15))
+	else:
+		r0 = _w(c.x, c.y - hn, base + rise)
+		r1 = _w(c.x, c.y + hn, base + rise)
+		_quad(st, corners[1], corners[2], r1, r0, color)
+		_quad(st, corners[3], corners[0], r0, r1, color)
+		_tri(st, corners[0], corners[1], r0, color.darkened(0.15))
+		_tri(st, corners[2], corners[3], r1, color.darkened(0.15))
+
+
+func _quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, color: Color) -> void:
+	_tri(st, a, b, c, color)
+	_tri(st, a, c, d, color)
+
+
+## Double-sided triangle, so the winding of hand-built roofs doesn't matter.
+func _tri(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, color: Color) -> void:
+	var normal := (b - a).cross(c - a).normalized()
+	if normal.y < 0.0:
+		normal = -normal
+	st.set_color(color)
+	st.set_normal(normal)
+	for p in [a, b, c, a, c, b]:
+		st.add_vertex(p)
+
+
+func _build_family_houses() -> void:
+	# Detached houses north of J. K. Tyla, either side of Lomená and Travní.
+	var walls := [Color(0.95, 0.92, 0.84), Color(0.96, 0.88, 0.7), Color(0.9, 0.9, 0.9), Color(0.92, 0.8, 0.7), Color(0.85, 0.9, 0.8)]
+	var roofs := [Color(0.72, 0.24, 0.16), Color(0.62, 0.2, 0.15), Color(0.8, 0.36, 0.2), Color(0.35, 0.3, 0.3), Color(0.42, 0.3, 0.26)]
+	for row_n in [130.0, 150.0, 172.0, 192.0]:
+		var u := -60.0
+		while u < EAST_ROAD_U - 14.0:
+			if absf(u - LOMENA_U) > 9.0 and absf(u - TRAVNI_U) > 9.0:
+				var size := Vector2(_rng.randf_range(8.5, 11.0), _rng.randf_range(8.0, 10.0))
+				var c := Vector2(u + _rng.randf_range(-1.0, 1.0), row_n + _rng.randf_range(-1.0, 1.0))
+				_gabled("FamilyHouse", c, size, 1 if _rng.randf() < 0.45 else 2,
+					walls[_rng.randi() % walls.size()], roofs[_rng.randi() % roofs.size()], _rng.randf() < 0.5)
+				# Fence along the street side and a car in some drives.
+				_box_un(c.x - 7.0, c.y - 6.6, c.x + 7.0, c.y - 6.5, 0.0, 1.1, Color(0.4, 0.35, 0.3))
+				if _rng.randf() < 0.45:
+					_car_spots.append(_car_transform(c.x + 7.5, c.y - 2.0, 0.0))
+			u += 15.0
+
+
+# ------------------------------------------------------------ supermarket ----
+
+## The white hall east of the blocks, open to walk into: sliding doors on the side
+## facing the blocks, aisles of shelves, fridges along the back, two checkouts.
+func _build_supermarket() -> void:
+	var c := HALL_CENTRE
+	var h := HALL_HALF
+	var height := 7.5
+	var ceiling := 4.6
+	var t := 0.3
+	var wall_mat := _facade(Color(0.96, 0.96, 0.95), "shop")
+	var door_n := c.y - 6.0 # doorway in the -u (north-west) wall, facing the home block
+	var door_half := 2.0
+	# Outer walls (collide) with a doorway gap.
+	var west := c.x - h
+	_textured_box("HallWallW1", west, c.y - h, west + t, door_n - door_half, 0.0, height, wall_mat)
+	_textured_box("HallWallW2", west, door_n + door_half, west + t, c.y + h, 0.0, height, wall_mat)
+	_box_un(west, door_n - door_half, west + t, door_n + door_half, 3.0, height, Color(0.96, 0.96, 0.95))
+	_textured_box("HallWallE", c.x + h - t, c.y - h, c.x + h, c.y + h, 0.0, height, wall_mat)
+	_textured_box("HallWallS", west, c.y - h, c.x + h, c.y - h + t, 0.0, height, wall_mat)
+	_textured_box("HallWallN", west, c.y + h - t, c.x + h, c.y + h, 0.0, height, wall_mat)
+	_collider_between(_w(west + t, c.y - h), _w(west, door_n - door_half, height))
+	_collider_between(_w(west + t, door_n + door_half), _w(west, c.y + h, height))
+	_collider_between(_w(c.x + h, c.y - h), _w(c.x + h - t, c.y + h, height))
+	_collider_between(_w(c.x + h, c.y - h), _w(west, c.y - h + t, height))
+	_collider_between(_w(c.x + h, c.y + h - t), _w(west, c.y + h, height))
+	_blocked_un(west, c.y - h, c.x + h, c.y + h)
+	# Roof, inside ceiling with light panels, tiled floor.
+	_box_un(west - 0.3, c.y - h - 0.3, c.x + h + 0.3, c.y + h + 0.3, height, height + 0.4, Color(0.85, 0.85, 0.84))
+	_box_un(west + t, c.y - h + t, c.x + h - t, c.y + h - t, ceiling, ceiling + 0.15, Color(0.93, 0.93, 0.92))
+	_box_un(west + t, c.y - h + t, c.x + h - t, c.y + h - t, 0.0, 0.06, Color(0.86, 0.82, 0.74))
+	for pu in range(int(west) + 5, int(c.x + h) - 2, 6):
+		for pn in range(int(c.y - h) + 4, int(c.y + h) - 2, 6):
+			_box_un(pu - 1.2, pn - 0.3, pu + 1.2, pn + 0.3, ceiling - 0.03, ceiling, Color(1.0, 1.0, 0.97))
+	# Shopfront: glass either side of the door, sliding doors pushed open, sign.
+	_glass_un(west - 0.05, c.y - 16.0, west, door_n - door_half - 0.1, 0.4, 3.0)
+	_glass_un(west - 0.05, door_n + door_half + 0.1, west, c.y + 4.0, 0.4, 3.0)
+	_glass_un(west - 0.12, door_n - door_half - 1.8, west - 0.08, door_n - door_half + 0.1, 0.0, 2.6)
+	_glass_un(west - 0.12, door_n + door_half - 0.1, west - 0.08, door_n + door_half + 1.8, 0.0, 2.6)
+	_box_un(west - 2.0, c.y - 16.0, west, c.y + 4.0, 3.3, 3.5, Color(0.85, 0.12, 0.15)) # canopy
+	_add_sign("POTRAVINY", _w(west - 0.08, door_n, 4.4), 90.0, Color(0.85, 0.12, 0.15), 0.016, 64)
+	_add_sign("RESTAURACE SKLENÍK", _w(west - 0.08, c.y + 12.0, 4.6), 90.0, Color(0.2, 0.5, 0.25), 0.01, 64)
+	_box_un(west - 0.6, c.y + 6.0, west, c.y + 9.0, 0.0, 2.0, Color(0.36, 0.7, 0.18)) # AlzaBox locker
+	_add_sign("AlzaBox", _w(west - 0.62, c.y + 7.5, 2.25), 90.0, Color(0.36, 0.7, 0.18), 0.006, 48)
+
+	# Two checkouts just inside the door.
+	for k in 2:
+		var cn := door_n - 7.0 + k * 4.5
+		_box_un(west + 4.0, cn - 0.45, west + 7.5, cn + 0.45, 0.0, 0.9, Color(0.25, 0.25, 0.28))
+		_box_un(west + 4.0, cn - 0.45, west + 7.5, cn + 0.45, 0.9, 0.94, Color(0.1, 0.1, 0.1)) # belt
+		_box_un(west + 7.6, cn - 0.3, west + 8.0, cn + 0.3, 0.9, 1.25, Color(0.85, 0.85, 0.85)) # till
+		_collider_between(_w(west + 7.5, cn - 0.45), _w(west + 4.0, cn + 0.45, 0.9))
+	# Aisles of shelves running along n, with goods in mixed colours.
+	var goods := [Color(0.85, 0.2, 0.15), Color(0.95, 0.8, 0.2), Color(0.2, 0.5, 0.85), Color(0.25, 0.6, 0.3),
+		Color(0.95, 0.95, 0.9), Color(0.6, 0.35, 0.2), Color(0.9, 0.5, 0.15), Color(0.55, 0.3, 0.6)]
+	for aisle in 5:
+		var au := west + 12.0 + aisle * 4.6
+		var n0 := c.y - h + 4.0
+		var n1 := c.y + h - 6.0
+		_box_un(au - 0.45, n0, au + 0.45, n1, 0.0, 1.9, Color(0.75, 0.76, 0.78))
+		_collider_between(_w(au + 0.45, n0), _w(au - 0.45, n1, 1.9))
+		for level in 4:
+			var y := 0.25 + level * 0.45
+			_box_un(au - 0.5, n0, au + 0.5, n1, y - 0.03, y, Color(0.6, 0.62, 0.64))
+			var pn := n0 + 0.2
+			while pn < n1 - 0.3:
+				var w := _rng.randf_range(0.25, 0.6)
+				var color: Color = goods[_rng.randi() % goods.size()]
+				for side in [-1.0, 1.0]:
+					_box_un(au + side * 0.5, pn, au + side * 0.18, pn + w - 0.04, y, y + _rng.randf_range(0.2, 0.36), color)
+				pn += w
+	# Fridges along the back wall.
+	var back_u := c.x + h - t
+	_box_un(back_u - 1.2, c.y - h + 2.0, back_u, c.y + h - 2.0, 0.0, 2.3, Color(0.92, 0.93, 0.95))
+	_glass_un(back_u - 1.26, c.y - h + 2.0, back_u - 1.2, c.y + h - 2.0, 0.3, 2.1)
+	_collider_between(_w(back_u, c.y - h + 2.0), _w(back_u - 1.2, c.y + h - 2.0, 2.3))
+	for fn in range(int(c.y - h) + 3, int(c.y + h) - 2, 1):
+		_box_un(back_u - 1.0, fn, back_u - 0.4, fn + 0.7, 0.4, 1.9, goods[_rng.randi() % goods.size()].lightened(0.3))
+	# Trolleys by the door.
+	for k in 3:
+		var tn := door_n + 3.0 + k * 0.7
+		_box_un(west + 1.2, tn, west + 2.2, tn + 0.55, 0.45, 1.0, Color(0.7, 0.72, 0.75))
+
+	# Lights inside, so it isn't a dark box.
+	for lu in [west + 8.0, c.x, c.x + 12.0]:
+		for ln in [c.y - 10.0, c.y + 10.0]:
+			var lamp := OmniLight3D.new()
+			lamp.position = _w(lu, ln, ceiling - 0.5)
+			lamp.omni_range = 15.0
+			lamp.light_energy = 2.4
+			lamp.light_color = Color(1.0, 0.98, 0.92)
+			add_child(lamp)
 
 
 # ------------------------------------------------------------------ trees ----
@@ -607,10 +887,10 @@ func _build_trees() -> void:
 	# Deciduous trees scattered over the lawns and the yards between the blocks.
 	var attempts := 0
 	var placed := 0
-	while placed < 120 and attempts < 5000:
+	while placed < 260 and attempts < 12000:
 		attempts += 1
-		var u := _rng.randf_range(-105.0, 105.0)
-		var n := _rng.randf_range(-95.0, 92.0)
+		var u := _rng.randf_range(-200.0, 160.0)
+		var n := _rng.randf_range(-195.0, 200.0)
 		var point := Vector2(_w(u, n).x, n)
 		if _is_blocked(point, 2.5):
 			continue
@@ -781,11 +1061,21 @@ func _wall_un(u0: float, n0: float, u1: float, n1: float, height: float, color: 
 
 ## Axis-aligned vertex-coloured box between (u, n, y) corners, merged into the detail mesh.
 func _box_un(u0: float, n0: float, u1: float, n1: float, y0: float, y1: float, color: Color) -> void:
-	_add_box(_solid, _w(u0, n0, y0), _w(u1, n1, y1), color)
+	_add_box(_tool("solid", _w((u0 + u1) * 0.5, (n0 + n1) * 0.5)), _w(u0, n0, y0), _w(u1, n1, y1), color)
 
 
 func _glass_un(u0: float, n0: float, u1: float, n1: float, y0: float, y1: float) -> void:
-	_add_box(_glass, _w(u0, n0, y0), _w(u1, n1, y1), GLASS)
+	_add_box(_tool("glass", _w((u0 + u1) * 0.5, (n0 + n1) * 0.5)), _w(u0, n0, y0), _w(u1, n1, y1), GLASS)
+
+
+## The SurfaceTool collecting `kind` ("solid" / "glass") geometry for the cell containing `at`.
+func _tool(kind: String, at: Vector3) -> SurfaceTool:
+	var key := "%s|%d|%d" % [kind, floori(at.x / CHUNK), floori(at.z / CHUNK)]
+	if not _chunks.has(key):
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		_chunks[key] = st
+	return _chunks[key]
 
 
 func _blocked_un(u0: float, n0: float, u1: float, n1: float) -> void:
@@ -879,7 +1169,23 @@ func _add_sign(text: String, at: Vector3, yaw: float, color: Color, pixel_size: 
 	add_child(label)
 
 
+## Instances split by CHUNK cell, so far-off cells are culled (and skipped by shadow cascades).
 func _add_multimesh(node_name: String, mesh: Mesh, transforms: Array[Transform3D], colors: Array[Color]) -> void:
+	var cells := {}
+	for index in transforms.size():
+		var origin := transforms[index].origin
+		var key := Vector2i(floori(origin.x / CHUNK), floori(origin.z / CHUNK))
+		if not cells.has(key):
+			var cell_transforms: Array[Transform3D] = []
+			var cell_colors: Array[Color] = []
+			cells[key] = [cell_transforms, cell_colors]
+		cells[key][0].append(transforms[index])
+		cells[key][1].append(colors[index])
+	for key in cells:
+		_add_multimesh_cell("%s_%d_%d" % [node_name, key.x, key.y], mesh, cells[key][0], cells[key][1])
+
+
+func _add_multimesh_cell(node_name: String, mesh: Mesh, transforms: Array[Transform3D], colors: Array[Color]) -> void:
 	var multimesh := MultiMesh.new()
 	multimesh.transform_format = MultiMesh.TRANSFORM_3D
 	multimesh.use_colors = true

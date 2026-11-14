@@ -3,6 +3,12 @@ extends CharacterBody3D
 const FOAM_PELLET_SCENE: PackedScene = preload("res://foam_pellet.tscn")
 const FOAM_FIRE_SOUND: AudioStream = preload("res://addons/cogito/Assets/Audio/Spray.ogg")
 const MOBILE_CONTROLS_SCRIPT = preload("res://mobile_controls.gd")
+const BAT_HIT_SOUND: AudioStream = preload("res://addons/cogito/Assets/Audio/Kenney/Impacts/impactPlank_medium_000.ogg")
+const BAT_RANGE := 2.6
+const BAT_HIT_DELAY := 0.24 # from the start of the swing to the moment the bat comes down
+const BAT_COOLDOWN := 0.62
+const WEAPONS := ["pistol", "bat", "none"]
+const WEAPON_NAMES := {"pistol": "Foam pistol", "bat": "Baseball bat", "none": "Hands"}
 const MAX_HEALTH := 100
 const PLAYER_PROJECTILE_DAMAGE := 25.0
 const RUN_FOOTSTEP_SOUNDS: Array[AudioStream] = [
@@ -37,6 +43,8 @@ const SPAWN_POINTS: Array[Vector2] = [
 @onready var hud: CanvasLayer = $HUD
 
 var has_gun := true
+## Held weapon: "pistol", "bat" or "none" (hands empty: people stop running away).
+var weapon := "pistol"
 var health := MAX_HEALTH
 var _can_fire := true
 var _shot_pending := false
@@ -48,6 +56,8 @@ var _footstep_sound: AudioStreamPlayer
 var _footstep_timer := 0.0
 var _mobile_controls: MobileControls
 var _health_label: Label
+var _weapon_label: Label
+var _bat_sound: AudioStreamPlayer
 var _start_screen: Control
 var _game_over_screen: Control
 var _name_edit: LineEdit
@@ -61,13 +71,18 @@ func _ready() -> void:
 		_mobile_controls = MOBILE_CONTROLS_SCRIPT.new()
 		add_child(_mobile_controls)
 		_mobile_controls.interact_pressed.connect(_interact)
-		_mobile_controls.fire_pressed.connect(_fire_foam_pellet)
+		_mobile_controls.fire_pressed.connect(_attack)
+		_mobile_controls.swap_pressed.connect(func() -> void: _cycle_weapon(1))
 		_mobile_controls.look_delta.connect(_apply_look_delta)
 	_fire_sound = AudioStreamPlayer.new()
 	_fire_sound.name = "FoamFireSound"
 	_fire_sound.stream = FOAM_FIRE_SOUND
 	_fire_sound.volume_db = -4.0
 	add_child(_fire_sound)
+	_bat_sound = AudioStreamPlayer.new()
+	_bat_sound.name = "BatHitSound"
+	_bat_sound.stream = BAT_HIT_SOUND
+	add_child(_bat_sound)
 	_footstep_sound = AudioStreamPlayer.new()
 	_footstep_sound.name = "RunFootsteps"
 	_footstep_sound.volume_db = -2.0
@@ -79,6 +94,24 @@ func _ready() -> void:
 ## True while this player is in the world and can be targeted (not on the start or game-over screen).
 func is_playing() -> bool:
 	return _game_started and not _game_over
+
+
+## People run away from a player holding a pistol or a bat.
+func is_armed() -> bool:
+	return weapon != "none"
+
+
+func set_weapon(value: String) -> void:
+	if not WEAPONS.has(value) or value == weapon:
+		return
+	weapon = value
+	_shot_pending = false
+	model.call("set_weapon", weapon)
+	_update_weapon_ui()
+
+
+func _cycle_weapon(step: int) -> void:
+	set_weapon(WEAPONS[(WEAPONS.find(weapon) + step + WEAPONS.size()) % WEAPONS.size()])
 
 
 func _is_touch_device() -> bool:
@@ -101,14 +134,25 @@ func _input(event: InputEvent) -> void:
 	if not _game_started or _game_over:
 		return
 
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_Q:
-		if has_gun:
-			_fire_foam_pellet()
-	elif _mobile_controls == null and event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
-			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-		if has_gun:
-			_fire_foam_pellet()
+	if event is InputEventKey and event.pressed and not event.echo:
+		match event.keycode:
+			KEY_Q:
+				_attack()
+			KEY_1:
+				set_weapon("pistol")
+			KEY_2:
+				set_weapon("bat")
+			KEY_3:
+				set_weapon("none")
+	elif _mobile_controls == null and event is InputEventMouseButton and event.pressed:
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+				Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+			_attack()
+		elif event.button_index == MOUSE_BUTTON_WHEEL_UP:
+			_cycle_weapon(-1)
+		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			_cycle_weapon(1)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -152,8 +196,56 @@ func _move_to_random_spawn() -> void:
 	camera_pivot.rotation.x = deg_to_rad(-4.6)
 
 
+## Fire the pistol or swing the bat, whichever is in hand.
+func _attack() -> void:
+	match weapon:
+		"pistol":
+			_fire_foam_pellet()
+		"bat":
+			_swing_bat()
+
+
+func _swing_bat() -> void:
+	if not is_playing() or not _can_fire:
+		return
+	_can_fire = false
+	model.call("swing")
+	var net_world := get_tree().current_scene.get_node_or_null("NetWorld")
+	if net_world != null:
+		net_world.call("broadcast_swing")
+	await get_tree().create_timer(BAT_HIT_DELAY).timeout
+	_bat_hit()
+	await get_tree().create_timer(BAT_COOLDOWN - BAT_HIT_DELAY).timeout
+	_can_fire = true
+
+
+## Knock down every villager within reach in front of the player.
+func _bat_hit() -> void:
+	if not is_playing():
+		return
+	var forward := -camera.global_basis.z
+	forward.y = 0.0
+	forward = forward.normalized()
+	var hit_any := false
+	for villager in get_tree().get_nodes_in_group("villagers"):
+		var body := villager as Node3D
+		if not body.call("can_be_hit"):
+			continue
+		var to_body := body.global_position - global_position
+		to_body.y = 0.0
+		if to_body.length() > BAT_RANGE:
+			continue
+		if to_body.length() > 0.4 and forward.dot(to_body.normalized()) < 0.45:
+			continue
+		body.call("receive_hit", "bat")
+		hit_any = true
+	if hit_any:
+		_bat_sound.pitch_scale = randf_range(0.9, 1.1)
+		_bat_sound.play()
+
+
 func _fire_foam_pellet() -> void:
-	if not _game_started or _game_over or not has_gun or not _can_fire:
+	if not _game_started or _game_over or weapon != "pistol" or not _can_fire:
 		return
 
 	_can_fire = false
@@ -249,9 +341,11 @@ func _setup_game_ui() -> void:
 	hud.process_mode = Node.PROCESS_MODE_ALWAYS
 	hud.layer = 20
 	_health_label = _make_hud_label("Health: %d / %d" % [MAX_HEALTH, MAX_HEALTH], 24.0, 58.0, 22)
+	_weapon_label = _make_hud_label("", 58.0, 90.0, 18)
+	_update_weapon_ui()
 	_start_screen = _make_game_screen(
 		"GACHA VILLAGE",
-		"Your foam pistol is loaded. Survive the villagers.\nPlay together: open the same game on another device.\n\nWASD move  |  Shift run  |  Space jump\nMouse look  |  E interact  |  Q / click fire\nUnlimited foam: keep firing.",
+		"Na Skalkách, Neratovice. The villagers carry pistols but won't shoot; they run when they see you armed.\nPlay together: open the same game on another device.\n\nWASD move  |  Shift run  |  Space jump  |  Mouse look\nQ / click: fire or swing  |  1 pistol  2 bat  3 hands (or mouse wheel)\nThe supermarket by the playground is open.",
 		"START GAME",
 		_start_game,
 		true
@@ -350,6 +444,11 @@ func _make_game_screen(title_text: String, message: String, button_text: String,
 	button.pressed.connect(action)
 	contents.add_child(button)
 	return overlay
+
+
+func _update_weapon_ui() -> void:
+	if _weapon_label != null:
+		_weapon_label.text = "%s   [1] pistol  [2] bat  [3] hands" % WEAPON_NAMES[weapon]
 
 
 func _update_health_ui() -> void:

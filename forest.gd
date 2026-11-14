@@ -1,6 +1,6 @@
 extends Node3D
 
-const TREE_COUNT := 480
+const TREE_COUNT := 650
 const MIN_TREE_SPACING := 4.5
 
 
@@ -16,10 +16,10 @@ func _ready() -> void:
 
 	while positions.size() < TREE_COUNT and attempts < TREE_COUNT * 40:
 		attempts += 1
-		var x := rng.randf_range(-165.0, 165.0)
-		var z := rng.randf_range(-165.0, 165.0)
-		# Keep the panel-block district (district.gd, ~100 m round the home block) clear.
-		if absf(x) < 120.0 and z > -110.0 and z < 98.0:
+		var x := rng.randf_range(-255.0, 255.0)
+		var z := rng.randf_range(-255.0, 255.0)
+		# Keep the district (district.gd, ~200 m round the home block) clear.
+		if absf(x) < 215.0 and absf(z) < 215.0:
 			continue
 
 		var candidate := Vector2(x, z)
@@ -90,4 +90,5 @@ func _add_tree_part(
 
 	var forest_part := MultiMeshInstance3D.new()
 	forest_part.multimesh = multimesh
+	forest_part.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF # far beyond the shadow range
 	add_child(forest_part)

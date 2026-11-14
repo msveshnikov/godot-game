@@ -63,8 +63,14 @@ func _process(delta: float) -> void:
 		"r": snappedf(player.rotation.y, 0.01),
 		"g": player.is_on_floor(),
 		"a": player.call("is_playing"),
+		"w": player.get("weapon"),
 		"n": Net.player_name,
 	})
+
+
+## Called by the local player when it swings the bat, so others see the swing.
+func broadcast_swing() -> void:
+	Net.send({"t": "sw"})
 
 
 ## Called by the local player whenever it fires, so others see the pellet.
@@ -84,6 +90,10 @@ func _on_message(from: int, data: Dictionary) -> void:
 				get_parent().add_child(remote)
 				_remotes[from] = remote
 			remote.apply_state(data)
+		"sw":
+			var swinger = _remotes.get(from)
+			if swinger != null:
+				swinger.show_swing()
 		"ps":
 			var shooter = _remotes.get(from)
 			if shooter == null:

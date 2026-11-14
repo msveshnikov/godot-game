@@ -3,6 +3,7 @@ class_name MobileControls
 
 signal interact_pressed
 signal fire_pressed
+signal swap_pressed
 signal look_delta(delta: Vector2)
 
 const STICK_RADIUS := 72.0
@@ -50,6 +51,8 @@ func _ready() -> void:
 	run_button.button_up.connect(func() -> void: run_pressed = false)
 	_fire_button = _make_button("FIRE")
 	_fire_button.pressed.connect(func() -> void: fire_pressed.emit())
+	var swap_button := _make_button("SWAP")
+	swap_button.pressed.connect(func() -> void: swap_pressed.emit())
 
 	_root.resized.connect(_layout_controls)
 	_layout_controls()

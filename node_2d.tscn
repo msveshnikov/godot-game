@@ -37,9 +37,9 @@ height = 1.8
 [sub_resource type="WorldBoundaryShape3D" id="Shape_ground"]
 
 [sub_resource type="PlaneMesh" id="Mesh_ground"]
-size = Vector2(340, 340)
-subdivide_width = 170
-subdivide_depth = 170
+size = Vector2(520, 520)
+subdivide_width = 260
+subdivide_depth = 260
 
 [sub_resource type="ShaderMaterial" id="Material_floor"]
 render_priority = 0
@@ -60,6 +60,8 @@ transform = Transform3D(-0.9659258, -0.21201, 0.1484, 0, 0.5735764, 0.8191520, -
 light_color = Color(1, 0.96, 0.9, 1)
 light_energy = 1.3
 shadow_enabled = true
+directional_shadow_mode = 1
+directional_shadow_max_distance = 90.0
 
 [node name="Player" type="CharacterBody3D" parent="." unique_id=253855974]
 transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, -8.9, 0.9, -12.6)
@@ -99,6 +101,7 @@ script = ExtResource("11_forest")
 shape = SubResource("Shape_ground")
 
 [node name="Ground" type="MeshInstance3D" parent="Diorama" unique_id=775680034]
+cast_shadow = 0
 mesh = SubResource("Mesh_ground")
 surface_material_override/0 = SubResource("Material_floor")
 

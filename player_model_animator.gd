@@ -1,7 +1,8 @@
 extends Node3D
 ## Drives the procedural walk/run/jump shader on the static main_player mesh
-## from the parent CharacterBody3D's velocity, and keeps the foam pistol in the
-## right hand: tucked against the body at rest, snapped up to aim when firing.
+## from the parent CharacterBody3D's velocity, and puts the weapon in the right
+## hand: the foam pistol (tucked at the hip, snapped up to aim when firing) or a
+## baseball bat (held forward, swung overhead and down), or nothing.
 
 const BODY_SHADER: Shader = preload("res://player_body.gdshader")
 const FOAM_PISTOL_SCENE: PackedScene = preload("res://foam_pistol_model.tscn")
@@ -25,6 +26,9 @@ const PISTOL_MUZZLE := Vector3(-0.46, 0.12, 0.0)
 const RAISE_SPEED := 11.0 # up in ~0.09 s
 const LOWER_SPEED := 3.0
 const RAISED_HOLD := 0.9 # seconds the arm stays up after the last shot
+const SWING_TIME := 0.55
+const BAT_TILT := -1.1 # bat angle forward of the forearm line
+const BAT_LENGTH := 0.84
 
 ## World point the gun aims at while raised; set every frame by the owner (camera ray for the
 ## local player, the shot direction for remote ones). Straight ahead when never set.
@@ -44,6 +48,10 @@ var _aim_amount := 0.0
 var _raise_hold := 0.0
 var _gun_hand: Node3D
 var _muzzle: Marker3D
+var _pistol: Node3D
+var _bat: Node3D
+var _weapon := "pistol"
+var _swing_t := -1.0 # 0..1 while swinging the bat
 
 
 func _ready() -> void:
@@ -87,6 +95,59 @@ func _build_gun() -> void:
 	_muzzle.name = "GunMuzzle"
 	_muzzle.position = PISTOL_MUZZLE
 	pistol.add_child(_muzzle)
+	_pistol = pistol
+	_bat = _build_bat()
+	_gun_hand.add_child(_bat)
+	_bat.visible = false
+
+
+## Wooden bat along the hand's -Z: knob just behind the palm, barrel end forward.
+func _build_bat() -> Node3D:
+	var bat := Node3D.new()
+	bat.name = "HeldBat"
+	var wood := StandardMaterial3D.new()
+	wood.albedo_color = Color(0.74, 0.54, 0.32)
+	wood.roughness = 0.45
+	var tape := StandardMaterial3D.new()
+	tape.albedo_color = Color(0.08, 0.08, 0.09)
+	tape.roughness = 0.8
+	var parts := [
+		# [top radius, bottom radius, length, centre along -Z, material]
+		[0.043, 0.02, BAT_LENGTH - 0.08, 0.04 + (BAT_LENGTH - 0.08) * 0.5, wood],
+		[0.021, 0.019, 0.26, -0.01, tape],
+		[0.03, 0.03, 0.025, -0.12, wood],
+	]
+	for part in parts:
+		var mesh := CylinderMesh.new()
+		mesh.top_radius = part[0]
+		mesh.bottom_radius = part[1]
+		mesh.height = part[2]
+		mesh.radial_segments = 12
+		mesh.material = part[4]
+		var instance := MeshInstance3D.new()
+		instance.mesh = mesh
+		instance.rotation.x = -PI / 2.0 # cylinder +Y -> -Z
+		instance.position = Vector3(0, 0, -float(part[3]))
+		bat.add_child(instance)
+	return bat
+
+
+## "pistol", "bat" or "none".
+func set_weapon(value: String) -> void:
+	_weapon = value
+	_swing_t = -1.0
+	if _pistol != null:
+		_pistol.visible = value == "pistol"
+	if _bat != null:
+		_bat.visible = value == "bat"
+	if value != "pistol":
+		_raise_hold = 0.0
+
+
+## Start an overhead bat swing (ignored while one is under way).
+func swing() -> void:
+	if _weapon == "bat" and _swing_t < 0.0:
+		_swing_t = 0.0
 
 
 ## Snap the gun up to aim (or keep it up); it drops back after RAISED_HOLD without shots.
@@ -139,6 +200,11 @@ func _process(delta: float) -> void:
 	else:
 		_aim_amount = move_toward(_aim_amount, 0.0, delta * LOWER_SPEED)
 	var aim_t := smoothstep(0.0, 1.0, _aim_amount)
+	if _swing_t >= 0.0:
+		_swing_t += delta / SWING_TIME
+		if _swing_t >= 1.0:
+			_swing_t = -1.0
+	var square_up := maxf(aim_t, 1.0 if _swing_t >= 0.0 else 0.0)
 
 	# Turn the body toward strafe direction, mirrored when backpedalling; square up while aiming.
 	var target_yaw := 0.0
@@ -180,6 +246,12 @@ func _update_gun_arm(aim_t: float, run_t: float) -> void:
 	aim_pitch = clampf(aim_pitch, deg_to_rad(-70.0), deg_to_rad(70.0))
 	var pitch := lerpf(rest_pitch, -PI / 2.0 - aim_pitch - _lean, aim_t)
 	var roll := lerpf(REST_ROLL, AIM_ROLL, aim_t)
+	if _weapon != "pistol":
+		pitch = rest_pitch
+		roll = REST_ROLL
+		if _weapon == "bat" and _swing_t >= 0.0:
+			pitch = _swing_pitch(_swing_t, rest_pitch)
+			roll = lerpf(REST_ROLL, AIM_ROLL, sin(_swing_t * PI))
 	_material.set_shader_parameter("gun_arm_pitch", pitch)
 	_material.set_shader_parameter("gun_arm_roll", roll)
 
@@ -189,6 +261,16 @@ func _update_gun_arm(aim_t: float, run_t: float) -> void:
 	var stance := sin(_phase) * lerpf(0.42, 0.62, run_t) * _walk_amount * (1.0 - _air_amount)
 	hand.y -= HIP_HEIGHT * (1.0 - cos(stance))
 	var hand_world := to_mesh * hand
+
+	if _weapon == "bat":
+		# The bat continues the forearm, tilted forward.
+		var arm := Basis(Vector3.RIGHT, pitch) * (Basis(Vector3.BACK, roll) * (HAND - SHOULDER))
+		var bat_dir := to_mesh.basis * Basis(Vector3.RIGHT, _lean) * (Basis(Vector3.RIGHT, BAT_TILT) * arm.normalized())
+		var side := to_mesh.basis.x.normalized()
+		if absf(bat_dir.normalized().dot(side)) > 0.95:
+			side = to_mesh.basis.y.normalized()
+		_gun_hand.global_transform = Transform3D(Basis.looking_at(bat_dir.normalized(), side), hand_world)
+		return
 
 	# Lowered: barrel forward-and-down along the leg. Raised: straight at the aim point.
 	var down := REST_GUN_DOWN - (rest_pitch - REST_PITCH)
@@ -201,6 +283,18 @@ func _update_gun_arm(aim_t: float, run_t: float) -> void:
 	var aim_basis := Basis.looking_at(aim_dir.normalized(), up)
 	var rotation_q := Quaternion(rest_basis).slerp(Quaternion(aim_basis), aim_t)
 	_gun_hand.global_transform = Transform3D(Basis(rotation_q), hand_world)
+
+
+## Arm pitch through a swing: wind up overhead and back, chop down in front, recover.
+func _swing_pitch(t: float, rest: float) -> float:
+	const WOUND := -3.3
+	const STRUCK := -0.85
+	if t < 0.38:
+		return lerpf(rest, WOUND, smoothstep(0.0, 1.0, t / 0.38))
+	if t < 0.58:
+		var k := (t - 0.38) / 0.2
+		return lerpf(WOUND, STRUCK, k * k * (3.0 - 2.0 * k))
+	return lerpf(STRUCK, rest, smoothstep(0.0, 1.0, (t - 0.58) / 0.42))
 
 
 func _get_aim_point(to_mesh: Transform3D) -> Vector3:

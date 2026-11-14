@@ -18,6 +18,7 @@ var _has_state := false
 var _since_update := 0.0
 var _label: Label3D
 var _animator: Node3D
+var weapon := "pistol"
 
 
 func _init() -> void:
@@ -52,6 +53,15 @@ func _ready() -> void:
 	visible = false
 
 
+## People run from remote players too when they hold a weapon.
+func is_armed() -> bool:
+	return weapon != "none"
+
+
+func show_swing() -> void:
+	_animator.call("swing")
+
+
 ## Their shot just arrived: snap the arm up toward where the foam is flying.
 func show_shot(origin: Vector3, direction: Vector3) -> void:
 	_animator.set("aim_point", origin + direction.normalized() * 30.0)
@@ -72,6 +82,10 @@ func apply_state(data: Dictionary) -> void:
 	_target_yaw = float(data.get("r", 0.0))
 	_grounded = bool(data.get("g", true))
 	active = bool(data.get("a", false))
+	var held := str(data.get("w", "pistol"))
+	if held != weapon:
+		weapon = held
+		_animator.call("set_weapon", weapon)
 	_label.text = str(data.get("n", "Player"))
 	last_update_msec = Time.get_ticks_msec()
 	_since_update = 0.0
