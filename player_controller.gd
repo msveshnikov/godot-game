@@ -4,8 +4,6 @@ const FOAM_PELLET_SCENE: PackedScene = preload("res://foam_pellet.tscn")
 const FOAM_FIRE_SOUND: AudioStream = preload("res://addons/cogito/Assets/Audio/Spray.ogg")
 const MOBILE_CONTROLS_SCRIPT = preload("res://mobile_controls.gd")
 const MAX_HEALTH := 100
-const MAGAZINE_SIZE := 6
-const RELOAD_DURATION := 1.2
 const PLAYER_PROJECTILE_DAMAGE := 25.0
 const RUN_FOOTSTEP_SOUNDS: Array[AudioStream] = [
 	preload("res://addons/cogito/Assets/Audio/Kenney/Footsteps/footstep00.ogg"),
@@ -39,9 +37,7 @@ const SPAWN_POINTS: Array[Vector2] = [
 
 var has_gun := true
 var health := MAX_HEALTH
-var ammunition := MAGAZINE_SIZE
 var _can_fire := true
-var _reloading := false
 var _game_started := false
 var _game_over := false
 var _fire_sound: AudioStreamPlayer
@@ -49,7 +45,6 @@ var _footstep_sound: AudioStreamPlayer
 var _footstep_timer := 0.0
 var _mobile_controls: MobileControls
 var _health_label: Label
-var _ammo_label: Label
 var _start_screen: Control
 var _game_over_screen: Control
 var _name_edit: LineEdit
@@ -64,10 +59,7 @@ func _ready() -> void:
 		add_child(_mobile_controls)
 		_mobile_controls.interact_pressed.connect(_interact)
 		_mobile_controls.fire_pressed.connect(_fire_foam_pellet)
-		_mobile_controls.reload_pressed.connect(_reload_gun)
 		_mobile_controls.look_delta.connect(_apply_look_delta)
-		_mobile_controls.set_fire_visible(true)
-		_mobile_controls.set_reload_visible(true)
 	_fire_sound = AudioStreamPlayer.new()
 	_fire_sound.name = "FoamFireSound"
 	_fire_sound.stream = FOAM_FIRE_SOUND
@@ -79,7 +71,6 @@ func _ready() -> void:
 	add_child(_footstep_sound)
 	_setup_game_ui()
 	_update_health_ui()
-	_update_ammo_ui()
 
 
 ## True while this player is in the world and can be targeted (not on the start or game-over screen).
@@ -120,8 +111,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	elif event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_E:
 		_interact()
-	elif event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_R:
-		_reload_gun()
 
 
 func _apply_look_delta(relative: Vector2) -> void:
@@ -155,11 +144,7 @@ func _move_to_random_spawn() -> void:
 
 
 func _fire_foam_pellet() -> void:
-	if not _game_started or _game_over or not has_gun or not _can_fire or _reloading:
-		return
-
-	if ammunition <= 0:
-		_reload_gun()
+	if not _game_started or _game_over or not has_gun or not _can_fire:
 		return
 
 	_can_fire = false
@@ -172,25 +157,9 @@ func _fire_foam_pellet() -> void:
 	var net_world := get_tree().current_scene.get_node_or_null("NetWorld")
 	if net_world != null:
 		net_world.call("broadcast_shot", gun_muzzle.global_position, shot_direction)
-	ammunition -= 1
-	_update_ammo_ui()
 	_fire_sound.play()
 	await get_tree().create_timer(0.25).timeout
 	_can_fire = true
-
-
-func _reload_gun() -> void:
-	if not _game_started or _game_over or not has_gun or _reloading or ammunition == MAGAZINE_SIZE:
-		return
-
-	_reloading = true
-	_update_ammo_ui()
-	await get_tree().create_timer(RELOAD_DURATION).timeout
-	if not is_inside_tree():
-		return
-	ammunition = MAGAZINE_SIZE
-	_reloading = false
-	_update_ammo_ui()
 
 
 func receive_damage(amount: float) -> void:
@@ -254,10 +223,9 @@ func _setup_game_ui() -> void:
 	hud.process_mode = Node.PROCESS_MODE_ALWAYS
 	hud.layer = 20
 	_health_label = _make_hud_label("Health: %d / %d" % [MAX_HEALTH, MAX_HEALTH], 24.0, 58.0, 22)
-	_ammo_label = _make_hud_label("Ammo: --", 58.0, 92.0, 22)
 	_start_screen = _make_game_screen(
 		"GACHA VILLAGE",
-		"Your foam pistol is loaded. Survive the villagers.\nPlay together: open the same game on another device.\n\nWASD move  |  Shift run  |  Space jump\nMouse look  |  E interact  |  Q / click fire\nSix shots per magazine. Press R to reload.",
+		"Your foam pistol is loaded. Survive the villagers.\nPlay together: open the same game on another device.\n\nWASD move  |  Shift run  |  Space jump\nMouse look  |  E interact  |  Q / click fire\nUnlimited foam: keep firing.",
 		"START GAME",
 		_start_game,
 		true
@@ -368,17 +336,6 @@ func _update_health_ui() -> void:
 	)
 
 
-func _update_ammo_ui() -> void:
-	if _ammo_label == null:
-		return
-	if not has_gun:
-		_ammo_label.text = "Ammo: --"
-	elif _reloading:
-		_ammo_label.text = "Reloading..."
-	else:
-		_ammo_label.text = "Ammo: %d / %d" % [ammunition, MAGAZINE_SIZE]
-
-
 func _start_game() -> void:
 	if _game_started:
 		return
@@ -405,11 +362,8 @@ func _restart_game() -> void:
 	_move_to_random_spawn()
 	velocity = Vector3.ZERO
 	health = MAX_HEALTH
-	ammunition = MAGAZINE_SIZE
-	_reloading = false
 	_can_fire = true
 	_update_health_ui()
-	_update_ammo_ui()
 	_game_over_screen.hide()
 	_game_over = false
 	if _mobile_controls == null:

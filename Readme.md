@@ -22,8 +22,7 @@ Everyone who opens the game (web link or the Android APK) lands in the same worl
 - **Space**: Jump
 - **Mouse**: Look around (vertical look is inverted by default)
 - **E**: Open/close a flat's door while aiming at it
-- **Q or left mouse button**: Fire a foam pellet (six shots per magazine)
-- **R**: Reload the pistol
+- **Q or left mouse button**: Fire a foam pellet (unlimited ammo, no reloading)
 - **Health**: The game ends when your health reaches zero; use **Respawn** to drop back into the estate at a random spot.
 - **Esc**: Release the mouse; click to capture it again
-- **Android/mobile**: Use the on-screen joystick to move, drag on the right side to look, and tap **E** to interact. The on-screen buttons also provide jump, run, pistol fire, and reload.
+- **Android/mobile**: Use the on-screen joystick to move, drag on the right side to look, and tap **E** to interact. The on-screen buttons also provide jump, run and pistol fire.
