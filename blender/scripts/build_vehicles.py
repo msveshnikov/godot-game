@@ -147,7 +147,7 @@ def add_cylinder(parts, mat, radius, depth, location, segments=24, axis="X", bev
     if bevel > 0:
         mod = obj.modifiers.new("bevel", "BEVEL")
         mod.width = bevel
-        mod.segments = 2
+        mod.segments = 1
     parts.append(obj)
     return obj
 
@@ -192,7 +192,7 @@ def build_body(m, parts):
     x = 0.06
     while x < L - 0.06:
         stations.append(x)
-        x += 0.07
+        x += 0.1
     stations += [L - 0.03, L]
     mesh = bpy.data.meshes.new("body")
     bm = bmesh.new()
@@ -294,10 +294,10 @@ def build_details(m, parts, body):
             out = W / 2 - 0.035
             cx = side * (out - 0.105)
             y = yf + axle
-            add_cylinder(parts, "Tire", R, 0.21, (cx, y, R), 28, bevel=0.035)
+            add_cylinder(parts, "Tire", R, 0.21, (cx, y, R), 18, bevel=0.035)
             # Alloy wheel, outermost last: rim disc, dark dish, five spokes, hub.
-            add_cylinder(parts, "Rim", R * 0.68, 0.012, (side * (out - 0.01), y, R), 28)
-            add_cylinder(parts, "Trim", R * 0.58, 0.012, (side * (out - 0.004), y, R), 24)
+            add_cylinder(parts, "Rim", R * 0.68, 0.012, (side * (out - 0.01), y, R), 16)
+            add_cylinder(parts, "Trim", R * 0.58, 0.012, (side * (out - 0.004), y, R), 14)
             for spoke in range(5):
                 angle = spoke * 2 * math.pi / 5 + 0.3
                 direction = Vector((0, math.cos(angle), math.sin(angle)))

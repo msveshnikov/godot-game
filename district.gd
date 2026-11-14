@@ -90,7 +90,19 @@ var _collision: StaticBody3D
 var _blocked: Array[Rect2] = []
 var _rng := RandomNumberGenerator.new()
 var _car_spots: Array[Transform3D] = []
-var _trees: Array = [] # [kind, Vector2 game xz, scale]
+var _trees: Array = [] # [kind, Vector3 game position, scale]
+## Paved rects (game XZ) and a coarse grid index over all blocked/paved rects.
+var _paved: Array[Rect2] = []
+var _rect_grid := {} # Vector2i cell -> [blocked indices, paved indices]
+const RECT_CELL := 16.0
+## Grassy hills (real u, n, radius, height), flattened next to buildings and roads.
+const HILLS := [
+	[-165.0, 30.0, 38.0, 8.0], [58.0, -24.0, 13.0, 2.2], [-20.0, -195.0, 42.0, 6.0],
+	[-105.0, 120.0, 28.0, 5.0], [205.0, -110.0, 40.0, 7.0], [-85.0, -32.0, 14.0, 2.4],
+	[140.0, -108.0, 20.0, 3.5],
+]
+var _hills: Array = [] # [game x, game z, radius, height]
+var _swings: Array[Node3D] = []
 
 
 func _ready() -> void:
@@ -126,12 +138,33 @@ func _ready() -> void:
 	_build_playground()
 	_build_street_furniture()
 	_build_parking()
+	_index_rects()
+	_build_terrain()
+	_build_life()
 	_build_trees()
+	_build_leaves()
 
 	for key in _chunks:
 		var kind := str(key).get_slice("|", 0)
 		_commit(_chunks[key], "Detail_" + str(key).replace("|", "_"), _glass_material() if kind == "glass" else _vertex_material())
 	_spawn_cars()
+	_build_traffic()
+	var birds := MultiMeshInstance3D.new()
+	birds.name = "Birds"
+	birds.set_script(load("res://birds.gd"))
+	add_child(birds)
+	var ambience := Node.new()
+	ambience.name = "Ambience"
+	ambience.set_script(load("res://ambience.gd"))
+	ambience.set("swing_position", _w(78.0, 6.4, 1.5))
+	add_child(ambience)
+
+
+func _process(_delta: float) -> void:
+	# Playground swings: two seats out of step, swinging along n.
+	var t := Time.get_ticks_msec() / 1000.0
+	for index in _swings.size():
+		_swings[index].rotation.x = sin(t * 1.95 + index * 2.1) * (0.42 if index == 0 else 0.28)
 
 
 ## Game position of a real (u, n) point.
@@ -258,6 +291,7 @@ func _build_slab_block(block_name: String, centre: Vector2, palette: Dictionary,
 				_box_un(bu0, front, bu1, front + s * 0.08, y + 1.0, y + 1.08, Color(0.85, 0.85, 0.82))
 			else:
 				_box_un(bu0, front, bu1, front + s * 0.08, y, y + 1.05, railing)
+			_loggia_extras(bu0, bu1, front, wall_n, s, y)
 			if _rng.randf() < 0.42:
 				_glass_un(bu0, front + s * 0.03, bu1, front + s * 0.06, y + 1.08, y + FLOOR - 0.25)
 				for mullion in 3:
@@ -282,6 +316,35 @@ func _build_slab_block(block_name: String, centre: Vector2, palette: Dictionary,
 		var eu := _entrance_u(centre, 3) # Na Skalkách 939
 		_add_sign("939", _w(eu + 1.3, front + 0.02, PLINTH + 2.45), 180.0, Color(0.9, 0.15, 0.12), 0.006, 48)
 		_add_sign("Na Skalkách", _w(eu - 1.6, front + 0.02, PLINTH + 2.45), 180.0, Color(0.15, 0.3, 0.75), 0.004, 48)
+
+
+## What people keep on their loggias: flower boxes, washing, a dish, curtains.
+func _loggia_extras(bu0: float, bu1: float, front: float, wall_n: float, s: float, y: float) -> void:
+	var roll := _rng.randf()
+	if roll < 0.13:
+		_box_un(bu0 + 0.3, front + s * 0.08, bu1 - 0.3, front + s * 0.3, y + 1.05, y + 1.22, Color(0.45, 0.3, 0.2))
+		_box_un(bu0 + 0.35, front + s * 0.1, bu1 - 0.35, front + s * 0.28, y + 1.22, y + 1.4, Color(0.22, 0.45, 0.18))
+		var fu := bu0 + 0.5
+		while fu < bu1 - 0.5:
+			var bloom: Color = [Color(0.9, 0.15, 0.2), Color(0.95, 0.5, 0.7), Color(0.98, 0.85, 0.2), Color(0.95, 0.95, 0.95)][_rng.randi() % 4]
+			_box_un(fu, front + s * 0.12, fu + 0.14, front + s * 0.26, y + 1.38, y + 1.5, bloom)
+			fu += _rng.randf_range(0.25, 0.5)
+	elif roll < 0.21:
+		var ln := front + s * 0.6
+		_box_un(bu0, ln - 0.01, bu1, ln + 0.01, y + 2.15, y + 2.17, Color(0.8, 0.8, 0.8))
+		var cu := bu0 + 0.3
+		while cu < bu1 - 0.6:
+			var w := _rng.randf_range(0.3, 0.7)
+			var cloth: Color = [Color(0.95, 0.95, 0.95), Color(0.3, 0.45, 0.8), Color(0.9, 0.3, 0.3), Color(0.95, 0.85, 0.3), Color(0.4, 0.7, 0.45), Color(0.2, 0.2, 0.25)][_rng.randi() % 6]
+			_box_un(cu, ln - 0.012, cu + w, ln + 0.012, y + 2.15 - _rng.randf_range(0.35, 0.7), y + 2.15, cloth)
+			cu += w + _rng.randf_range(0.1, 0.35)
+	elif roll < 0.25:
+		_box_un(bu0 + 0.15, front - s * 0.06, bu0 + 0.75, front + s * 0.01, y + 1.3, y + 1.9, Color(0.82, 0.83, 0.84))
+		_box_un(bu0 + 0.42, front - s * 0.32, bu0 + 0.48, front - s * 0.06, y + 1.58, y + 1.64, Color(0.3, 0.3, 0.3))
+	if _rng.randf() < 0.5:
+		var curtain: Color = [Color(0.95, 0.9, 0.75), Color(0.85, 0.7, 0.55), Color(0.7, 0.8, 0.9), Color(0.9, 0.75, 0.8), Color(0.75, 0.85, 0.7)][_rng.randi() % 5]
+		var cu := _rng.randf_range(bu0 + 0.2, maxf(bu0 + 0.3, bu1 - 1.2))
+		_box_un(cu, wall_n - s * 0.035, cu + 0.9, wall_n - s * 0.02, y + 0.25, y + FLOOR - 0.35, curtain)
 
 
 ## Index into RAILINGS by weight; the last entry is glass.
@@ -487,8 +550,7 @@ func _build_playground() -> void:
 		_box_un(su - 0.08, c.y + 5.6, su + 0.08, c.y + 5.8, 0.0, 2.4, wood)
 	_box_un(c.x + 0.9, c.y + 3.0, c.x + 5.1, c.y + 5.8, 2.4, 2.55, wood)
 	for seat_u in [c.x + 2.2, c.x + 3.8]:
-		_box_un(seat_u - 0.02, c.y + 4.35, seat_u + 0.02, c.y + 4.45, 0.55, 2.4, Color(0.3, 0.3, 0.3))
-		_box_un(seat_u - 0.3, c.y + 4.2, seat_u + 0.3, c.y + 4.6, 0.5, 0.56, Color(0.85, 0.2, 0.15))
+		_swings.append(_swing_seat(_w(seat_u, c.y + 4.4, 2.4)))
 	# Climbing tower with a slide.
 	_box_un(c.x - 1.0, c.y - 6.0, c.x + 2.0, c.y - 3.0, 1.5, 1.65, wood)
 	for corner in [[-1.0, -6.0], [2.0, -6.0], [-1.0, -3.0], [2.0, -3.0]]:
@@ -507,6 +569,28 @@ func _build_playground() -> void:
 	# Benches round the edge.
 	_bench(c.x - 6.0, c.y - 6.6, 0.0)
 	_bench(c.x + 6.0, c.y + 6.6, 180.0)
+
+
+## A swing seat on two chains, pivoting at the top bar (animated in _process).
+func _swing_seat(pivot_at: Vector3) -> Node3D:
+	var pivot := Node3D.new()
+	pivot.name = "SwingSeat"
+	pivot.position = pivot_at
+	add_child(pivot)
+	var parts := [
+		[Vector3(0.03, 1.86, 0.03), Vector3(-0.27, -0.93, 0.0), Color(0.35, 0.35, 0.36)],
+		[Vector3(0.03, 1.86, 0.03), Vector3(0.27, -0.93, 0.0), Color(0.35, 0.35, 0.36)],
+		[Vector3(0.62, 0.06, 0.24), Vector3(0.0, -1.88, 0.0), Color(0.85, 0.2, 0.15)],
+	]
+	for part in parts:
+		var mesh := BoxMesh.new()
+		mesh.size = part[0]
+		var node := MeshInstance3D.new()
+		node.mesh = mesh
+		node.position = part[1]
+		node.material_override = _plain(part[2])
+		pivot.add_child(node)
+	return pivot
 
 
 func _build_street_furniture() -> void:
@@ -612,7 +696,7 @@ func _build_outer_streets() -> void:
 	# Na Skalkách turning south-west at its north-west end, down to Dr. E. Beneše.
 	_ground("NaSkalkachWest", WEST_ROAD_U - ROAD_HALF, BENESE_N, WEST_ROAD_U + ROAD_HALF, ROAD_N + ROAD_HALF, 0.021, ROAD_COLOR)
 	# Dr. E. Beneše: the wide asphalt street south-west of the towers, sidewalks on both sides.
-	_ground("Benese", -205.0, BENESE_N - 3.5, EAST_ROAD_U + 4.0, BENESE_N + 3.5, 0.02, ASPHALT_COLOR)
+	_ground("Benese", -250.0, BENESE_N - 3.5, EAST_ROAD_U + 64.0, BENESE_N + 3.5, 0.02, ASPHALT_COLOR)
 	_ground("BeneseWalkN", -205.0, BENESE_N + 3.5, EAST_ROAD_U - 4.0, BENESE_N + 5.5, 0.035, PAVER_COLOR)
 	_ground("BeneseWalkS", -205.0, BENESE_N - 5.5, EAST_ROAD_U - 4.0, BENESE_N - 3.5, 0.035, PAVER_COLOR)
 	for u in range(-200, int(EAST_ROAD_U) - 4, 8): # centre line dashes
@@ -620,7 +704,7 @@ func _build_outer_streets() -> void:
 	# Na Skalkách south-east, from the branch past the slabs to 28. října.
 	_ground("NaSkalkachSE", BRANCH_U + ROAD_HALF, SE_ROAD_N - ROAD_HALF, EAST_ROAD_U - 4.0, SE_ROAD_N + ROAD_HALF, 0.021, ROAD_COLOR)
 	# 28. října along the east edge.
-	_ground("Rijna28", EAST_ROAD_U - 4.0, -205.0, EAST_ROAD_U + 4.0, 205.0, 0.023, ASPHALT_COLOR)
+	_ground("Rijna28", EAST_ROAD_U - 4.0, -250.0, EAST_ROAD_U + 4.0, 250.0, 0.023, ASPHALT_COLOR)
 	_ground("Rijna28Walk", EAST_ROAD_U - 6.0, -205.0, EAST_ROAD_U - 4.0, 205.0, 0.036, PAVER_COLOR)
 	for n in range(-200, 200, 8):
 		_ground("RijnaLine", EAST_ROAD_U - 0.07, n, EAST_ROAD_U + 0.07, n + 3.0, 0.025, LINE_COLOR, false)
@@ -868,6 +952,256 @@ func _build_supermarket() -> void:
 			add_child(lamp)
 
 
+# ---------------------------------------------------------------- terrain ----
+
+## Ground height (game x, z): the hills, flattened to 0 within a few metres of any
+## building, road or path so everything built stays level.
+func height_at(x: float, z: float) -> float:
+	var raw := 0.0
+	for hill in _hills:
+		var d := Vector2(x - hill[0], z - hill[1]).length() / float(hill[2])
+		if d < 1.0:
+			raw += float(hill[3]) * (0.5 + 0.5 * cos(PI * d))
+	if raw <= 0.001:
+		return 0.0
+	var clear := _clearance(Vector2(x, z), 8.0)
+	return raw * smoothstep(1.5, 7.5, clear)
+
+
+## One grass-covered patch per hill, with a height-map collider (1 m grid).
+func _build_terrain() -> void:
+	var ground := get_node_or_null("../Ground") as MeshInstance3D
+	var grass: Material = null
+	if ground != null:
+		grass = ground.get_surface_override_material(0)
+		if grass == null and ground.mesh != null:
+			grass = ground.mesh.surface_get_material(0)
+	for hill in HILLS:
+		var c := _w(hill[0], hill[1])
+		_hills.append([c.x, c.z, hill[2], hill[3]])
+	for index in _hills.size():
+		var hill: Array = _hills[index]
+		var half := int(ceil(float(hill[2])))
+		var count := half * 2 + 1
+		var heights := PackedFloat32Array()
+		heights.resize(count * count)
+		for iz in count:
+			for ix in count:
+				heights[iz * count + ix] = height_at(hill[0] + ix - half, hill[1] + iz - half)
+		# Visual patch: sunk 6 cm so its rim tucks under the flat ground plane.
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		for iz in count - 1:
+			for ix in count - 1:
+				var corners := []
+				for offset in [Vector2i(0, 0), Vector2i(1, 0), Vector2i(1, 1), Vector2i(0, 1)]:
+					var gx: int = ix + offset.x
+					var gz: int = iz + offset.y
+					corners.append(Vector3(hill[0] + gx - half, heights[gz * count + gx] - 0.06, hill[1] + gz - half))
+				if corners[0].y < -0.05 and corners[1].y < -0.05 and corners[2].y < -0.05 and corners[3].y < -0.05:
+					continue
+				for vertex in [corners[0], corners[2], corners[1], corners[0], corners[3], corners[2]]:
+					st.add_vertex(vertex)
+		st.generate_normals()
+		var mesh := st.commit()
+		if mesh.get_surface_count() == 0:
+			continue
+		var patch := MeshInstance3D.new()
+		patch.name = "Hill%d" % index
+		patch.mesh = mesh
+		if grass != null:
+			patch.material_override = grass
+		patch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(patch)
+		var shape := HeightMapShape3D.new()
+		shape.map_width = count
+		shape.map_depth = count
+		shape.map_data = heights
+		var shape_node := CollisionShape3D.new()
+		shape_node.shape = shape
+		shape_node.position = Vector3(hill[0], 0.0, hill[1])
+		_collision.add_child(shape_node)
+
+
+# ----------------------------------------------------------------- leaves ----
+
+## Fallen leaves on paths, roads and lawns (the grass shader paints more on the grass).
+func _build_leaves() -> void:
+	var transforms: Array[Transform3D] = []
+	var colors: Array[Color] = []
+	var palette := [Color(0.88, 0.66, 0.12), Color(0.84, 0.42, 0.08), Color(0.5, 0.31, 0.12), Color(0.7, 0.17, 0.07), Color(0.75, 0.6, 0.2)]
+	var attempts := 0
+	while transforms.size() < 9000 and attempts < 40000:
+		attempts += 1
+		var x := _rng.randf_range(-205.0, 205.0)
+		var z := _rng.randf_range(-205.0, 205.0)
+		var point := Vector2(x, z)
+		var paved := _is_paved(point)
+		if not paved and _is_blocked(point, 0.0):
+			continue # inside a building
+		# Thicker under the trees: keep only a third of the leaves out in the open.
+		var near_tree := false
+		for tree in _trees:
+			if absf((tree[1] as Vector3).x - x) < 7.0 and absf((tree[1] as Vector3).z - z) < 7.0:
+				near_tree = true
+				break
+		if not near_tree and _rng.randf() < 0.66:
+			continue
+		var y := 0.115 if paved else height_at(x, z) + 0.05
+		var basis := Basis(Vector3.UP, _rng.randf() * TAU) * Basis(Vector3.RIGHT, _rng.randf_range(-0.25, 0.25))
+		var size := _rng.randf_range(0.8, 1.3)
+		transforms.append(Transform3D(basis.scaled(Vector3(size, 1.0, size)), Vector3(x, y, z)))
+		colors.append((palette[_rng.randi() % palette.size()] as Color) * _rng.randf_range(0.8, 1.1))
+	var leaf := ArrayMesh.new()
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.set_normal(Vector3.UP)
+	# A pointed leaf: a long diamond, 14 x 9 cm.
+	var tip := Vector3(0, 0, -0.07)
+	var tail := Vector3(0, 0, 0.07)
+	var left := Vector3(-0.045, 0.004, 0.005)
+	var right := Vector3(0.045, 0.004, 0.005)
+	for vertex in [tip, right, tail, tip, tail, left]:
+		st.add_vertex(vertex)
+	leaf = st.commit()
+	var material := StandardMaterial3D.new()
+	material.vertex_color_use_as_albedo = true
+	material.vertex_color_is_srgb = true
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	material.roughness = 0.9
+	leaf.surface_set_material(0, material)
+	_add_multimesh("Leaves", leaf, transforms, colors, 110.0)
+	for node in find_children("Leaves_*", "MultiMeshInstance3D", false, false):
+		(node as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+
+# ------------------------------------------------------------------- life ----
+
+func _build_life() -> void:
+	# Graffiti tags on the garage doors, the bin pen and the end walls.
+	var tags := [
+		["SKALKA", -15.0, -23.5, 1.3, Color(0.95, 0.3, 0.6)], ["NRTV 277", -2.0, -23.5, 1.1, Color(0.2, 0.75, 0.95)],
+		["ZAJ!", 9.5, -23.5, 1.4, Color(0.98, 0.85, 0.15)], ["KUBA", 21.0, -23.5, 1.2, Color(0.4, 0.9, 0.35)],
+		["Sparta", -24.5, -26.75, 0.9, Color(0.85, 0.15, 0.12)], ["DOMOV", 26.0, -23.5, 1.5, Color(0.65, 0.45, 0.95)],
+	]
+	for tag in tags:
+		var label := Label3D.new()
+		label.text = tag[0]
+		label.position = _w(tag[1], tag[2], tag[3])
+		label.rotation_degrees = Vector3(0, 0, _rng.randf_range(-12.0, 10.0))
+		label.pixel_size = 0.011
+		label.font_size = 96
+		label.outline_size = 22
+		label.modulate = tag[4]
+		label.outline_modulate = Color(0.05, 0.05, 0.05)
+		label.double_sided = false
+		add_child(label)
+
+	# Bus stop on Dr. E. Beneše: glass shelter, bench, the stop sign.
+	var bu := -25.0
+	var bn := BENESE_N + 6.8
+	_glass_un(bu - 2.6, bn + 1.0, bu + 2.6, bn + 1.06, 0.15, 2.3)
+	_glass_un(bu - 2.66, bn - 0.3, bu - 2.6, bn + 1.06, 0.15, 2.3)
+	_glass_un(bu + 2.6, bn - 0.3, bu + 2.66, bn + 1.06, 0.15, 2.3)
+	_box_un(bu - 2.8, bn - 0.6, bu + 2.8, bn + 1.2, 2.3, 2.45, Color(0.25, 0.27, 0.3))
+	for post in [-2.62, 2.62]:
+		_box_un(bu + post - 0.05, bn + 0.98, bu + post + 0.05, bn + 1.08, 0.0, 2.3, Color(0.3, 0.32, 0.35))
+	_bench(bu, bn + 0.6, 0.0)
+	_wall_un(bu - 2.66, bn + 1.0, bu + 2.66, bn + 1.06, 2.3, Color(0.4, 0.5, 0.55))
+	_box_un(bu + 3.6, bn - 1.6, bu + 3.68, bn - 1.52, 0.0, 2.9, Color(0.6, 0.62, 0.62))
+	_box_un(bu + 3.3, bn - 1.64, bu + 3.98, bn - 1.6, 2.2, 2.9, Color(0.95, 0.8, 0.1))
+	_add_sign("BUS", _w(bu + 3.64, bn - 1.66, 2.68), 180.0, Color(0.1, 0.2, 0.55), 0.006, 48)
+	_add_sign("Na Skalkách", _w(bu + 3.64, bn - 1.66, 2.4), 180.0, Color(0.1, 0.1, 0.1), 0.0035, 48)
+
+	# Lamps along the outer streets.
+	var u := -190.0
+	while u < EAST_ROAD_U - 10.0:
+		if absf(u - WEST_ROAD_U) > 6.0 and absf(u - BRANCH_U) > 6.0 and absf(u - bu) > 6.0:
+			_lamp(u, BENESE_N + 6.1, -1.0)
+		u += 32.0
+	var n := -180.0
+	while n < 190.0:
+		_lamp_u(EAST_ROAD_U - 6.6, n, 1.0)
+		n += 32.0
+	u = 70.0
+	while u < EAST_ROAD_U - 10.0:
+		_lamp(u, ZA_JEDNOTOU_N - 3.8, 1.0)
+		u += 32.0
+
+	# Small bins by the block entrances, benches at some of them.
+	for block in [[HOME_CENTRE, 1.0], [MIDDLE_CENTRE, 1.0], [NORTH_CENTRE, 1.0]]:
+		var centre: Vector2 = block[0]
+		var front := centre.y - SLAB_DEPTH * 0.5
+		for section in SECTIONS:
+			var eu := _entrance_u(centre, section)
+			_box_un(eu + 1.6, front - 2.2, eu + 2.05, front - 1.75, 0.0, 0.85, Color(0.18, 0.32, 0.22))
+			_box_un(eu + 1.58, front - 2.22, eu + 2.07, front - 1.73, 0.85, 0.9, Color(0.1, 0.1, 0.1))
+			if _rng.randf() < 0.5:
+				_bench(eu - 3.2, front - 2.4, 0.0)
+
+	# A couple of playground benches with parents, clotheslines between the blocks.
+	for line in [[-38.0, 23.0], [17.0, 23.5]]:
+		var lu: float = line[0]
+		var ln: float = line[1]
+		for post in [lu - 4.0, lu + 4.0]:
+			_box_un(post - 0.05, ln - 0.05, post + 0.05, ln + 0.05, 0.0, 1.9, Color(0.5, 0.52, 0.55))
+		_box_un(lu - 4.0, ln - 0.01, lu + 4.0, ln + 0.01, 1.85, 1.87, Color(0.85, 0.85, 0.85))
+		var pu := lu - 3.5
+		while pu < lu + 3.2:
+			var w := _rng.randf_range(0.4, 0.9)
+			var clothes: Color = [Color(0.95, 0.95, 0.95), Color(0.3, 0.45, 0.8), Color(0.9, 0.3, 0.3), Color(0.95, 0.85, 0.3), Color(0.4, 0.7, 0.45)][_rng.randi() % 5]
+			_box_un(pu, ln - 0.01, pu + w, ln + 0.01, 1.85 - _rng.randf_range(0.4, 0.8), 1.85, clothes)
+			pu += w + _rng.randf_range(0.1, 0.4)
+	_index_rects()
+
+
+## Street lamp whose arm reaches along u (for streets running along n).
+func _lamp_u(u: float, n: float, side: float) -> void:
+	var pole := Color(0.55, 0.57, 0.58)
+	_box_un(u - 0.09, n - 0.09, u + 0.09, n + 0.09, 0.0, 6.5, pole)
+	_box_un(u - 0.14, n - 0.14, u + 0.14, n + 0.14, 0.0, 0.9, Color(0.82, 0.8, 0.72))
+	_box_un(u, n - 0.05, u + 1.1 * side, n + 0.05, 6.4, 6.5, pole)
+	_box_un(u + 0.9 * side, n - 0.18, u + 1.5 * side, n + 0.18, 6.3, 6.45, Color(0.3, 0.32, 0.34))
+	_glass_un(u + 0.95 * side, n - 0.15, u + 1.45 * side, n + 0.15, 6.26, 6.3)
+	_collider_between(_w(u + 0.14, n - 0.14), _w(u - 0.14, n + 0.14, 6.5))
+
+
+# ---------------------------------------------------------------- traffic ----
+
+func _build_traffic() -> void:
+	var traffic := Node3D.new()
+	traffic.name = "Traffic"
+	traffic.set_script(load("res://traffic.gd"))
+	var models := []
+	for model in CAR_MODELS:
+		var mesh := _car_mesh(model[0])
+		if mesh != null:
+			models.append([mesh, model[2], _materials.get("car_paint")])
+	if models.is_empty():
+		return
+	var colors := []
+	for entry in CAR_COLORS:
+		colors.append(entry[0])
+	# Right-hand traffic. Lanes run past the forest edge so cars wrap round out of sight.
+	var lanes := []
+	var w0 := _w(-235.0, BENESE_N - 1.7)
+	var w1 := _w(EAST_ROAD_U + 60.0, BENESE_N - 1.7)
+	lanes.append([Vector2(w0.x, w0.z), Vector2(w1.x, w1.z), 4]) # Beneše heading south-east
+	w0 = _w(EAST_ROAD_U + 60.0, BENESE_N + 1.7)
+	w1 = _w(-235.0, BENESE_N + 1.7)
+	lanes.append([Vector2(w0.x, w0.z), Vector2(w1.x, w1.z), 4]) # Beneše heading north-west
+	w0 = _w(EAST_ROAD_U + 1.7, -240.0)
+	w1 = _w(EAST_ROAD_U + 1.7, 240.0)
+	lanes.append([Vector2(w0.x, w0.z), Vector2(w1.x, w1.z), 3]) # 28. října heading north-east
+	w0 = _w(EAST_ROAD_U - 1.7, 240.0)
+	w1 = _w(EAST_ROAD_U - 1.7, -240.0)
+	lanes.append([Vector2(w0.x, w0.z), Vector2(w1.x, w1.z), 3]) # 28. října heading south-west
+	traffic.set("lanes", lanes)
+	traffic.set("models", models)
+	traffic.set("colors", colors)
+	add_child(traffic)
+
+
 # ------------------------------------------------------------------ trees ----
 
 func _build_trees() -> void:
@@ -911,6 +1245,7 @@ func _build_trees() -> void:
 	for tree in _trees:
 		var kind: String = tree[0]
 		var base: Vector3 = tree[1]
+		base.y = height_at(base.x, base.z)
 		var s: float = tree[2]
 		var dark := Color.from_hsv(_rng.randf_range(0.28, 0.36), _rng.randf_range(0.45, 0.6), _rng.randf_range(0.2, 0.3))
 		match kind:
@@ -927,11 +1262,11 @@ func _build_trees() -> void:
 			"thuja":
 				_part(parts, "cone", Vector3(1.6, 4.6, 1.6) * s, base + Vector3(0, 4.6 * s, 0), Color(0.16, 0.33, 0.17))
 			"willow":
-				var light := Color.from_hsv(0.22, 0.45, 0.55)
+				var light := Color.from_hsv(0.16, 0.5, 0.62) # yellowing willow
 				_part(parts, "trunk", Vector3(1.4, 1.5, 1.4) * s, base + Vector3(0, 2.2 * s, 0), Color(0.45, 0.38, 0.3))
 				_part(parts, "sphere", Vector3(4.2, 4.4, 4.2) * s, base + Vector3(0, 6.6 * s, 0), light)
 			_:
-				var green := Color.from_hsv(_rng.randf_range(0.22, 0.32), _rng.randf_range(0.45, 0.65), _rng.randf_range(0.32, 0.5))
+				var green := _autumn_colour()
 				_part(parts, "trunk", Vector3.ONE * s, base + Vector3(0, 1.5 * s, 0), Color(0.33, 0.23, 0.15))
 				_part(parts, "sphere", Vector3(2.3, 2.0, 2.3) * s, base + Vector3(0, 4.3 * s, 0), green)
 				_part(parts, "sphere", Vector3(1.6, 1.4, 1.6) * s, base + Vector3(0.9, 5.4, -0.6) * s, green.lightened(0.08))
@@ -957,10 +1292,26 @@ func _build_trees() -> void:
 	cone_mesh.height = 2.0
 	cone_mesh.radial_segments = 9
 	var meshes := {"trunk": trunk_mesh, "sphere": sphere_mesh, "cone": cone_mesh}
+	var crown := ShaderMaterial.new()
+	crown.shader = load("res://tree_crown.gdshader")
 	for key in parts:
 		var mesh: PrimitiveMesh = meshes[key]
-		mesh.material = _vertex_material()
+		mesh.material = _vertex_material() if key == "trunk" else crown
 		_add_multimesh("Tree_" + key, mesh, parts[key][0], parts[key][1])
+
+
+## Deciduous crown in autumn: mostly yellows and oranges, some red, some still green.
+func _autumn_colour() -> Color:
+	var roll := _rng.randf()
+	if roll < 0.36:
+		return Color.from_hsv(_rng.randf_range(0.11, 0.15), _rng.randf_range(0.7, 0.9), _rng.randf_range(0.62, 0.8)) # yellow
+	if roll < 0.62:
+		return Color.from_hsv(_rng.randf_range(0.06, 0.1), _rng.randf_range(0.75, 0.9), _rng.randf_range(0.55, 0.72)) # orange
+	if roll < 0.74:
+		return Color.from_hsv(_rng.randf_range(0.0, 0.035), _rng.randf_range(0.65, 0.85), _rng.randf_range(0.45, 0.6)) # red
+	if roll < 0.86:
+		return Color.from_hsv(_rng.randf_range(0.16, 0.2), _rng.randf_range(0.55, 0.75), _rng.randf_range(0.5, 0.65)) # yellow-green
+	return Color.from_hsv(_rng.randf_range(0.24, 0.3), _rng.randf_range(0.45, 0.6), _rng.randf_range(0.32, 0.45)) # green
 
 
 func _part(parts: Dictionary, key: String, part_scale: Vector3, at: Vector3, color: Color) -> void:
@@ -1050,6 +1401,9 @@ func _ground(_name: String, u0: float, n0: float, u1: float, n1: float, top: flo
 	_box_un(u0, n0, u1, n1, top - 0.1, top, color)
 	if block:
 		_blocked_un(u0, n0, u1, n1)
+		var a := _w(u0, n0)
+		var b := _w(u1, n1)
+		_paved.append(Rect2(minf(a.x, b.x), minf(a.z, b.z), absf(a.x - b.x), absf(a.z - b.z)))
 
 
 ## Thin solid wall between two (u, n) corners, with a collider.
@@ -1085,10 +1439,59 @@ func _blocked_un(u0: float, n0: float, u1: float, n1: float) -> void:
 
 
 func _is_blocked(point: Vector2, margin: float) -> bool:
-	for rect in _blocked:
-		if rect.grow(margin).has_point(point):
+	if _rect_grid.is_empty():
+		for rect in _blocked:
+			if rect.grow(margin).has_point(point):
+				return true
+		return false
+	for index in _nearby(point, margin, 0):
+		if _blocked[index].grow(margin).has_point(point):
 			return true
 	return false
+
+
+func _is_paved(point: Vector2) -> bool:
+	for index in _nearby(point, 0.0, 1):
+		if _paved[index].has_point(point):
+			return true
+	return false
+
+
+## Distance from `point` to the nearest blocked rect (capped at `limit`).
+func _clearance(point: Vector2, limit: float) -> float:
+	var best := limit
+	for index in _nearby(point, limit, 0):
+		var r: Rect2 = _blocked[index]
+		var dx := maxf(maxf(r.position.x - point.x, point.x - r.end.x), 0.0)
+		var dz := maxf(maxf(r.position.y - point.y, point.y - r.end.y), 0.0)
+		best = minf(best, sqrt(dx * dx + dz * dz))
+	return best
+
+
+## Bucket every blocked and paved rect into RECT_CELL cells for quick lookups.
+func _index_rects() -> void:
+	_rect_grid.clear()
+	for list_index in 2:
+		var list: Array[Rect2] = _blocked if list_index == 0 else _paved
+		for index in list.size():
+			var r: Rect2 = list[index]
+			for cx in range(floori(r.position.x / RECT_CELL), floori(r.end.x / RECT_CELL) + 1):
+				for cz in range(floori(r.position.y / RECT_CELL), floori(r.end.y / RECT_CELL) + 1):
+					var key := Vector2i(cx, cz)
+					if not _rect_grid.has(key):
+						_rect_grid[key] = [[], []]
+					_rect_grid[key][list_index].append(index)
+
+
+func _nearby(point: Vector2, margin: float, list_index: int) -> Array:
+	var result := {}
+	for cx in range(floori((point.x - margin) / RECT_CELL), floori((point.x + margin) / RECT_CELL) + 1):
+		for cz in range(floori((point.y - margin) / RECT_CELL), floori((point.y + margin) / RECT_CELL) + 1):
+			var key := Vector2i(cx, cz)
+			if _rect_grid.has(key):
+				for index in _rect_grid[key][list_index]:
+					result[index] = true
+	return result.keys()
 
 
 ## Box between two opposite corners into a SurfaceTool (clockwise front faces, outward normals).
@@ -1170,11 +1573,11 @@ func _add_sign(text: String, at: Vector3, yaw: float, color: Color, pixel_size: 
 
 
 ## Instances split by CHUNK cell, so far-off cells are culled (and skipped by shadow cascades).
-func _add_multimesh(node_name: String, mesh: Mesh, transforms: Array[Transform3D], colors: Array[Color]) -> void:
+func _add_multimesh(node_name: String, mesh: Mesh, transforms: Array[Transform3D], colors: Array[Color], cell := CHUNK) -> void:
 	var cells := {}
 	for index in transforms.size():
 		var origin := transforms[index].origin
-		var key := Vector2i(floori(origin.x / CHUNK), floori(origin.z / CHUNK))
+		var key := Vector2i(floori(origin.x / cell), floori(origin.z / cell))
 		if not cells.has(key):
 			var cell_transforms: Array[Transform3D] = []
 			var cell_colors: Array[Color] = []

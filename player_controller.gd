@@ -3,7 +3,8 @@ extends CharacterBody3D
 const FOAM_PELLET_SCENE: PackedScene = preload("res://foam_pellet.tscn")
 const FOAM_FIRE_SOUND: AudioStream = preload("res://addons/cogito/Assets/Audio/Spray.ogg")
 const MOBILE_CONTROLS_SCRIPT = preload("res://mobile_controls.gd")
-const BAT_HIT_SOUND: AudioStream = preload("res://addons/cogito/Assets/Audio/Kenney/Impacts/impactPlank_medium_000.ogg")
+const BAT_HIT_SOUND: AudioStream = preload("res://audio/bat_hit.ogg")
+const BAT_WOOSH_SOUND: AudioStream = preload("res://audio/bat_woosh.ogg")
 const BAT_RANGE := 2.6
 const BAT_HIT_DELAY := 0.24 # from the start of the swing to the moment the bat comes down
 const BAT_COOLDOWN := 0.62
@@ -58,6 +59,7 @@ var _mobile_controls: MobileControls
 var _health_label: Label
 var _weapon_label: Label
 var _bat_sound: AudioStreamPlayer
+var _woosh_sound: AudioStreamPlayer
 var _start_screen: Control
 var _game_over_screen: Control
 var _name_edit: LineEdit
@@ -83,12 +85,59 @@ func _ready() -> void:
 	_bat_sound.name = "BatHitSound"
 	_bat_sound.stream = BAT_HIT_SOUND
 	add_child(_bat_sound)
+	_woosh_sound = AudioStreamPlayer.new()
+	_woosh_sound.name = "BatWoosh"
+	_woosh_sound.stream = BAT_WOOSH_SOUND
+	_woosh_sound.volume_db = -4.0
+	add_child(_woosh_sound)
+	_add_falling_leaves()
 	_footstep_sound = AudioStreamPlayer.new()
 	_footstep_sound.name = "RunFootsteps"
 	_footstep_sound.volume_db = -2.0
 	add_child(_footstep_sound)
 	_setup_game_ui()
 	_update_health_ui()
+
+
+## Autumn leaves drifting down around the player, wherever they go.
+func _add_falling_leaves() -> void:
+	var leaves := CPUParticles3D.new()
+	leaves.name = "FallingLeaves"
+	leaves.amount = 160
+	leaves.lifetime = 12.0
+	leaves.preprocess = 12.0
+	leaves.local_coords = false
+	leaves.position = Vector3(0, 9.0, 0)
+	leaves.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	leaves.emission_box_extents = Vector3(22.0, 4.0, 22.0)
+	leaves.direction = Vector3(0.3, -1.0, 0.2)
+	leaves.spread = 25.0
+	leaves.initial_velocity_min = 0.3
+	leaves.initial_velocity_max = 0.8
+	leaves.gravity = Vector3(0.35, -0.55, 0.15)
+	leaves.angular_velocity_min = -180.0
+	leaves.angular_velocity_max = 180.0
+	leaves.angle_min = 0.0
+	leaves.angle_max = 360.0
+	leaves.scale_amount_min = 0.7
+	leaves.scale_amount_max = 1.3
+	var ramp := Gradient.new()
+	ramp.set_color(0, Color(0.9, 0.68, 0.12))
+	ramp.set_color(1, Color(0.62, 0.18, 0.07))
+	ramp.add_point(0.4, Color(0.85, 0.42, 0.08))
+	ramp.add_point(0.7, Color(0.5, 0.31, 0.12))
+	leaves.color_initial_ramp = ramp
+	var quad := QuadMesh.new()
+	quad.size = Vector2(0.13, 0.09)
+	var material := StandardMaterial3D.new()
+	material.vertex_color_use_as_albedo = true
+	material.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	material.roughness = 0.9
+	quad.material = material
+	leaves.mesh = quad
+	leaves.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(leaves)
 
 
 ## True while this player is in the world and can be targeted (not on the start or game-over screen).
@@ -210,6 +259,8 @@ func _swing_bat() -> void:
 		return
 	_can_fire = false
 	model.call("swing")
+	_woosh_sound.pitch_scale = randf_range(0.9, 1.15)
+	_woosh_sound.play()
 	var net_world := get_tree().current_scene.get_node_or_null("NetWorld")
 	if net_world != null:
 		net_world.call("broadcast_swing")

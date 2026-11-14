@@ -10,17 +10,23 @@ Android: `godot --headless --export-debug "Android" build/android/GachaVillage.a
 
 Rebuild the cars: `blender -b --factory-startup -P blender/scripts/build_vehicles.py` (Blender 5.2, `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe`) → `assets/vehicles/*.glb` + previews in `blender/renders/vehicles/`.
 
-![Third-person view in front of Na Skalkách 939 with the baseball bat](screenshots/gameplay.jpg)
+![Autumn on Na Skalkách: third-person view in front of 939 with the baseball bat](screenshots/gameplay.jpg)
 
 | | |
 |---|---|
 | ![The estate from above, ~200 m round the home block](screenshots/aerial.jpg) | ![Sixteen-storey towers seen from the car park on Dr. E. Beneše](screenshots/towers.jpg) |
 | ![Kids and parents at the Na Skalkách playground](screenshots/playground.jpg) | ![The walk-in supermarket](screenshots/supermarket.jpg) |
 | ![Aisles inside the supermarket](screenshots/supermarket_inside.jpg) | ![Na Skalkách with parked cars](screenshots/street.jpg) |
-| ![The garage row under the towers](screenshots/garages.jpg) | ![Car models built in Blender](blender/renders/vehicles/car_octavia_combi_front.png) |
+| ![Graffiti on the garage row under the towers](screenshots/garages.jpg) | ![The grassy hill by the poliklinika](screenshots/hill.jpg) |
+| ![Flower boxes, washing and curtains on the loggias](screenshots/loggias.jpg) | ![Car models built in Blender](blender/renders/vehicles/car_octavia_combi_front.png) |
 
 ## Playable estate
 The main scene (`node_2d.tscn`) is a third-person village shooter with the custom player character and an over-the-shoulder camera. Every player appears at a random spot inside the panel-housing estate. Switch between the foam pistol (tucked at the hip, snapped up to aim when firing), a baseball bat (overhead swing that knocks villagers flat) and empty hands. Sixteen villagers roam the streets carrying pistols but never fire back (`shoots_back` in `villager_walk.gd` turns that on again); they run away as soon as they see you armed. Foam knocks one out at once, the bat floors it first; it respawns after a short delay. Parents and kids play at the playground and shoppers and cashiers fill the supermarket; they run from an armed player too but can't be hurt. The estate (`district.gd`) is the real neighbourhood around Na Skalkách 939 in Neratovice, rebuilt 1:1 in metres from the satellite map and Google Street View, in detail for about 100 m around the home block and out to ~200 m with the surrounding streets (Dr. E. Beneše, 28. října, Za Jednotou, J. K. Tyla, Lomená, Travní), the long blocks on Beneše, the poliklinika, the family-house quarter, five sixteen-storey towers and a walk-in supermarket (POTRAVINY) with aisles, fridges and checkouts. Near the home block: the three 107 m five-storey panel blocks with full-width loggias (ochre fins, white slabs, brown/white/red/glass railings, yellow stair entrances; 939 is marked), the point towers across Na Skalkách with their coloured end walls and ground-floor shops (salon, florist), the old garage row opposite the home block, the concrete and mesh bin pens with sorting bins, street lamps, P signs, the spruce grove with red pipe railings, the playground, the white commercial hall (Restaurace Skleník, AlzaBox), the purple-roofed shop, trees, and parked cars modelled in Blender after the ones on the street (Škoda Octavia Combi and liftback, Škoda Fabia, a compact SUV and an MPV, in the usual silver/white/grey/black/blue/red), all surrounded by forest. Roads, paths and entrance steps lie flush with the ground and have no colliders, so you can run anywhere without jumping.
+
+### Autumn atmosphere
+It is an autumn afternoon: deciduous crowns in yellow, orange and red sway in the wind (`tree_crown.gdshader`), fallen leaves cover the grass (`grass.gdshader`), lie on the paths and roads and drift down around the player. The sky has lit cumulus with grey undersides, high cirrus, a sun halo and horizon haze, with distance fog and a soft glow. Grassy hills rise in the open ground (flattened near anything built, with height-map collision). Loggias carry flower boxes, washing, satellite dishes and curtains; there are graffiti tags on the garages, a bus stop on Beneše, clotheslines between the blocks, bins and benches at the entrances, swings that swing, flocks of birds overhead (`birds.gd`) and cars driving along Dr. E. Beneše and 28. října that stop for people (`traffic.gd`).
+
+Sound (`ambience.gd`, files in `audio/`, see `audio/CREDITS.md`): distant city hum, wind and birdsong everywhere, creaking swings at the playground, an engine hum on every passing car, and a whoosh and crack for the bat. The hum, wind, engine and creak are synthesised by `audio/make_sounds.py`; the birdsong is CC0 from OpenGameArt.
 
 ### Multiplayer
 Everyone who opens the game (web link or the Android APK) lands in the same world and sees the other players, with their names over their heads. Ten armed villagers roam the estate's roads and footpaths and loiter around; hit one and it vanishes and respawns somewhere far from all players.
