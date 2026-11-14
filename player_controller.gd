@@ -4,8 +4,6 @@ const FOAM_PELLET_SCENE: PackedScene = preload("res://foam_pellet.tscn")
 const FOAM_FIRE_SOUND: AudioStream = preload("res://addons/cogito/Assets/Audio/Spray.ogg")
 const MOBILE_CONTROLS_SCRIPT = preload("res://mobile_controls.gd")
 const MAX_HEALTH := 100
-const MAGAZINE_SIZE := 6
-const RELOAD_DURATION := 1.2
 const PLAYER_PROJECTILE_DAMAGE := 25.0
 const RUN_FOOTSTEP_SOUNDS: Array[AudioStream] = [
 	preload("res://addons/cogito/Assets/Audio/Kenney/Footsteps/footstep00.ogg"),
@@ -16,6 +14,13 @@ const RUN_FOOTSTEP_SOUNDS: Array[AudioStream] = [
 ]
 const WALK_FOOTSTEP_INTERVAL := 0.48
 const RUN_FOOTSTEP_INTERVAL := 0.3
+## Open paved spots around the estate (x, z) where players appear, picked at random.
+const SPAWN_POINTS: Array[Vector2] = [
+	Vector2(12, 24), Vector2(-10, 24), Vector2(35, 24),
+	Vector2(-6, 66), Vector2(22, 66), Vector2(40, 66),
+	Vector2(22, 84.2), Vector2(0, 102.6), Vector2(30, 102.6),
+	Vector2(58, 84), Vector2(-50.5, 66),
+]
 
 @export var walk_speed := 4.5
 @export var run_speed := 7.5
@@ -26,18 +31,13 @@ const RUN_FOOTSTEP_INTERVAL := 0.3
 @onready var camera_pivot: Node3D = $CameraPivot
 @onready var camera: Camera3D = $CameraPivot/SpringArm3D/Camera3D
 @onready var interact_ray: RayCast3D = $CameraPivot/SpringArm3D/Camera3D/InteractRay
-@onready var fruit_counter: Label = $HUD/FruitCounter
-@onready var gun_status: Label = $HUD/GunStatus
 @onready var held_gun: Node3D = $CameraPivot/SpringArm3D/Camera3D/HeldGunPivot
 @onready var gun_muzzle: Marker3D = $CameraPivot/SpringArm3D/Camera3D/HeldGunPivot/HeldPistol/GunMuzzle
 @onready var hud: CanvasLayer = $HUD
 
-var fruits_taken := 0
-var has_gun := false
+var has_gun := true
 var health := MAX_HEALTH
-var ammunition := MAGAZINE_SIZE
 var _can_fire := true
-var _reloading := false
 var _game_started := false
 var _game_over := false
 var _fire_sound: AudioStreamPlayer
@@ -45,25 +45,20 @@ var _footstep_sound: AudioStreamPlayer
 var _footstep_timer := 0.0
 var _mobile_controls: MobileControls
 var _health_label: Label
-var _ammo_label: Label
 var _start_screen: Control
 var _game_over_screen: Control
 var _name_edit: LineEdit
-var _spawn_transform: Transform3D
 
 
 func _ready() -> void:
 	add_to_group("player")
-	_spawn_transform = global_transform
-	# Small random offset so two players starting together don't stand inside each other.
-	global_position += Vector3(randf_range(-0.8, 0.8), 0.0, randf_range(-0.8, 0.8))
+	_move_to_random_spawn()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	if _is_touch_device():
 		_mobile_controls = MOBILE_CONTROLS_SCRIPT.new()
 		add_child(_mobile_controls)
 		_mobile_controls.interact_pressed.connect(_interact)
 		_mobile_controls.fire_pressed.connect(_fire_foam_pellet)
-		_mobile_controls.reload_pressed.connect(_reload_gun)
 		_mobile_controls.look_delta.connect(_apply_look_delta)
 	_fire_sound = AudioStreamPlayer.new()
 	_fire_sound.name = "FoamFireSound"
@@ -76,7 +71,6 @@ func _ready() -> void:
 	add_child(_footstep_sound)
 	_setup_game_ui()
 	_update_health_ui()
-	_update_ammo_ui()
 
 
 ## True while this player is in the world and can be targeted (not on the start or game-over screen).
@@ -117,8 +111,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	elif event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_E:
 		_interact()
-	elif event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_R:
-		_reload_gun()
 
 
 func _apply_look_delta(relative: Vector2) -> void:
@@ -136,33 +128,23 @@ func _interact() -> void:
 	if not target.has_method("interact"):
 		return
 
-	var result: Variant = target.call("interact")
-	if result is String and not result.is_empty():
-		if target.is_in_group("fruit_pickups"):
-			fruits_taken += 1
-			fruit_counter.text = "Fruit taken: %d (%s)" % [fruits_taken, result]
-		elif target.is_in_group("gun_pickups") or result == "Foam pistol":
-			collect_gun()
-		else:
-			push_warning("Interaction returned an unrecognized collectible: %s" % result)
+	target.call("interact")
 
 
-func collect_gun() -> void:
-	has_gun = true
-	held_gun.visible = true
-	gun_status.text = "Foam pistol: Collected (Q/click fire, R reload)"
-	if _mobile_controls != null:
-		_mobile_controls.set_fire_visible(true)
-		_mobile_controls.set_reload_visible(true)
-	_update_ammo_ui()
+## Drop the player at a random open spot in the estate, facing north into it.
+## The small jitter keeps two players spawning together from standing inside each other.
+func _move_to_random_spawn() -> void:
+	var spot: Vector2 = SPAWN_POINTS[randi() % SPAWN_POINTS.size()]
+	var jitter := Vector2(randf_range(-1.5, 1.5), randf_range(-1.0, 1.0))
+	global_transform = Transform3D(
+		Basis(Vector3.UP, PI),
+		Vector3(spot.x + jitter.x, 0.9, spot.y + jitter.y)
+	)
+	camera_pivot.rotation.x = deg_to_rad(-4.6)
 
 
 func _fire_foam_pellet() -> void:
-	if not _game_started or _game_over or not has_gun or not _can_fire or _reloading:
-		return
-
-	if ammunition <= 0:
-		_reload_gun()
+	if not _game_started or _game_over or not has_gun or not _can_fire:
 		return
 
 	_can_fire = false
@@ -175,25 +157,9 @@ func _fire_foam_pellet() -> void:
 	var net_world := get_tree().current_scene.get_node_or_null("NetWorld")
 	if net_world != null:
 		net_world.call("broadcast_shot", gun_muzzle.global_position, shot_direction)
-	ammunition -= 1
-	_update_ammo_ui()
 	_fire_sound.play()
 	await get_tree().create_timer(0.25).timeout
 	_can_fire = true
-
-
-func _reload_gun() -> void:
-	if not _game_started or _game_over or not has_gun or _reloading or ammunition == MAGAZINE_SIZE:
-		return
-
-	_reloading = true
-	_update_ammo_ui()
-	await get_tree().create_timer(RELOAD_DURATION).timeout
-	if not is_inside_tree():
-		return
-	ammunition = MAGAZINE_SIZE
-	_reloading = false
-	_update_ammo_ui()
 
 
 func receive_damage(amount: float) -> void:
@@ -256,11 +222,10 @@ func _update_footsteps(delta: float, has_movement_input: bool, is_running: bool)
 func _setup_game_ui() -> void:
 	hud.process_mode = Node.PROCESS_MODE_ALWAYS
 	hud.layer = 20
-	_health_label = _make_hud_label("Health: %d / %d" % [MAX_HEALTH, MAX_HEALTH], 96.0, 130.0, 22)
-	_ammo_label = _make_hud_label("Ammo: --", 130.0, 164.0, 22)
+	_health_label = _make_hud_label("Health: %d / %d" % [MAX_HEALTH, MAX_HEALTH], 24.0, 58.0, 22)
 	_start_screen = _make_game_screen(
 		"GACHA VILLAGE",
-		"Find the foam pistol and survive the villagers.\nPlay together: open the same game on another device.\n\nWASD move  |  Shift run  |  Space jump\nMouse look  |  E interact  |  Q / click fire\nSix shots per magazine. Press R to reload.",
+		"Your foam pistol is loaded. Survive the villagers.\nPlay together: open the same game on another device.\n\nWASD move  |  Shift run  |  Space jump\nMouse look  |  E interact  |  Q / click fire\nUnlimited foam: keep firing.",
 		"START GAME",
 		_start_game,
 		true
@@ -371,17 +336,6 @@ func _update_health_ui() -> void:
 	)
 
 
-func _update_ammo_ui() -> void:
-	if _ammo_label == null:
-		return
-	if not has_gun:
-		_ammo_label.text = "Ammo: --"
-	elif _reloading:
-		_ammo_label.text = "Reloading..."
-	else:
-		_ammo_label.text = "Ammo: %d / %d" % [ammunition, MAGAZINE_SIZE]
-
-
 func _start_game() -> void:
 	if _game_started:
 		return
@@ -403,16 +357,13 @@ func _end_game() -> void:
 	velocity = Vector3.ZERO
 
 
-## Back to the start room with full health; the world (and the other players) carry on.
+## Back into the estate at a random spot with full health; the world (and the other players) carry on.
 func _restart_game() -> void:
-	global_transform = _spawn_transform
+	_move_to_random_spawn()
 	velocity = Vector3.ZERO
 	health = MAX_HEALTH
-	ammunition = MAGAZINE_SIZE
-	_reloading = false
 	_can_fire = true
 	_update_health_ui()
-	_update_ammo_ui()
 	_game_over_screen.hide()
 	_game_over = false
 	if _mobile_controls == null:
