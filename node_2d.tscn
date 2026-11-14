@@ -4,7 +4,6 @@
 [ext_resource type="Script" uid="uid://mquprc1ferm7" path="res://district.gd" id="6_district"]
 [ext_resource type="Shader" uid="uid://c6g50xf51rf35" path="res://sky.gdshader" id="10_sky_shader"]
 [ext_resource type="Script" uid="uid://bncu8krclsne" path="res://forest.gd" id="11_forest"]
-[ext_resource type="PackedScene" path="res://foam_pistol_model.tscn" id="16_foam_pistol_model"]
 [ext_resource type="Shader" uid="uid://c32mqlfwtjqa7" path="res://grass.gdshader" id="17_grass_shader"]
 [ext_resource type="PackedScene" uid="uid://ckl1eq73jpwqu" path="res://main_player.glb" id="24_main_player"]
 [ext_resource type="Script" uid="uid://d3c347li8bopb" path="res://player_model_animator.gd" id="25_player_model_animator"]
@@ -86,15 +85,6 @@ current = true
 [node name="InteractRay" type="RayCast3D" parent="Player/CameraPivot/SpringArm3D/Camera3D" unique_id=2016618824]
 target_position = Vector3(0, 0, -3.5)
 collide_with_areas = true
-
-[node name="HeldGunPivot" type="Node3D" parent="Player/CameraPivot/SpringArm3D/Camera3D" unique_id=1633883114]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.25, -0.24, -0.35)
-
-[node name="HeldPistol" parent="Player/CameraPivot/SpringArm3D/Camera3D/HeldGunPivot" unique_id=824863700 instance=ExtResource("16_foam_pistol_model")]
-transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, 0, 0, 0)
-
-[node name="GunMuzzle" type="Marker3D" parent="Player/CameraPivot/SpringArm3D/Camera3D/HeldGunPivot/HeldPistol" unique_id=633968944]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.447, 0.12, 0)
 
 [node name="HUD" type="CanvasLayer" parent="Player" unique_id=294564265]
 

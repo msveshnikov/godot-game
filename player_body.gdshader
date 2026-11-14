@@ -25,10 +25,21 @@ uniform float leg_x_limit = 0.24;
 uniform float crotch_bottom = 0.72;
 uniform float crotch_top = 0.95;
 
+// The right arm (mesh -X) holds the pistol: player_model_animator.gd sets these
+// two angles directly (and mirrors the same maths to place the gun in the hand).
+uniform float gun_arm_pitch = -0.25; // about X at the shoulder; -PI/2 points the arm forward
+uniform float gun_arm_roll = 0.35;   // about Z at the shoulder; tucks the A-posed arm against the body
+
 vec3 rotate_x(vec3 v, float a) {
 	float c = cos(a);
 	float s = sin(a);
 	return vec3(v.x, v.y * c - v.z * s, v.y * s + v.z * c);
+}
+
+vec3 rotate_z(vec3 v, float a) {
+	float c = cos(a);
+	float s = sin(a);
+	return vec3(v.x * c - v.y * s, v.x * s + v.y * c, v.z);
 }
 
 vec3 rotate_about(vec3 v, vec3 pivot, float a) {
@@ -68,11 +79,18 @@ void vertex() {
 		* smoothstep(0.7, 0.78, VERTEX.y);
 	float arm_angle = mix(-swing * arm_swing * walk_amount, -0.5, air_amount);
 	vec3 shoulder_pivot = vec3(shoulder_x * side, shoulder_height, 0.0);
-	v = rotate_about(v, shoulder_pivot, arm_angle * arm_w);
-	n = rotate_x(n, arm_angle * arm_w);
+	if (side < 0.0) {
+		// Gun arm: tuck in, then swing up about the shoulder.
+		vec3 local = rotate_z(v - shoulder_pivot, gun_arm_roll * arm_w);
+		v = rotate_x(local, gun_arm_pitch * arm_w) + shoulder_pivot;
+		n = rotate_x(rotate_z(n, gun_arm_roll * arm_w), gun_arm_pitch * arm_w);
+	} else {
+		v = rotate_about(v, shoulder_pivot, arm_angle * arm_w);
+		n = rotate_x(n, arm_angle * arm_w);
+	}
 
-	// --- Upper-body lean and idle breathing ---
-	float upper_w = smoothstep(crotch_bottom, crotch_top, VERTEX.y);
+	// --- Upper-body lean and idle breathing (arms lean rigidly with the torso) ---
+	float upper_w = max(smoothstep(crotch_bottom, crotch_top, VERTEX.y), arm_w);
 	v = rotate_about(v, hip_pivot, lean * upper_w);
 	n = rotate_x(n, lean * upper_w);
 	float chest_w = smoothstep(1.0, 1.35, VERTEX.y);

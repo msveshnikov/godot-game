@@ -97,6 +97,7 @@ func _on_message(from: int, data: Dictionary) -> void:
 			get_tree().current_scene.add_child(pellet)
 			pellet.global_position = Vector3(o[0], o[1], o[2])
 			pellet.launch(shooter, Vector3(d[0], d[1], d[2]), 0.0, &"")
+			shooter.show_shot(Vector3(o[0], o[1], o[2]), Vector3(d[0], d[1], d[2]))
 			_play_remote_shot(shooter)
 
 

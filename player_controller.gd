@@ -31,13 +31,14 @@ const SPAWN_POINTS: Array[Vector2] = [
 @onready var camera_pivot: Node3D = $CameraPivot
 @onready var camera: Camera3D = $CameraPivot/SpringArm3D/Camera3D
 @onready var interact_ray: RayCast3D = $CameraPivot/SpringArm3D/Camera3D/InteractRay
-@onready var held_gun: Node3D = $CameraPivot/SpringArm3D/Camera3D/HeldGunPivot
-@onready var gun_muzzle: Marker3D = $CameraPivot/SpringArm3D/Camera3D/HeldGunPivot/HeldPistol/GunMuzzle
+@onready var model: Node3D = $MainPlayerModel # player_model_animator.gd: holds the pistol
 @onready var hud: CanvasLayer = $HUD
 
 var has_gun := true
 var health := MAX_HEALTH
 var _can_fire := true
+var _shot_pending := false
+var _aim_target := Vector3.ZERO
 var _game_started := false
 var _game_over := false
 var _fire_sound: AudioStreamPlayer
@@ -85,7 +86,13 @@ func _is_touch_device() -> bool:
 
 
 func _process(_delta: float) -> void:
-	held_gun.look_at(_get_aim_target(), Vector3.UP)
+	_aim_target = _get_aim_target()
+	model.set("aim_point", _aim_target)
+	model.set("has_aim_point", true)
+	# The trigger snaps the arm up first; the foam leaves the barrel once it points at the target.
+	if _shot_pending and model.call("is_gun_raised"):
+		_shot_pending = false
+		_launch_pellet()
 
 
 func _input(event: InputEvent) -> void:
@@ -148,18 +155,26 @@ func _fire_foam_pellet() -> void:
 		return
 
 	_can_fire = false
+	_shot_pending = true
+	model.call("raise_gun")
+	await get_tree().create_timer(0.25).timeout
+	_can_fire = true
+
+
+func _launch_pellet() -> void:
+	if not is_playing():
+		return
+	var muzzle := model.call("get_muzzle") as Marker3D
 	var pellet := FOAM_PELLET_SCENE.instantiate() as FoamPellet
 	get_tree().current_scene.add_child(pellet)
-	pellet.global_position = gun_muzzle.global_position
-	pellet.global_basis = camera.global_basis
-	var shot_direction := gun_muzzle.global_position.direction_to(_get_aim_target())
+	pellet.global_position = muzzle.global_position
+	pellet.global_basis = muzzle.global_basis.orthonormalized()
+	var shot_direction := muzzle.global_position.direction_to(_aim_target)
 	pellet.launch(self, shot_direction, PLAYER_PROJECTILE_DAMAGE, &"villagers")
 	var net_world := get_tree().current_scene.get_node_or_null("NetWorld")
 	if net_world != null:
-		net_world.call("broadcast_shot", gun_muzzle.global_position, shot_direction)
+		net_world.call("broadcast_shot", muzzle.global_position, shot_direction)
 	_fire_sound.play()
-	await get_tree().create_timer(0.25).timeout
-	_can_fire = true
 
 
 func receive_damage(amount: float) -> void:
@@ -172,8 +187,17 @@ func receive_damage(amount: float) -> void:
 		_end_game()
 
 
+## What the screen centre points at: the first thing the camera ray hits past the player, else far away.
 func _get_aim_target() -> Vector3:
-	return camera.global_position - camera.global_basis.z * 50.0
+	var from := camera.global_position
+	var forward := -camera.global_basis.z
+	var far_point := from + forward * 120.0
+	var query := PhysicsRayQueryParameters3D.create(from, far_point)
+	query.exclude = [get_rid()]
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	if hit.is_empty() or from.distance_to(hit.position) < 4.0:
+		return far_point
+	return hit.position
 
 
 func _physics_process(delta: float) -> void:
@@ -363,6 +387,7 @@ func _restart_game() -> void:
 	velocity = Vector3.ZERO
 	health = MAX_HEALTH
 	_can_fire = true
+	_shot_pending = false
 	_update_health_ui()
 	_game_over_screen.hide()
 	_game_over = false
