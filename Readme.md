@@ -8,6 +8,8 @@ Web deploy: `godot --headless --export-release "Web" build/web/index.html` then 
 Windows: `godot --headless --export-release "Windows Desktop" build/windows/GachaVillage.exe` (single exe, pck embedded).
 Android: `godot --headless --export-debug "Android" build/android/GachaVillage.apk` (debug-signed; no release keystore is set up).
 
+Exports ship only what the game can load (`export_files` in `export_presets.cfg`, plus every script and `audio/`, `assets/`), not the whole Cogito demo. After adding a scene, model or sound, regenerate the list: `godot --headless --path . -s tools/update_export_files.gd`.
+
 Rebuild the cars: `blender -b --factory-startup -P blender/scripts/build_vehicles.py` (Blender 5.2, `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe`) → `assets/vehicles/*.glb` + previews in `blender/renders/vehicles/`.
 
 ![Autumn on Na Skalkách: third-person view in front of the home block with the baseball bat](screenshots/gameplay.jpg)

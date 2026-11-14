@@ -27,6 +27,10 @@ InputRouter="*uid://byboexsy6hrjq"
 Audio="*res://addons/quick_audio/Audio.gd"
 Net="*res://net.gd"
 
+[cogito]
+
+settings/settings_file="res://cogito_settings.tres"
+
 [display]
 
 window/stretch/mode="canvas_items"

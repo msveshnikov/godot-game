@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="CogitoSettings" format=3]
+
+[ext_resource type="Script" uid="uid://o06hnwjtbmie" path="res://addons/cogito/cogito_settings.gd" id="1_settings"]
+
+[resource]
+script = ExtResource("1_settings")
+default_transition_duration = 0.4
+loading_screen_scene_path = "res://addons/cogito/SceneManagement/LoadingScene.tscn"
