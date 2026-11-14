@@ -766,6 +766,7 @@ func _car_mesh(path: String) -> Mesh:
 ## Paved surface between two (u, n) corners: no collider, top just above the grass
 ## (a few millimetres per layer so crossings don't z-fight).
 func _ground(_name: String, u0: float, n0: float, u1: float, n1: float, top: float, color: Color, block := true) -> void:
+	top += 0.045 # clear of grass.gdshader's ±4 cm ground undulation
 	_box_un(u0, n0, u1, n1, top - 0.1, top, color)
 	if block:
 		_blocked_un(u0, n0, u1, n1)
