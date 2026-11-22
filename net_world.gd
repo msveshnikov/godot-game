@@ -91,6 +91,12 @@ func broadcast_shot(origin: Vector3, end: Vector3, flesh: bool, normal: Vector3)
 	Net.send({"t": "ps", "o": _vec(origin), "e": _vec(end), "f": flesh, "nm": _vec(normal)})
 
 
+## The local player blew up a car: "parked" (spot index) or "traffic" (car index and
+## where it was along its lane).
+func broadcast_car(kind: String, index: int, s: float) -> void:
+	Net.send({"t": "cx", "w": kind, "i": index, "s": snappedf(s, 0.01)})
+
+
 ## The local player hit another player for `amount` ("head", "chest", "belly", "legs", "bat").
 func send_damage(peer: int, amount: int, zone: String) -> void:
 	Net.send({"t": "dmg", "to": peer, "a": amount, "z": zone})
@@ -148,6 +154,13 @@ func _on_message(from: int, data: Dictionary) -> void:
 				if n.size() >= 3:
 					ShotFx.impact(scene, end, Vector3(n[0], n[1], n[2]))
 			ShotFx.shot_sound(scene, origin)
+		"cx":
+			var district := get_tree().current_scene.get_node_or_null("Diorama/District")
+			if district == null:
+				return
+			var cars: Node = district.get_node_or_null("Traffic") if str(data.get("w", "")) == "traffic" else district
+			if cars != null and cars.has_method("blow_up_car"):
+				cars.call("blow_up_car", int(data.get("i", -1)), float(data.get("s", -1.0)), from)
 		"dmg":
 			if int(data.get("to", -1)) != Net.my_id:
 				return
@@ -168,7 +181,7 @@ func _on_message(from: int, data: Dictionary) -> void:
 ## One line in the kill feed under the status: "Killer > Victim (headshot)", gone after a while.
 func _add_feed(killer: String, victim: String, zone: String) -> void:
 	var line := Label.new()
-	var how: String = {"head": "  (headshot)", "bat": "  (bat)"}.get(zone, "")
+	var how: String = {"head": "  (headshot)", "bat": "  (bat)", "blast": "  (car bomb)"}.get(zone, "")
 	line.text = "%s  >  %s%s" % [killer, victim, how]
 	line.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	line.add_theme_font_size_override("font_size", 18)

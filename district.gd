@@ -90,6 +90,10 @@ var _collision: StaticBody3D
 var _blocked: Array[Rect2] = []
 var _rng := RandomNumberGenerator.new()
 var _car_spots: Array[Transform3D] = []
+## CAR_MODELS index of the car parked at each spot, and the spots already blown up.
+var _car_spot_models: Array[int] = []
+var _wrecked_spots := {}
+var _car_meshes := {}
 var _trees: Array = [] # [kind, Vector3 game position, scale]
 ## Paved rects (game XZ) and a coarse grid index over all blocked/paved rects.
 var _paved: Array[Rect2] = []
@@ -1462,8 +1466,11 @@ func _spawn_cars() -> void:
 		var colors: Array[Color] = []
 		per_model.append([transforms, colors])
 	var shapes := {}
-	for spot in _car_spots:
+	_car_spot_models.clear()
+	for spot_index in _car_spots.size():
+		var spot := _car_spots[spot_index]
 		var model := _weighted_pick(CAR_MODELS)
+		_car_spot_models.append(model)
 		per_model[model][0].append(spot)
 		per_model[model][1].append(CAR_COLORS[_weighted_pick(CAR_COLORS)][0])
 		var size: Vector3 = CAR_MODELS[model][2]
@@ -1474,6 +1481,7 @@ func _spawn_cars() -> void:
 		var shape_node := CollisionShape3D.new()
 		shape_node.shape = shapes[model]
 		shape_node.transform = spot * Transform3D(Basis(), Vector3(0, size.y * 0.5 + 0.07, 0))
+		shape_node.set_meta("car_spot", spot_index)
 		_collision.add_child(shape_node)
 	for model in CAR_MODELS.size():
 		if per_model[model][0].is_empty():
@@ -1481,6 +1489,46 @@ func _spawn_cars() -> void:
 		var mesh := _car_mesh(CAR_MODELS[model][0])
 		if mesh != null:
 			_add_multimesh("Cars_" + str(CAR_MODELS[model][0]).get_file().get_basename(), mesh, per_model[model][0], per_model[model][1])
+
+
+## Which parked car a bullet hit (hit dictionary from a ray), or -1.
+func car_index_at(hit: Dictionary) -> int:
+	if hit.get("collider") != _collision:
+		return -1
+	var owner_id := _collision.shape_find_owner(int(hit.get("shape", -1)))
+	if owner_id < 0:
+		return -1
+	var shape_node := _collision.shape_owner_get_owner(owner_id) as Node
+	return int(shape_node.get_meta("car_spot", -1)) if shape_node != null else -1
+
+
+## Parked cars don't move: the spot says it all.
+func car_progress(_index: int) -> float:
+	return -1.0
+
+
+## Shot: the parked car blows up and its charred shell stays there for good (it
+## burns for a while, then only smokes, then just stands). False if already burnt.
+func blow_up_car(index: int, _s: float, by: int) -> bool:
+	if index < 0 or index >= _car_spots.size() or _wrecked_spots.has(index):
+		return false
+	_wrecked_spots[index] = true
+	var spot := _car_spots[index]
+	var model: Array = CAR_MODELS[_car_spot_models[index]]
+	var base := "Cars_" + str(model[0]).get_file().get_basename()
+	# Take the car out of its multimesh (zero scale), the wreck takes its place.
+	for child in get_children():
+		var instance := child as MultiMeshInstance3D
+		if instance == null or not instance.name.begins_with(base):
+			continue
+		for k in instance.multimesh.instance_count:
+			if instance.multimesh.get_instance_transform(k).origin.distance_to(spot.origin) < 0.01:
+				instance.multimesh.set_instance_transform(k, Transform3D(Basis.from_scale(Vector3.ZERO), spot.origin))
+	if not _car_meshes.has(model[0]):
+		_car_meshes[model[0]] = _car_mesh(model[0])
+	var wreck := CarFire.explode(self, global_transform * spot, model[2], _car_meshes[model[0]])
+	CarFire.blast(get_tree(), wreck.global_position, by)
+	return true
 
 
 func _weighted_pick(table: Array) -> int:

@@ -351,6 +351,8 @@ func _fire_shot() -> void:
 		_crosshair.show_hit(damage[1] == "head")
 		flesh = true
 	var normal: Vector3 = hit.get("normal", Vector3.UP)
+	if target == null and not hit.is_empty():
+		_shoot_car(hit, net_world)
 	if flesh:
 		ShotFx.blood(scene, end, muzzle.direction_to(end))
 	elif not hit.is_empty():
@@ -363,6 +365,20 @@ func _fire_shot() -> void:
 		net_world.call("broadcast_shot", muzzle, end, flesh, normal)
 	_fire_sound.pitch_scale = randf_range(0.96, 1.04)
 	_fire_sound.play()
+
+
+## A round into a car (parked: the district; driving: the traffic) blows it up,
+## here and, through NetWorld, on everyone else's screen.
+func _shoot_car(hit: Dictionary, net_world: Node) -> void:
+	var cars := (hit["collider"] as Node).get_parent()
+	if cars == null or not cars.has_method("car_index_at"):
+		return
+	var index: int = cars.call("car_index_at", hit)
+	if index < 0:
+		return
+	var s: float = cars.call("car_progress", index)
+	if cars.call("blow_up_car", index, s, Net.my_id) and net_world != null:
+		net_world.call("broadcast_car", "traffic" if cars.name == "Traffic" else "parked", index, s)
 
 
 ## Camera ray from level with the player (so nothing between the camera and the
@@ -447,11 +463,16 @@ func receive_damage(amount: float, attacker := 0, zone := "") -> void:
 		return
 	var net_world := get_tree().current_scene.get_node_or_null("NetWorld")
 	var killer := ""
-	if attacker != 0 and net_world != null:
+	if attacker != 0 and attacker != Net.my_id and net_world != null:
 		killer = net_world.call("peer_name", attacker)
 		net_world.call("report_death", attacker, zone)
-	var how: String = {"head": " with a headshot", "bat": " with a bat"}.get(zone, "")
-	_set_game_over_text("Killed by %s%s." % [killer, how] if not killer.is_empty() else "The villagers got you.")
+	var how: String = {"head": " with a headshot", "bat": " with a bat", "blast": " with an exploding car"}.get(zone, "")
+	var text := "The villagers got you."
+	if zone == "blast" and (killer.is_empty() or attacker == Net.my_id):
+		text = "You were too close to an exploding car."
+	elif not killer.is_empty():
+		text = "Killed by %s%s." % [killer, how]
+	_set_game_over_text(text)
 	_end_game()
 
 

@@ -2,7 +2,10 @@ extends Node3D
 ## Cars driving along the main streets (Dr. E. Beneše, 28. října). Each lane is a
 ## straight line that runs out into the forest at both ends, where cars wrap round
 ## unseen. Cars brake for people and for the car in front, and hum as they go.
-## Local to each client: traffic is scenery, not gameplay state.
+## Local to each client: traffic is scenery, not gameplay state, except that a car
+## shot by a player blows up (car_fire.gd) on everyone's screen at the same spot of
+## its lane; it stands there burning, the cars behind queue up, and once the wreck
+## has burnt out it is towed away and a new car joins the lane.
 
 const ENGINE_SOUND := "res://audio/car_engine.wav"
 const LOOK_AHEAD := 22.0
@@ -16,7 +19,7 @@ var lanes: Array = []
 var models: Array = []
 var colors: Array = []
 
-var _cars: Array = [] # {body, lane, s, speed, cruise, half, sound}
+var _cars: Array = [] # {body, lane, s, speed, cruise, half, sound, mesh_node, paint, model, wreck}
 var _paths: Array = [] # per lane: {"points": Array[Vector2], "ends": Array[float] (distance at each point), "length"}
 var _rng := RandomNumberGenerator.new()
 
@@ -66,6 +69,7 @@ func _ready() -> void:
 			_cars.append({
 				"body": body, "lane": lane_index, "s": length * (k + _rng.randf_range(0.0, 0.6)) / count,
 				"speed": cruise, "cruise": cruise, "half": size.z * 0.5, "sound": sound,
+				"mesh_node": mesh_node, "paint": paint, "model": model, "wreck": null,
 			})
 			sound.play(_rng.randf_range(0.0, 1.5))
 
@@ -77,6 +81,8 @@ func _physics_process(delta: float) -> void:
 			if (node as Node3D).is_visible_in_tree():
 				people.append(node)
 	for car in _cars:
+		if car["wreck"] != null:
+			continue # burning where it stopped
 		var path: Dictionary = _paths[car["lane"]]
 		var length: float = path["length"]
 		var placed := _place(path, float(car["s"]))
@@ -103,6 +109,52 @@ func _physics_process(delta: float) -> void:
 		(car["body"] as Node3D).global_transform = Transform3D(Basis.looking_at(-dir, Vector3.UP), pos)
 		var sound := car["sound"] as AudioStreamPlayer3D
 		sound.pitch_scale = 0.75 + float(car["speed"]) / 16.0
+
+
+## Which car a bullet hit (hit dictionary from a ray), or -1.
+func car_index_at(hit: Dictionary) -> int:
+	for index in _cars.size():
+		if _cars[index]["body"] == hit.get("collider"):
+			return index
+	return -1
+
+
+## Where the car is along its lane, so other clients blow it up at the same spot.
+func car_progress(index: int) -> float:
+	return float(_cars[index]["s"]) if index >= 0 and index < _cars.size() else -1.0
+
+
+## Shot: the car blows up where it is (or at `s` along its lane, as the shooter saw
+## it) and burns there; `by` fired the shot. False if it is already a wreck.
+func blow_up_car(index: int, s: float, by: int) -> bool:
+	if index < 0 or index >= _cars.size() or _cars[index]["wreck"] != null:
+		return false
+	var car: Dictionary = _cars[index]
+	var path: Dictionary = _paths[car["lane"]]
+	if s >= 0.0:
+		car["s"] = fposmod(s, float(path["length"]))
+	var placed := _place(path, float(car["s"]))
+	var body := car["body"] as Node3D
+	body.global_transform = Transform3D(Basis.looking_at(-(placed[1] as Vector3), Vector3.UP), placed[0])
+	car["speed"] = 0.0
+	(car["sound"] as AudioStreamPlayer3D).stop()
+	(car["mesh_node"] as Node3D).visible = false
+	var model: Array = car["model"]
+	car["wreck"] = CarFire.explode(self, body.global_transform, model[1], model[0])
+	CarFire.blast(get_tree(), body.global_position, by)
+	get_tree().create_timer(CarFire.TOTAL_TIME).timeout.connect(_tow_away.bind(index))
+	return true
+
+
+## The burnt-out wreck goes; a fresh car in a new colour drives off from there.
+func _tow_away(index: int) -> void:
+	var car: Dictionary = _cars[index]
+	if car["wreck"] != null:
+		(car["wreck"] as Node).queue_free()
+	car["wreck"] = null
+	(car["paint"] as StandardMaterial3D).albedo_color = colors[_rng.randi() % colors.size()]
+	(car["mesh_node"] as Node3D).visible = true
+	(car["sound"] as AudioStreamPlayer3D).play()
 
 
 ## [position, heading] at distance `s` along a lane; corners are rounded over the last few metres.
