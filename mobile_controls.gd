@@ -1,159 +1,195 @@
 extends CanvasLayer
 class_name MobileControls
+## On-screen controls for phones and touch browsers.
+## Left part of the screen: a floating stick; pull the thumb past the outer ring to run.
+## Right part: drag to look. FIRE sits under the right thumb; hold it to keep firing and
+## slide the thumb off it to aim while shooting. JUMP and SWAP are the small ones beside it.
+## Buttons track their own touch index, so they work together with the stick (multi-touch).
 
-signal interact_pressed
-signal fire_pressed
 signal swap_pressed
 signal look_delta(delta: Vector2)
 
-const STICK_RADIUS := 72.0
-const BUTTON_SIZE := Vector2(92.0, 68.0)
+const STICK_R := 70.0       # ring radius, canvas px
+const RUN_AT := 1.3         # finger beyond RUN_AT * STICK_R from where it landed -> run
+const DEAD_ZONE := 0.12
+const TEXT_COL := Color(1.0, 1.0, 1.0, 0.92)
 
-class JoystickVisual extends Control:
-	var knob_offset := Vector2.ZERO
-
-	func _draw() -> void:
-		var center := size * 0.5
-		var radius := minf(size.x, size.y) * 0.46
-		draw_circle(center, radius, Color(0.08, 0.08, 0.08, 0.38))
-		draw_arc(center, radius, 0.0, TAU, 48, Color(1.0, 1.0, 1.0, 0.48), 2.0)
-		draw_circle(center + knob_offset, radius * 0.43, Color(0.9, 0.9, 0.9, 0.58))
+## id, offset of the centre from the bottom-right corner, radius, label
+const BUTTONS := [
+	{"id": "fire", "off": Vector2(-118, -128), "r": 66.0, "label": "FIRE"},
+	{"id": "jump", "off": Vector2(-250, -70), "r": 38.0, "label": "JUMP"},
+	{"id": "swap", "off": Vector2(-70, -268), "r": 36.0, "label": "SWAP"},
+]
 
 var movement_direction := Vector2.ZERO
-var jump_pressed := false
 var run_pressed := false
-var _root: Control
-var _stick: JoystickVisual
-var _buttons: Array[Button] = []
-var _fire_button: Button
-var _stick_touch := -1
-var _look_touch := -1
+var jump_pressed := false
+var fire_held := false
+
+var _pad: Control
+var _font: Font
+var _stick_idx := -1
+var _stick_origin := Vector2.ZERO
+var _stick_finger := Vector2.ZERO
+var _look_idx := -1
+var _look_idle := 10.0      # seconds since the look finger last moved
+var _held := {}             # touch index -> button id
 
 
 func _ready() -> void:
 	layer = 10
-	_root = Control.new()
-	_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_root)
+	_font = ThemeDB.fallback_font
+	_pad = Control.new()
+	_pad.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_pad.draw.connect(_draw_pad)
+	add_child(_pad)
+	visibility_changed.connect(func() -> void:
+		if not visible:
+			release_all())
 
-	_stick = JoystickVisual.new()
-	_stick.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_root.add_child(_stick)
 
-	var interact_button := _make_button("E")
-	interact_button.pressed.connect(func() -> void: interact_pressed.emit())
-	var jump_button := _make_button("JUMP")
-	jump_button.button_down.connect(func() -> void: jump_pressed = true)
-	jump_button.button_up.connect(func() -> void: jump_pressed = false)
-	var run_button := _make_button("RUN")
-	run_button.button_down.connect(func() -> void: run_pressed = true)
-	run_button.button_up.connect(func() -> void: run_pressed = false)
-	_fire_button = _make_button("FIRE")
-	_fire_button.pressed.connect(func() -> void: fire_pressed.emit())
-	var swap_button := _make_button("SWAP")
-	swap_button.pressed.connect(func() -> void: swap_pressed.emit())
+## True while a finger is turning the camera (or did so a moment ago), so the
+## automatic camera keeps its hands off.
+func is_looking(grace := 0.45) -> bool:
+	return _look_idle < grace
 
-	_root.resized.connect(_layout_controls)
-	_layout_controls()
+
+func _process(delta: float) -> void:
+	_look_idle += delta
+	_pad.queue_redraw()
 
 
 func _input(event: InputEvent) -> void:
+	if not visible:
+		return
 	if event is InputEventScreenTouch:
 		if event.pressed:
-			_begin_touch(event.index, event.position)
+			_finger_down(event.index, event.position)
 		else:
-			_end_touch(event.index)
+			_finger_up(event.index)
 	elif event is InputEventScreenDrag:
-		if event.index == _stick_touch:
-			_update_stick(event.position)
-		elif event.index == _look_touch:
-			look_delta.emit(event.relative)
+		_finger_drag(event.index, event.position, event.relative)
 
 
-func _make_button(label: String) -> Button:
-	var button := Button.new()
-	button.text = label
-	button.focus_mode = Control.FOCUS_NONE
-	button.custom_minimum_size = BUTTON_SIZE
-	button.add_theme_font_size_override("font_size", 20)
-	button.add_theme_color_override("font_color", Color.WHITE)
-	button.add_theme_color_override("font_hover_color", Color.WHITE)
-	button.add_theme_color_override("font_pressed_color", Color.WHITE)
-	var normal := StyleBoxFlat.new()
-	normal.bg_color = Color(0.08, 0.08, 0.08, 0.55)
-	normal.set_corner_radius_all(18)
-	button.add_theme_stylebox_override("normal", normal)
-	var pressed := StyleBoxFlat.new()
-	pressed.bg_color = Color(0.28, 0.28, 0.28, 0.78)
-	pressed.set_corner_radius_all(18)
-	button.add_theme_stylebox_override("pressed", pressed)
-	button.add_theme_stylebox_override("hover", normal)
-	_root.add_child(button)
-	_buttons.append(button)
-	return button
+func _center(b: Dictionary) -> Vector2:
+	return _pad.size + (b["off"] as Vector2)
 
 
-func _layout_controls() -> void:
-	if _root == null or _stick == null:
+func _button_at(p: Vector2) -> String:
+	for b in BUTTONS:
+		if p.distance_to(_center(b)) <= float(b["r"]) * 1.2:
+			return b["id"]
+	return ""
+
+
+func _finger_down(idx: int, p: Vector2) -> void:
+	var id := _button_at(p)
+	if id != "":
+		_held[idx] = id
+		match id:
+			"fire":
+				fire_held = true
+				# The firing thumb also aims: slide it and the camera follows.
+				if _look_idx < 0:
+					_look_idx = idx
+					_look_idle = 10.0
+			"jump":
+				jump_pressed = true
+			"swap":
+				swap_pressed.emit()
 		return
-
-	var screen_size := _root.size
-	var radius := minf(STICK_RADIUS, minf(screen_size.x * 0.12, screen_size.y * 0.18))
-	var stick_center := Vector2(screen_size.x * 0.2, screen_size.y * 0.79)
-	_stick.position = stick_center - Vector2.ONE * radius
-	_stick.size = Vector2.ONE * radius * 2.0
-	_stick.queue_redraw()
-
-	var button_centers := [
-		Vector2(screen_size.x * 0.88, screen_size.y * 0.79),
-		Vector2(screen_size.x * 0.72, screen_size.y * 0.79),
-		Vector2(screen_size.x * 0.72, screen_size.y * 0.59),
-		Vector2(screen_size.x * 0.88, screen_size.y * 0.59),
-		Vector2(screen_size.x * 0.88, screen_size.y * 0.39),
-	]
-	for index in _buttons.size():
-		_buttons[index].size = BUTTON_SIZE
-		_buttons[index].position = button_centers[index] - BUTTON_SIZE * 0.5
+	if p.x < _pad.size.x * 0.45 and p.y > 110.0:
+		if _stick_idx < 0:
+			_stick_idx = idx
+			_stick_origin = p
+			_stick_finger = p
+			_apply_stick()
+	elif _look_idx < 0:
+		_look_idx = idx
+		_look_idle = 10.0
 
 
-func _begin_touch(index: int, position: Vector2) -> void:
-	if _point_over_button(position):
-		return
-
-	if _stick_touch == -1 and _is_in_stick_area(position):
-		_stick_touch = index
-		_update_stick(position)
-	elif _look_touch == -1 and position.x >= _root.size.x * 0.48:
-		_look_touch = index
-
-
-func _end_touch(index: int) -> void:
-	if index == _stick_touch:
-		_stick_touch = -1
-		movement_direction = Vector2.ZERO
-		_stick.knob_offset = Vector2.ZERO
-		_stick.queue_redraw()
-	elif index == _look_touch:
-		_look_touch = -1
+func _finger_up(idx: int) -> void:
+	if _held.has(idx):
+		var id: String = _held[idx]
+		_held.erase(idx)
+		if id == "fire":
+			fire_held = _held.values().has("fire")
+		elif id == "jump":
+			jump_pressed = _held.values().has("jump")
+	if idx == _stick_idx:
+		_stick_idx = -1
+		_apply_stick()
+	if idx == _look_idx:
+		_look_idx = -1
 
 
-func _is_in_stick_area(position: Vector2) -> bool:
-	var center := _stick.position + _stick.size * 0.5
-	return position.distance_to(center) <= _stick.size.x * 0.7
+func _finger_drag(idx: int, p: Vector2, rel: Vector2) -> void:
+	if idx == _stick_idx:
+		_stick_finger = p
+		_apply_stick()
+	elif idx == _look_idx:
+		_look_idle = 0.0
+		look_delta.emit(rel)
 
 
-func _update_stick(position: Vector2) -> void:
-	var center := _stick.position + _stick.size * 0.5
-	var offset := position - center
-	var radius := _stick.size.x * 0.46
-	_stick.knob_offset = offset.limit_length(radius)
-	movement_direction = (_stick.knob_offset / radius).limit_length(1.0)
-	_stick.queue_redraw()
+func _apply_stick() -> void:
+	var v := Vector2.ZERO
+	run_pressed = false
+	if _stick_idx >= 0:
+		var d := _stick_finger - _stick_origin
+		var max_d := STICK_R * RUN_AT * 1.25
+		if d.length() > max_d:
+			# Drag the origin along so the thumb never runs out of room.
+			_stick_origin = _stick_finger - d.normalized() * max_d
+			d = _stick_finger - _stick_origin
+		run_pressed = d.length() > STICK_R * RUN_AT
+		v = (d / STICK_R).limit_length(1.0)
+		if v.length() < DEAD_ZONE:
+			v = Vector2.ZERO
+	movement_direction = v
 
 
-func _point_over_button(position: Vector2) -> bool:
-	for button in _buttons:
-		if button.visible and button.get_global_rect().has_point(position):
-			return true
-	return false
+func release_all() -> void:
+	_held.clear()
+	_stick_idx = -1
+	_look_idx = -1
+	fire_held = false
+	jump_pressed = false
+	_apply_stick()
+
+
+# ---------------------------------------------------------------- drawing
+func _draw_pad() -> void:
+	var active := _stick_idx >= 0
+	var o := _stick_origin if active else Vector2(170.0, _pad.size.y - 160.0)
+	var run_col := Color(1.0, 0.8, 0.35, 0.85)
+	_pad.draw_circle(o, STICK_R, Color(0.08, 0.08, 0.08, 0.32 if active else 0.18))
+	_pad.draw_arc(o, STICK_R, 0.0, TAU, 48, run_col if run_pressed else Color(1, 1, 1, 0.5 if active else 0.28), 3.0, true)
+	if active:
+		_pad.draw_arc(o, STICK_R * RUN_AT, 0.0, TAU, 48, Color(run_col, 0.85 if run_pressed else 0.3), 2.0, true)
+	var knob := o
+	if active:
+		knob = o + (_stick_finger - _stick_origin).limit_length(STICK_R)
+	_pad.draw_circle(knob, 30.0, Color(0.92, 0.92, 0.92, 0.6 if active else 0.3))
+	if active and run_pressed:
+		_text("RUN", o + Vector2(0, -STICK_R * RUN_AT - 18), 18, Color(run_col, 0.95))
+
+	for b in BUTTONS:
+		var c := _center(b)
+		var r: float = b["r"]
+		var down: bool = _held.values().has(b["id"])
+		var fire: bool = b["id"] == "fire"
+		var bg := Color(0.5, 0.1, 0.06, 0.62 if down else 0.4) if fire else Color(0.08, 0.08, 0.08, 0.66 if down else 0.42)
+		var edge := Color(1, 1, 1, 0.9 if down else 0.55)
+		_pad.draw_circle(c, r, bg)
+		_pad.draw_arc(c, r, 0.0, TAU, 56, edge, 3.0 if fire else 2.0, true)
+		_text(b["label"], c, 24 if fire else 15, TEXT_COL)
+
+
+func _text(s: String, center: Vector2, size: int, col: Color) -> void:
+	var w := _font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+	var pos := center + Vector2(-w * 0.5, (_font.get_ascent(size) - _font.get_descent(size)) * 0.5)
+	_pad.draw_string(_font, pos + Vector2(1, 2), s, HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color(0, 0, 0, col.a * 0.6))
+	_pad.draw_string(_font, pos, s, HORIZONTAL_ALIGNMENT_LEFT, -1, size, col)

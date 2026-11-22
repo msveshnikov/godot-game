@@ -20,6 +20,13 @@ const BELLY_HEIGHT := 0.86
 const BODY_RADIUS := 0.32
 const BAT_PLAYER_DAMAGE := 30
 const SPAWN_PROTECTION := 2.0
+## Camera pitch that puts the crosshair on a standing person's chest ~10 m ahead.
+const LEVEL_PITCH := -0.08
+## Touch auto-camera: how fast the view turns toward the stick direction (per radian off-axis).
+const AUTO_YAW_RATE := 0.9
+const AUTO_YAW_RUN_RATE := 1.2
+const AUTO_YAW_MAX_ANGLE := 2.0 # ~115°: further back counts as backing up, no turning
+const AUTO_PITCH_RATE := 2.5
 const RUN_FOOTSTEP_SOUNDS: Array[AudioStream] = [
 	preload("res://addons/cogito/Assets/Audio/Kenney/Footsteps/footstep00.ogg"),
 	preload("res://addons/cogito/Assets/Audio/Kenney/Footsteps/footstep01.ogg"),
@@ -64,6 +71,7 @@ var _name_edit: LineEdit
 var _crosshair: Crosshair
 var _damage_flash: ColorRect
 var _protection := 0.0
+var _auto_yaw_speed := 0.0
 
 
 func _ready() -> void:
@@ -73,8 +81,7 @@ func _ready() -> void:
 	if _is_touch_device():
 		_mobile_controls = MOBILE_CONTROLS_SCRIPT.new()
 		add_child(_mobile_controls)
-		_mobile_controls.interact_pressed.connect(_interact)
-		_mobile_controls.fire_pressed.connect(_attack)
+		_mobile_controls.visible = false
 		_mobile_controls.swap_pressed.connect(func() -> void: _cycle_weapon(1))
 		_mobile_controls.look_delta.connect(_apply_look_delta)
 	_fire_sound = AudioStreamPlayer.new()
@@ -178,6 +185,11 @@ func _process(delta: float) -> void:
 	model.set("has_aim_point", true)
 	if _crosshair != null:
 		_crosshair.visible = is_playing() and weapon == "pistol"
+	if _mobile_controls != null:
+		_mobile_controls.visible = is_playing()
+		if _mobile_controls.fire_held:
+			_attack()
+		_auto_camera(delta)
 	# The trigger snaps the arm up first; the round leaves the barrel once it points at the target.
 	if _shot_pending and model.call("is_gun_raised"):
 		_shot_pending = false
@@ -227,6 +239,27 @@ func _apply_look_delta(relative: Vector2) -> void:
 	camera_pivot.rotation.x = clampf(camera_pivot.rotation.x, deg_to_rad(-60.0), deg_to_rad(35.0))
 
 
+## Touch screens: aiming with the second thumb is hard, so while the stick is moving the
+## player the camera swings round to the way they walk and levels out at chest height.
+## It keeps its hands off while a finger is turning the camera, and when walking backwards.
+func _auto_camera(delta: float) -> void:
+	if not is_playing() or _mobile_controls.is_looking():
+		_auto_yaw_speed = 0.0
+		return
+	var stick := _mobile_controls.movement_direction
+	if stick == Vector2.ZERO:
+		_auto_yaw_speed = 0.0
+		return
+	var heading := atan2(stick.x, -stick.y) # 0 = straight ahead, + = to the right
+	var target_speed := 0.0
+	if absf(heading) < AUTO_YAW_MAX_ANGLE:
+		var rate := AUTO_YAW_RUN_RATE if _mobile_controls.run_pressed else AUTO_YAW_RATE
+		target_speed = heading * rate * stick.length()
+	_auto_yaw_speed = lerpf(_auto_yaw_speed, target_speed, 1.0 - exp(-6.0 * delta))
+	rotate_y(-_auto_yaw_speed * delta)
+	camera_pivot.rotation.x = lerp_angle(camera_pivot.rotation.x, LEVEL_PITCH, 1.0 - exp(-AUTO_PITCH_RATE * delta))
+
+
 func _interact() -> void:
 	if not interact_ray.is_colliding():
 		return
@@ -250,7 +283,7 @@ func _move_to_random_spawn() -> void:
 		Basis(Vector3.UP, yaw),
 		Vector3(spot.x + jitter.x, 0.9, spot.y + jitter.y)
 	)
-	camera_pivot.rotation.x = deg_to_rad(-4.6)
+	camera_pivot.rotation.x = LEVEL_PITCH
 
 
 ## Fire the pistol or swing the bat, whichever is in hand.
