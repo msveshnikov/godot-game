@@ -1,17 +1,21 @@
 extends Node
 ## Puts the other players into this world: streams the local player's state,
-## spawns/updates/removes remote avatars, replays their foam shots, and shows
-## the online status in the corner.
+## spawns/updates/removes remote avatars, replays their shots, carries the damage
+## players deal each other, shows who killed whom, and the online status.
+##
+## Hits are decided by the shooter (like the villagers' hits): the shooter sends
+## "dmg" to the victim's id, the victim applies it to itself and, if that killed
+## it, tells everyone with "kill".
 
 const REMOTE_PLAYER_SCRIPT = preload("res://remote_player.gd")
-const FOAM_PELLET_SCENE: PackedScene = preload("res://foam_pellet.tscn")
-const FOAM_FIRE_SOUND: AudioStream = preload("res://addons/cogito/Assets/Audio/Spray.ogg")
 const SEND_INTERVAL := 1.0 / 15.0
 const REMOTE_TIMEOUT_MSEC := 10000
+const FEED_TIME := 6.0
 
 var _remotes := {} # peer id -> remote player body
 var _send_timer := 0.0
 var _status_label: Label
+var _feed: VBoxContainer
 
 
 func _ready() -> void:
@@ -25,7 +29,7 @@ func _ready() -> void:
 	add_child(layer)
 	_status_label = Label.new()
 	_status_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	_status_label.offset_left = -360.0
+	_status_label.offset_left = -480.0
 	_status_label.offset_right = -24.0
 	_status_label.offset_top = 20.0
 	_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -34,6 +38,14 @@ func _ready() -> void:
 	_status_label.add_theme_constant_override("outline_size", 5)
 	_status_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(_status_label)
+	_feed = VBoxContainer.new()
+	_feed.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	_feed.offset_left = -480.0
+	_feed.offset_right = -24.0
+	_feed.offset_top = 52.0
+	_feed.alignment = BoxContainer.ALIGNMENT_BEGIN
+	_feed.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(_feed)
 
 
 func _process(delta: float) -> void:
@@ -73,9 +85,31 @@ func broadcast_swing() -> void:
 	Net.send({"t": "sw"})
 
 
-## Called by the local player whenever it fires, so others see the pellet.
-func broadcast_shot(origin: Vector3, direction: Vector3) -> void:
-	Net.send({"t": "ps", "o": [origin.x, origin.y, origin.z], "d": [direction.x, direction.y, direction.z]})
+## Called by the local player whenever it fires: others hear the shot and see the
+## tracer, and blood or a bullet hole where it ended.
+func broadcast_shot(origin: Vector3, end: Vector3, flesh: bool, normal: Vector3) -> void:
+	Net.send({"t": "ps", "o": _vec(origin), "e": _vec(end), "f": flesh, "nm": _vec(normal)})
+
+
+## The local player hit another player for `amount` ("head", "chest", "belly", "legs", "bat").
+func send_damage(peer: int, amount: int, zone: String) -> void:
+	Net.send({"t": "dmg", "to": peer, "a": amount, "z": zone})
+
+
+## The local player was just killed by `killer` (peer id): tell everyone, for the feed.
+func report_death(killer: int, zone: String) -> void:
+	Net.send({"t": "kill", "by": killer, "z": zone, "n": Net.player_name})
+	_add_feed(peer_name(killer), Net.player_name, zone)
+
+
+## The name another player goes by, as last streamed.
+func peer_name(id: int) -> String:
+	if id == Net.my_id:
+		return Net.player_name
+	var remote = _remotes.get(id)
+	if remote == null:
+		return "Player #%d" % id
+	return remote.get_node("NameLabel").text
 
 
 func _on_message(from: int, data: Dictionary) -> void:
@@ -99,27 +133,61 @@ func _on_message(from: int, data: Dictionary) -> void:
 			if shooter == null:
 				return
 			var o: Array = data.get("o", [])
-			var d: Array = data.get("d", [])
-			if o.size() < 3 or d.size() < 3:
+			var e: Array = data.get("e", [])
+			if o.size() < 3 or e.size() < 3:
 				return
-			# Visual only: the shooter's own client decides what the pellet hits.
-			var pellet := FOAM_PELLET_SCENE.instantiate() as FoamPellet
-			get_tree().current_scene.add_child(pellet)
-			pellet.global_position = Vector3(o[0], o[1], o[2])
-			pellet.launch(shooter, Vector3(d[0], d[1], d[2]), 0.0, &"")
-			shooter.show_shot(Vector3(o[0], o[1], o[2]), Vector3(d[0], d[1], d[2]))
-			_play_remote_shot(shooter)
+			var origin := Vector3(o[0], o[1], o[2])
+			var end := Vector3(e[0], e[1], e[2])
+			var scene := get_tree().current_scene
+			shooter.show_shot(origin, end - origin)
+			ShotFx.tracer(scene, origin, end)
+			if bool(data.get("f", false)):
+				ShotFx.blood(scene, end, origin.direction_to(end))
+			else:
+				var n: Array = data.get("nm", [])
+				if n.size() >= 3:
+					ShotFx.impact(scene, end, Vector3(n[0], n[1], n[2]))
+			ShotFx.shot_sound(scene, origin)
+		"dmg":
+			if int(data.get("to", -1)) != Net.my_id:
+				return
+			var player := get_tree().get_first_node_in_group("player")
+			if player != null:
+				player.call("receive_damage", float(data.get("a", 0)), from, str(data.get("z", "")))
+		"kill":
+			var killer := int(data.get("by", 0))
+			var victim := str(data.get("n", peer_name(from)))
+			_add_feed(peer_name(killer), victim, str(data.get("z", "")))
+			if killer == Net.my_id:
+				var me := get_tree().get_first_node_in_group("player")
+				var crosshair = me.get("_crosshair") if me != null else null
+				if crosshair != null:
+					crosshair.call("show_hit", true)
 
 
-func _play_remote_shot(shooter: Node3D) -> void:
-	var sound := shooter.get_node_or_null("ShotSound") as AudioStreamPlayer3D
-	if sound == null:
-		sound = AudioStreamPlayer3D.new()
-		sound.name = "ShotSound"
-		sound.stream = FOAM_FIRE_SOUND
-		sound.volume_db = -6.0
-		shooter.add_child(sound)
-	sound.play()
+## One line in the kill feed under the status: "Killer > Victim (headshot)", gone after a while.
+func _add_feed(killer: String, victim: String, zone: String) -> void:
+	var line := Label.new()
+	var how: String = {"head": "  (headshot)", "bat": "  (bat)"}.get(zone, "")
+	line.text = "%s  >  %s%s" % [killer, victim, how]
+	line.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	line.add_theme_font_size_override("font_size", 18)
+	var mine := killer == Net.player_name or victim == Net.player_name
+	line.add_theme_color_override("font_color", Color(1.0, 0.55, 0.4) if mine else Color(0.95, 0.95, 0.9))
+	line.add_theme_color_override("font_outline_color", Color(0.05, 0.03, 0.02))
+	line.add_theme_constant_override("outline_size", 5)
+	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_feed.add_child(line)
+	while _feed.get_child_count() > 5:
+		_feed.get_child(0).free()
+	var tween := line.create_tween()
+	tween.tween_interval(FEED_TIME)
+	tween.tween_property(line, "modulate:a", 0.0, 0.6)
+	tween.tween_callback(line.queue_free)
+
+
+static func _vec(v: Vector3) -> Array:
+	return [snappedf(v.x, 0.01), snappedf(v.y, 0.01), snappedf(v.z, 0.01)]
 
 
 func _remove_remote(id: int) -> void:
@@ -163,10 +231,10 @@ func _debug_report(delta: float) -> void:
 
 func _update_status() -> void:
 	if not Net.online:
-		_status_label.text = "Offline (connecting...)"
+		_status_label.text = "%s  |  Offline (connecting...)" % Net.location_name()
 		_status_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.5))
 		return
-	var text := "Online: %d player%s" % [Net.player_count(), "" if Net.player_count() == 1 else "s"]
+	var text := "%s  |  Online: %d player%s" % [Net.location_name(), Net.player_count(), "" if Net.player_count() == 1 else "s"]
 	if Net.is_host():
 		text += "  (host)"
 	_status_label.text = text

@@ -1,15 +1,17 @@
 extends "res://addons/cogito/CogitoNPC/cogito_npc.gd"
 ## A person in the estate. Three roles:
-##   villager - roams the street graph (bot_crowd.gd) carrying a foam pistol; on the
+##   villager - roams the street graph (bot_crowd.gd) carrying a pistol; on the
 ##              host it is simulated for real, on other clients it is a puppet that
-##              follows the host's network updates. Foam knocks it out, a bat knocks
-##              it to the ground first. Runs away from armed players.
+##              follows the host's network updates. A bullet or a bat blow kills it:
+##              the body stays lying where it fell (every client leaves its own
+##              copy) and the villager is born again elsewhere, dressed anew.
+##              Runs away from armed players.
 ##   civilian - an unarmed grown-up who wanders a small zone (playground, shop) or
 ##              stands still; can't be hurt, but runs from armed players too.
 ##   child    - like a civilian, smaller and quicker on its feet.
 ## Civilians and children are local to each client (not networked).
 
-const FOAM_PISTOL_SCENE: PackedScene = preload("res://foam_pistol_model.tscn")
+const PISTOL_SCENE: PackedScene = preload("res://pistol_model.tscn")
 const OUTFIT = preload("res://villager_outfit.gd")
 const FOAM_FIRE_SOUND: AudioStream = preload("res://addons/cogito/Assets/Audio/Spray.ogg")
 const PUPPET_SNAP_DISTANCE := 5.0
@@ -17,7 +19,8 @@ const HIT_GRACE := 1.5
 const STUCK_TIME := 2.5
 const FLEE_RANGE := 22.0
 const FLEE_TIME := 5.0
-const KNOCKED_TIME := 2.6
+const FALL_TIME := 0.45
+const OUTFITS_PER_LIFE := 1000 # outfit index = bot_index + lives * this
 const CHILD_SCALE := 0.62
 
 @export_enum("villager", "civilian", "child") var role := "villager"
@@ -32,6 +35,8 @@ var bot_index := 0
 var crowd: Node
 var puppet := false
 var alive := true
+## Times this villager was born again; the host streams it so every client dresses it alike.
+var lives := 0
 ## Civilians: game-space XZ area they wander in; `stay` keeps them standing where they are.
 var zone := Rect2()
 var stay := false
@@ -57,7 +62,6 @@ var _flee_timer := 0.0
 var _flee_check := 0.0
 var _flee_turn := 0.0
 var _zone_target := Vector3.ZERO
-var _knocked := 0.0
 var _rig: Node3D
 
 
@@ -71,8 +75,8 @@ func _ready() -> void:
 	_spawn_collision_mask = collision_mask
 	if role == "villager":
 		add_to_group("villagers")
-		var pistol := FOAM_PISTOL_SCENE.instantiate() as Node3D
-		pistol.name = "VillagerFoamPistol"
+		var pistol := PISTOL_SCENE.instantiate() as Node3D
+		pistol.name = "VillagerPistol"
 		pistol.scale = Vector3.ONE * 0.65
 		pistol.rotation.y = -PI / 2.0
 		hand_slot.add_child(pistol)
@@ -103,9 +107,9 @@ func _make_child() -> void:
 	walk_volume_db -= 6.0
 
 
-## True for anyone a player can knock out (adult villagers only).
+## True for anyone a player can kill (adult villagers only).
 func can_be_hit() -> bool:
-	return role == "villager" and alive and _knocked <= 0.0
+	return role == "villager" and alive
 
 
 func _physics_process(delta: float) -> void:
@@ -120,15 +124,6 @@ func _physics_process(delta: float) -> void:
 		return
 
 	super._physics_process(delta)
-	if _knocked > 0.0:
-		_knocked -= delta
-		velocity.x = move_toward(velocity.x, 0.0, delta * 8.0)
-		velocity.z = move_toward(velocity.z, 0.0, delta * 8.0)
-		move_and_slide()
-		if _knocked <= 0.0:
-			_set_alive(false)
-			_respawn_timer = respawn_delay
-		return
 
 	_update_flee(delta)
 	if _flee_timer > 0.0:
@@ -306,42 +301,88 @@ func play_fire_sound() -> void:
 		_fire_sound.play()
 
 
-## Foam knocks a villager out at once; a bat first knocks it to the ground.
-func receive_hit(kind := "foam") -> void:
+## A bullet ("pistol") or a bat blow ("bat") kills a villager on the spot.
+func receive_hit(kind := "pistol") -> void:
 	if not can_be_hit():
 		return
 	if puppet:
 		# Someone else simulates this bot: tell the host, show it right away.
 		crowd.report_hit(bot_index, kind)
 		_hit_grace = HIT_GRACE
-		if kind == "bat":
-			_set_knocked(true)
-		else:
-			_set_alive(false)
+		_die()
 		return
-	if kind == "bat":
-		_set_knocked(true)
-		_knocked = KNOCKED_TIME
-	else:
-		_set_alive(false)
-		_respawn_timer = respawn_delay
+	_die()
+	_respawn_timer = respawn_delay
 
 
-## Fall flat on the back (or get up again); no collisions while lying there.
-func _set_knocked(value: bool) -> void:
-	if _rig == null:
+## Drop dead: a copy of the body falls and stays; this villager hides until reborn.
+func _die() -> void:
+	if not alive:
 		return
-	var tween := create_tween()
-	if value:
-		_flee_timer = 0.0
-		collision_layer = 0
-		tween.tween_property(_rig, "rotation:x", -PI * 0.5, 0.35).set_ease(Tween.EASE_IN)
-		tween.parallel().tween_property(_rig, "position:y", 0.22, 0.35)
-	else:
-		_rig.rotation.x = 0.0
-		_rig.position.y = 0.0
-		_knocked = 0.0
-		tween.kill()
+	_leave_corpse()
+	_set_alive(false)
+
+
+## Copy of the posed skeleton and clothes (and the pistol in hand), falling flat on
+## its back, then a pool of blood spreading under it. Kept by the crowd.
+func _leave_corpse() -> void:
+	if _rig == null or crowd == null:
+		return
+	var skeleton := _rig.get_node_or_null("Skeleton3D") as Skeleton3D
+	if skeleton == null:
+		return
+	var copy := skeleton.duplicate() as Skeleton3D
+	for child in copy.get_children():
+		if child.name == "Mannequin":
+			continue
+		if child.name == "HandAttachment":
+			for part in child.get_children():
+				if part.name != "HandSlot":
+					part.free()
+			continue
+		child.free()
+	var corpse := Node3D.new()
+	corpse.name = "Corpse"
+	var body := Node3D.new()
+	body.add_child(copy)
+	copy.transform = skeleton.transform
+	corpse.add_child(body)
+	crowd.call("add_corpse", corpse)
+	var ground_y := global_position.y + _rig.position.y
+	var start := _rig.global_transform
+	start.basis = Basis(Vector3.UP, _rig.global_basis.get_euler().y + _rng.randf_range(-0.3, 0.3)).scaled(_rig.global_basis.get_scale())
+	body.global_transform = start
+	var tween := body.create_tween()
+	tween.tween_property(body, "rotation:x", -PI * 0.5, FALL_TIME).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.parallel().tween_property(body, "position:y", body.position.y + 0.2, FALL_TIME)
+	tween.tween_callback(func() -> void: _spread_blood(corpse, body, ground_y))
+
+
+static var _blood_material: StandardMaterial3D
+
+
+func _spread_blood(corpse: Node3D, body: Node3D, ground_y: float) -> void:
+	if _blood_material == null:
+		_blood_material = StandardMaterial3D.new()
+		_blood_material.albedo_color = Color(0.3, 0.015, 0.02)
+		_blood_material.roughness = 0.15
+		_blood_material.metallic_specular = 0.8
+	var disc := CylinderMesh.new()
+	disc.top_radius = 0.55
+	disc.bottom_radius = 0.55
+	disc.height = 0.004
+	disc.radial_segments = 20
+	disc.rings = 1
+	var pool := MeshInstance3D.new()
+	pool.mesh = disc
+	pool.material_override = _blood_material
+	pool.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	corpse.add_child(pool)
+	var chest := body.global_transform * Vector3(0.0, 1.0, 0.0)
+	pool.global_position = Vector3(chest.x, ground_y + 0.012, chest.z)
+	pool.scale = Vector3(0.15, 1.0, 0.15)
+	var stretch := _rng.randf_range(0.8, 1.25)
+	pool.create_tween().tween_property(pool, "scale", Vector3(stretch, 1.0, 1.0 / stretch), 6.0).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
 
 
 func _respawn() -> void:
@@ -351,13 +392,19 @@ func _respawn() -> void:
 	_previous_node = -1
 	_pause_remaining = _rng.randf_range(0.0, 2.0)
 	_attack_timer = 1.5
+	_reborn(lives + 1)
 	_set_alive(true)
+
+
+## A new person, not the one lying over there: same slot in the crowd, new clothes.
+func _reborn(life: int) -> void:
+	lives = life
+	OUTFIT.apply(self, bot_index + lives * OUTFITS_PER_LIFE)
 
 
 func _set_alive(value: bool) -> void:
 	alive = value
 	visible = value
-	_set_knocked(false)
 	collision_layer = _spawn_collision_layer if value else 0
 	collision_mask = _spawn_collision_mask if value else 0
 	if not value and _fire_sound != null:
@@ -368,14 +415,11 @@ func _set_alive(value: bool) -> void:
 
 # ------------------------------------------------------------- networking ----
 
-## [x, y, z, yaw, vx, vz, state] streamed by the host; state 1 up, 0 gone, 2 knocked down.
+## [x, y, z, yaw, vx, vz, state, lives] streamed by the host; state 1 alive, 0 dead.
 func net_state() -> Array:
-	var state := 0
-	if alive:
-		state = 2 if _knocked > 0.0 else 1
 	return [
 		snappedf(global_position.x, 0.01), snappedf(global_position.y, 0.01), snappedf(global_position.z, 0.01),
-		snappedf(rotation.y, 0.01), snappedf(velocity.x, 0.01), snappedf(velocity.z, 0.01), state,
+		snappedf(rotation.y, 0.01), snappedf(velocity.x, 0.01), snappedf(velocity.z, 0.01), 1 if alive else 0, lives,
 	]
 
 
@@ -394,13 +438,13 @@ func apply_net_state(state: Array) -> void:
 	if _hit_grace > 0.0 and net_state_value == 1:
 		return # our own hit hasn't reached the host yet
 	var net_alive := net_state_value != 0
-	if net_alive != alive:
-		_set_alive(net_alive)
-	var lying := _rig != null and _rig.rotation.x < -0.5
-	if net_state_value == 2 and not lying:
-		_set_knocked(true)
-	elif net_state_value == 1 and lying:
-		_set_knocked(false)
+	if alive and not net_alive:
+		_die()
+	elif net_alive and not alive:
+		_set_alive(true)
+	var net_lives := int(state[7]) if state.size() >= 8 else lives
+	if net_lives != lives:
+		_reborn(net_lives)
 
 
 func set_puppet(value: bool) -> void:

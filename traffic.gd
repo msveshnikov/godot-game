@@ -9,13 +9,15 @@ const LOOK_AHEAD := 22.0
 const STOP_GAP := 6.5
 const LANE_HALF_WIDTH := 1.9
 
-## Lanes: [start (game xz), end (game xz), cars on it]; set before adding to the tree.
+## Lanes: [start (game xz), end (game xz), cars on it], or [[points (game xz)...], cars on it]
+## for a lane that turns a corner; set before adding to the tree.
 var lanes: Array = []
 ## Car models: [mesh, collision size Vector3, paint material to replace].
 var models: Array = []
 var colors: Array = []
 
 var _cars: Array = [] # {body, lane, s, speed, cruise, half, sound}
+var _paths: Array = [] # per lane: {"points": Array[Vector2], "ends": Array[float] (distance at each point), "length"}
 var _rng := RandomNumberGenerator.new()
 
 
@@ -24,8 +26,13 @@ func _ready() -> void:
 	var engine := _looping_wav(ENGINE_SOUND)
 	for lane_index in lanes.size():
 		var lane: Array = lanes[lane_index]
-		var length: float = (lane[1] as Vector2).distance_to(lane[0])
-		var count: int = lane[2]
+		var points: Array = lane[0] if lane[0] is Array else [lane[0], lane[1]]
+		var ends: Array[float] = [0.0]
+		for index in range(1, points.size()):
+			ends.append(ends[-1] + (points[index] as Vector2).distance_to(points[index - 1]))
+		_paths.append({"points": points, "ends": ends, "length": ends[-1]})
+		var length: float = ends[-1]
+		var count: int = lane[-1]
 		for k in count:
 			var model: Array = models[_rng.randi() % models.size()]
 			var body := AnimatableBody3D.new()
@@ -70,13 +77,11 @@ func _physics_process(delta: float) -> void:
 			if (node as Node3D).is_visible_in_tree():
 				people.append(node)
 	for car in _cars:
-		var lane: Array = lanes[car["lane"]]
-		var a: Vector2 = lane[0]
-		var b: Vector2 = lane[1]
-		var length := a.distance_to(b)
-		var dir2 := (b - a) / length
-		var dir := Vector3(dir2.x, 0.0, dir2.y)
-		var pos := Vector3(a.x, 0.0, a.y) + dir * float(car["s"])
+		var path: Dictionary = _paths[car["lane"]]
+		var length: float = path["length"]
+		var placed := _place(path, float(car["s"]))
+		var pos: Vector3 = placed[0]
+		var dir: Vector3 = placed[1]
 		var gap := LOOK_AHEAD
 		for person in people:
 			gap = minf(gap, _gap_to((person as Node3D).global_position, pos, dir) - float(car["half"]))
@@ -92,10 +97,42 @@ func _physics_process(delta: float) -> void:
 		var rate := 7.0 if target < float(car["speed"]) else 2.5
 		car["speed"] = move_toward(float(car["speed"]), target, rate * delta)
 		car["s"] = fposmod(float(car["s"]) + float(car["speed"]) * delta, length)
-		pos = Vector3(a.x, 0.0, a.y) + dir * float(car["s"])
+		placed = _place(path, float(car["s"]))
+		pos = placed[0]
+		dir = placed[1]
 		(car["body"] as Node3D).global_transform = Transform3D(Basis.looking_at(-dir, Vector3.UP), pos)
 		var sound := car["sound"] as AudioStreamPlayer3D
 		sound.pitch_scale = 0.75 + float(car["speed"]) / 16.0
+
+
+## [position, heading] at distance `s` along a lane; corners are rounded over the last few metres.
+func _place(path: Dictionary, s: float) -> Array:
+	var points: Array = path["points"]
+	var ends: Array[float] = path["ends"]
+	var index := 1
+	while index < points.size() - 1 and ends[index] < s:
+		index += 1
+	var a: Vector2 = points[index - 1]
+	var b: Vector2 = points[index]
+	var segment := maxf(ends[index] - ends[index - 1], 0.001)
+	var dir2 := (b - a) / segment
+	var at := a + dir2 * clampf(s - ends[index - 1], 0.0, segment)
+	# Turn smoothly: blend the heading into the next segment's over the last 6 m.
+	if index < points.size() - 1:
+		var left := ends[index] - s
+		if left < 6.0:
+			var next_dir := ((points[index + 1] as Vector2) - b).normalized()
+			var t := 1.0 - left / 6.0
+			dir2 = dir2.lerp(next_dir, t * 0.5).normalized()
+			at += (next_dir - (b - a).normalized()) * t * t * 1.5
+	if index > 1:
+		var into := s - ends[index - 1]
+		if into < 6.0:
+			var prev_dir := (a - (points[index - 2] as Vector2)).normalized()
+			var t := 1.0 - into / 6.0
+			dir2 = dir2.lerp(prev_dir, t * 0.5).normalized()
+			at += ((b - a).normalized() - prev_dir) * t * t * 1.5
+	return [Vector3(at.x, 0.0, at.y), Vector3(dir2.x, 0.0, dir2.y)]
 
 
 ## Distance along the lane to `point` if it stands in the lane ahead, else LOOK_AHEAD.

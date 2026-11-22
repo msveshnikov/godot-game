@@ -172,6 +172,103 @@ func _w(u: float, n: float, y := 0.0) -> Vector3:
 	return Vector3(-(u - U0), y, n)
 
 
+# --------------------------------------------------------- location data ----
+# What the rest of the game asks the district (also before its _ready): where
+# players appear, where the bots walk, the start-screen text. Omsk overrides these.
+
+## Open paved spots (game x, z) where players appear, picked at random; players face +Z.
+## Here: the sidewalk in front of the home block's entrances, the yard behind it and Za Jednotou.
+func spawn_points() -> Array[Vector2]:
+	return [
+		Vector2(-8.9, -12.6), Vector2(9.0, -12.6), Vector2(-26.8, -12.6),
+		Vector2(26.9, -12.6), Vector2(-44.6, -12.6), Vector2(44.8, -12.6),
+		Vector2(-5.0, 19.9), Vector2(35.0, 19.9), Vector2(-35.0, 19.9),
+		Vector2(-15.0, 59.8), Vector2(25.0, 59.8),
+	]
+
+
+## Which way players face when they appear (yaw about +Y; PI faces +Z).
+func spawn_yaw() -> float:
+	return PI
+
+
+## Street graph for the armed villagers and spots for the unarmed people:
+## {"nodes": game xz, "edges": [a, b], "no_spawn": node indices, "civilians": [role, x, z, half, stay]}.
+func bot_graph() -> Dictionary:
+	var nodes: Array[Vector2] = []
+	for point in BOT_UN_NODES:
+		nodes.append(Vector2(-(point.x - U0), point.y))
+	return {"nodes": nodes, "edges": BOT_EDGES, "no_spawn": BOT_NO_SPAWN, "civilians": BOT_CIVILIANS}
+
+
+func intro_text() -> String:
+	return "Na Skalkách, Neratovice. The villagers carry pistols but won't shoot; they run when they see you armed."
+
+
+func _hill_list() -> Array:
+	return HILLS
+
+
+## Walkable graph over roads and paths, in real (u, n) metres:
+## u along the blocks towards the south-east, n towards the north-east.
+const BOT_UN_NODES: Array[Vector2] = [
+	Vector2(-100, -18.75), Vector2(-80, -18.75), Vector2(-65, -18.75), Vector2(-49.8, -18.75), Vector2(-30, -18.75), # 0-4 Na Skalkach
+	Vector2(-14, -18.75), Vector2(3.9, -18.75), Vector2(21.8, -18.75), Vector2(39.6, -18.75), Vector2(44.5, -18.75), # 5-9
+	Vector2(44.5, -45), Vector2(44.5, -70), Vector2(44.5, -100), # 10-12 branch south
+	Vector2(-65, -12.6), Vector2(-49.8, -12.6), Vector2(-31.9, -12.6), Vector2(-14, -12.6), # 13-16 home sidewalk
+	Vector2(3.9, -12.6), Vector2(21.8, -12.6), Vector2(39.6, -12.6), Vector2(56, -12.6), # 17-20
+	Vector2(-49.8, -4), Vector2(-31.9, -4), Vector2(-14, -4), Vector2(3.9, -4), Vector2(21.8, -4), Vector2(39.6, -4), # 21-26 entrances
+	Vector2(-65, 19.9), Vector2(-65, 59.8), Vector2(56, 19.9), Vector2(56, 59.8), # 27-30 paths round the ends
+	Vector2(-40, 19.9), Vector2(-14, 19.9), Vector2(10, 19.9), Vector2(30, 19.9), # 31-34 yard
+	Vector2(-70, 63.5), Vector2(-40, 63.5), Vector2(-11, 63.5), Vector2(24.7, 63.5), Vector2(50, 63.5), Vector2(62.7, 63.5), # 35-40 Za Jednotou
+	Vector2(62.7, -18.75), Vector2(62.7, 20), Vector2(62.7, 40), # 41-43 east link
+	Vector2(75, 2), Vector2(65, 8), # 44-45 playground
+	Vector2(-78, -56), Vector2(-30, -56), Vector2(0, -56), Vector2(40, -56), Vector2(44.5, -56), # 46-50 walk behind the towers
+	Vector2(-64.5, -26), # 51 tower W door
+	Vector2(-9.55, 30), Vector2(26.2, 30), Vector2(-11, 77), Vector2(24.7, 77), # 52-55 middle / north block doors
+	Vector2(-100, -60), Vector2(-100, -95), Vector2(-100, -128), # 56-58 Na Skalkach west bend
+	Vector2(-190, -128), Vector2(-150, -128), Vector2(-50, -128), Vector2(0, -128), # 59-62 Dr. E. Benese
+	Vector2(44.5, -128), Vector2(100, -128), Vector2(168, -128), # 63-65
+	Vector2(80, -56), Vector2(120, -56), Vector2(168, -56), # 66-68 Na Skalkach south-east
+	Vector2(168, -18.75), Vector2(168, 20), Vector2(168, 63.5), Vector2(168, 118), Vector2(168, 190), # 69-73 28. rijna
+	Vector2(100, 63.5), Vector2(-110, 63.5), Vector2(-170, 63.5), # 74-76 Za Jednotou east / west
+	Vector2(-64.9, 118), Vector2(0, 118), Vector2(56, 118), Vector2(90, 118), Vector2(130, 118), # 77-81 J. K. Tyla
+	Vector2(0, 190), Vector2(90, 190), # 82-83 Lomena, Travni
+	Vector2(64, 44), Vector2(74, 44), # 84-85 supermarket door, inside
+]
+const BOT_EDGES := [
+	[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [7, 8], [8, 9],
+	[9, 10], [10, 50], [50, 11], [11, 12], [9, 41],
+	[13, 14], [14, 15], [15, 16], [16, 17], [17, 18], [18, 19], [19, 20],
+	[2, 13], [3, 14], [5, 16], [7, 18], [8, 19], [20, 41],
+	[14, 21], [15, 22], [16, 23], [17, 24], [18, 25], [19, 26],
+	[13, 27], [27, 28], [28, 35], [28, 36], [20, 29], [29, 30], [30, 39], [30, 40],
+	[27, 31], [31, 32], [32, 33], [33, 34], [34, 29],
+	[35, 36], [36, 37], [37, 38], [38, 39], [39, 40],
+	[41, 42], [42, 43], [43, 40], [29, 42], [42, 45], [45, 44],
+	[46, 47], [47, 48], [48, 49], [49, 50], [4, 47], [1, 46], [2, 51],
+	[32, 52], [34, 53], [37, 54], [38, 55],
+	[0, 56], [56, 57], [57, 58], [59, 60], [60, 58], [58, 61], [61, 62], [62, 63], [63, 64], [64, 65], [12, 63],
+	[50, 66], [66, 67], [67, 68], [65, 68], [68, 69], [69, 70], [70, 71], [71, 72], [72, 73], [41, 69],
+	[40, 74], [74, 71], [35, 75], [75, 76],
+	[77, 78], [78, 79], [79, 80], [80, 81], [81, 72], [28, 77], [30, 79], [78, 82], [80, 83],
+	[43, 84], [84, 85],
+]
+## Civilians (local to each client, never hit): [role, game x, game z, zone half-size, stay].
+## Playground (u 75, n 2 -> game x -80, z 2), its benches, and the supermarket tills and aisles.
+const BOT_CIVILIANS := [
+	["civilian", -80.0, 2.0, 7.0, false], ["civilian", -77.0, -2.0, 7.0, false], ["civilian", -84.0, 5.0, 7.0, false],
+	["civilian", -74.0, -4.0, 0.6, true], ["civilian", -86.0, 8.0, 0.6, true],
+	["child", -79.0, 1.0, 7.5, false], ["child", -82.0, 3.0, 7.5, false], ["child", -76.0, 4.0, 7.5, false],
+	["child", -85.0, -1.0, 7.5, false], ["child", -78.0, 6.0, 7.5, false], ["child", -83.0, -3.0, 7.5, false],
+	["child", -81.0, 7.0, 7.5, false],
+	["civilian", -78.5, 37.6, 0.4, true], ["civilian", -78.5, 42.1, 0.4, true],
+	["civilian", -79.0, 52.0, 3.5, false], ["civilian", -79.0, 60.0, 3.5, false], ["civilian", -106.0, 50.0, 3.0, false],
+]
+## Nodes next to the busiest player spawn points (see player_controller.gd); bots never (re)spawn there.
+const BOT_NO_SPAWN := [6, 16, 17, 18, 24]
+
+
 # ---------------------------------------------------------------- streets ----
 
 func _build_streets() -> void:
@@ -976,7 +1073,7 @@ func _build_terrain() -> void:
 		grass = ground.get_surface_override_material(0)
 		if grass == null and ground.mesh != null:
 			grass = ground.mesh.surface_get_material(0)
-	for hill in HILLS:
+	for hill in _hill_list():
 		var c := _w(hill[0], hill[1])
 		_hills.append([c.x, c.z, hill[2], hill[3]])
 	for index in _hills.size():
@@ -1030,6 +1127,14 @@ func _build_leaves() -> void:
 	var transforms: Array[Transform3D] = []
 	var colors: Array[Color] = []
 	var palette := [Color(0.88, 0.66, 0.12), Color(0.84, 0.42, 0.08), Color(0.5, 0.31, 0.12), Color(0.7, 0.17, 0.07), Color(0.75, 0.6, 0.2)]
+	# Trees bucketed into 7 m cells, so "is a tree within 7 m" checks only nearby cells.
+	var tree_cells := {}
+	for tree in _trees:
+		var at: Vector3 = tree[1]
+		var key := Vector2i(floori(at.x / 7.0), floori(at.z / 7.0))
+		if not tree_cells.has(key):
+			tree_cells[key] = []
+		tree_cells[key].append(at)
 	var attempts := 0
 	while transforms.size() < 9000 and attempts < 40000:
 		attempts += 1
@@ -1041,10 +1146,13 @@ func _build_leaves() -> void:
 			continue # inside a building
 		# Thicker under the trees: keep only a third of the leaves out in the open.
 		var near_tree := false
-		for tree in _trees:
-			if absf((tree[1] as Vector3).x - x) < 7.0 and absf((tree[1] as Vector3).z - z) < 7.0:
-				near_tree = true
-				break
+		var cell := Vector2i(floori(x / 7.0), floori(z / 7.0))
+		for dx in range(-1, 2):
+			for dz in range(-1, 2):
+				for at in tree_cells.get(cell + Vector2i(dx, dz), []):
+					if absf((at as Vector3).x - x) < 7.0 and absf((at as Vector3).z - z) < 7.0:
+						near_tree = true
+						break
 		if not near_tree and _rng.randf() < 0.66:
 			continue
 		var y := 0.115 if paved else height_at(x, z) + 0.05
@@ -1182,6 +1290,17 @@ func _build_traffic() -> void:
 	var colors := []
 	for entry in CAR_COLORS:
 		colors.append(entry[0])
+	var lanes := _traffic_lanes()
+	if lanes.is_empty():
+		return
+	traffic.set("lanes", lanes)
+	traffic.set("models", models)
+	traffic.set("colors", colors)
+	add_child(traffic)
+
+
+## Traffic lanes: [start, end, cars] in game xz, or [[points...], cars] for a bending lane.
+func _traffic_lanes() -> Array:
 	# Right-hand traffic. Lanes run past the forest edge so cars wrap round out of sight.
 	var lanes := []
 	var w0 := _w(-235.0, BENESE_N - 1.7)
@@ -1196,10 +1315,7 @@ func _build_traffic() -> void:
 	w0 = _w(EAST_ROAD_U - 1.7, 240.0)
 	w1 = _w(EAST_ROAD_U - 1.7, -240.0)
 	lanes.append([Vector2(w0.x, w0.z), Vector2(w1.x, w1.z), 3]) # 28. října heading south-west
-	traffic.set("lanes", lanes)
-	traffic.set("models", models)
-	traffic.set("colors", colors)
-	add_child(traffic)
+	return lanes
 
 
 # ------------------------------------------------------------------ trees ----
@@ -1237,7 +1353,11 @@ func _build_trees() -> void:
 			continue
 		_trees.append(["leafy", Vector3(point.x, 0, point.y), _rng.randf_range(0.8, 1.35)])
 		placed += 1
+	_build_tree_meshes()
 
+
+## Every tree in _trees as merged trunk / crown multimeshes, with trunk colliders.
+func _build_tree_meshes() -> void:
 	var parts := {} # mesh key -> [transforms, colours]
 	var trunk_shape := CylinderShape3D.new()
 	trunk_shape.radius = 0.3
@@ -1261,6 +1381,15 @@ func _build_trees() -> void:
 				_part(parts, "cone", Vector3(1.7, 2.4, 1.7) * s, base + Vector3(0, 10.6 * s, 0), dark.lightened(0.04))
 			"thuja":
 				_part(parts, "cone", Vector3(1.6, 4.6, 1.6) * s, base + Vector3(0, 4.6 * s, 0), Color(0.16, 0.33, 0.17))
+			"birch": # white trunk, narrow golden crown
+				var gold := Color.from_hsv(_rng.randf_range(0.12, 0.15), _rng.randf_range(0.7, 0.88), _rng.randf_range(0.7, 0.85))
+				_part(parts, "trunk", Vector3(0.8, 2.2, 0.8) * s, base + Vector3(0, 3.3 * s, 0), Color(0.9, 0.89, 0.85))
+				_part(parts, "sphere", Vector3(1.8, 3.0, 1.8) * s, base + Vector3(0, 7.4 * s, 0), gold)
+				_part(parts, "sphere", Vector3(1.3, 1.8, 1.3) * s, base + Vector3(0.6, 9.4, -0.4) * s, gold.lightened(0.08))
+			"poplar": # tall column, grey trunk, yellowing
+				var leaf := Color.from_hsv(_rng.randf_range(0.13, 0.2), _rng.randf_range(0.55, 0.8), _rng.randf_range(0.5, 0.72))
+				_part(parts, "trunk", Vector3(1.2, 2.0, 1.2) * s, base + Vector3(0, 3.0 * s, 0), Color(0.5, 0.48, 0.44))
+				_part(parts, "sphere", Vector3(2.2, 6.5, 2.2) * s, base + Vector3(0, 11.0 * s, 0), leaf)
 			"willow":
 				var light := Color.from_hsv(0.16, 0.5, 0.62) # yellowing willow
 				_part(parts, "trunk", Vector3(1.4, 1.5, 1.4) * s, base + Vector3(0, 2.2 * s, 0), Color(0.45, 0.38, 0.3))

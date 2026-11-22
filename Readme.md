@@ -5,14 +5,14 @@
 <h1 align="center">Gacha Village</h1>
 
 <p align="center">
-  <b>A multiplayer third-person sandbox in a real Czech panel-housing estate.</b> Grab a foam pistol or a baseball bat
+  <b>A multiplayer third-person sandbox in a real Czech panel-housing estate.</b> Grab a pistol or a baseball bat
   and roam an autumn neighbourhood rebuilt 1:1 from the satellite map: villagers who run when they see you armed,
   kids at the playground, a walk-in supermarket, cars on the streets and birds overhead. Everyone who opens the game
   shares the same world.
 </p>
 
 <p align="center">
-  <a href="https://severance.lol/3/"><b>▶ Play in the browser</b></a> ·
+  <a href="https://maxims.top/village/"><b>▶ Play in the browser</b></a> ·
   <a href="https://github.com/msveshnikov/godot-game/releases/latest/download/GachaVillage.exe">Windows .exe</a> ·
   <a href="https://github.com/msveshnikov/godot-game/releases/latest/download/GachaVillage.apk">Android .apk</a> ·
   <a href="https://github.com/msveshnikov/godot-game/releases/latest">All releases</a>
@@ -29,8 +29,13 @@
 ### Features
 - **A real place, 1:1.** About 200 m of a Czech panel-housing estate, rebuilt in metres from the satellite map and
   Street View: five-storey blocks with loggias, sixteen-storey towers, garages, a playground, a supermarket, a hill.
-- **Foam pistol, baseball bat, empty hands.** Villagers carry pistols but flee as soon as they see you armed;
-  knocked-out ones respawn elsewhere.
+- **Three places to play.** Pick one on the start screen: the Czech estate, or one of two Siberian estates
+  in Omsk (Omsk 1: five-storey khrushchyovkas under new red roofs; Omsk 2: nine-storey panel blocks, garages
+  and the old private sector), each rebuilt from the satellite map and Street View ~200 m round.
+- **Pistol, baseball bat, empty hands.** A small CS-style crosshair, hitscan shots with a real gunshot sound,
+  tracers and bullet holes. Players can shoot each other: a headshot kills, body hits take 15-34 depending on
+  how close to the heart, a bat blow 30. Villagers flee as soon as they see you armed; the dead stay lying
+  in a pool of blood while new ones are born elsewhere.
 - **A living autumn afternoon.** Swaying coloured crowns, falling leaves, cumulus clouds, traffic that stops for
   people, flocks of birds, washing on the loggias, and ambient sound.
 - **Multiplayer in the browser.** Open the link, see the other players with their names; a tiny WebSocket relay
@@ -46,18 +51,26 @@
 | ![Flower boxes, washing and curtains on the loggias](screenshots/loggias.jpg) | ![Car models built in Blender](blender/renders/vehicles/car_octavia_combi_front.png) |
 
 ## Playable estate
-The main scene (`node_2d.tscn`) is a third-person village shooter with the custom player character and an over-the-shoulder camera. Every player appears at a random spot inside the panel-housing estate. Switch between the foam pistol (tucked at the hip, snapped up to aim when firing), a baseball bat (overhead swing that knocks villagers flat) and empty hands. Sixteen villagers roam the streets carrying pistols but never fire back (`shoots_back` in `villager_walk.gd` turns that on again); they run away as soon as they see you armed. Foam knocks one out at once, the bat floors it first; it respawns after a short delay. Parents and kids play at the playground and shoppers and cashiers fill the supermarket; they run from an armed player too but can't be hurt. The estate (`district.gd`) is the real neighbourhood around Na Skalkách in Neratovice, rebuilt 1:1 in metres from the satellite map and Google Street View, in detail for about 100 m around the home block and out to ~200 m with the surrounding streets (Dr. E. Beneše, 28. října, Za Jednotou, J. K. Tyla, Lomená, Travní), the long blocks on Beneše, the poliklinika, the family-house quarter, five sixteen-storey towers and a walk-in supermarket (POTRAVINY) with aisles, fridges and checkouts. Near the home block: the three 107 m five-storey panel blocks with full-width loggias (ochre fins, white slabs, brown/white/red/glass railings, yellow stair entrances), the point towers across Na Skalkách with their coloured end walls and ground-floor shops (salon, florist), the old garage row opposite the home block, the concrete and mesh bin pens with sorting bins, street lamps, P signs, the spruce grove with red pipe railings, the playground, the white commercial hall (Restaurace Skleník, AlzaBox), the purple-roofed shop, trees, and parked cars modelled in Blender after the ones on the street (Škoda Octavia Combi and liftback, Škoda Fabia, a compact SUV and an MPV, in the usual silver/white/grey/black/blue/red), all surrounded by forest. Roads, paths and entrance steps lie flush with the ground and have no colliders, so you can run anywhere without jumping.
+The main scene (`node_2d.tscn`) is a third-person village shooter with the custom player character and an over-the-shoulder camera. Every player appears at a random spot inside the panel-housing estate. Switch between a black pistol (tucked at the hip, snapped up to aim when firing; hitscan along the crosshair with muzzle flash, recoil, tracer, bullet holes and blood), a baseball bat (overhead swing) and empty hands. Other players can be shot (`pistol_damage` in `player_controller.gd`: head 100, chest 24-34, belly 20-28, legs 15-20, the nearer the middle of the body the more; bat 30), with a hit marker for the shooter, a kill feed for everyone and two seconds of spawn protection. Sixteen villagers roam the streets carrying pistols but never fire back (`shoots_back` in `villager_walk.gd` turns that on again); they run away as soon as they see you armed. A bullet or a bat blow kills one; its body stays lying where it fell (the newest 30 are kept) and a new villager in other clothes is born far from the players after a short delay. Parents and kids play at the playground and shoppers and cashiers fill the supermarket; they run from an armed player too but can't be hurt. The estate (`district.gd`) is the real neighbourhood around Na Skalkách in Neratovice, rebuilt 1:1 in metres from the satellite map and Google Street View, in detail for about 100 m around the home block and out to ~200 m with the surrounding streets (Dr. E. Beneše, 28. října, Za Jednotou, J. K. Tyla, Lomená, Travní), the long blocks on Beneše, the poliklinika, the family-house quarter, five sixteen-storey towers and a walk-in supermarket (POTRAVINY) with aisles, fridges and checkouts. Near the home block: the three 107 m five-storey panel blocks with full-width loggias (ochre fins, white slabs, brown/white/red/glass railings, yellow stair entrances), the point towers across Na Skalkách with their coloured end walls and ground-floor shops (salon, florist), the old garage row opposite the home block, the concrete and mesh bin pens with sorting bins, street lamps, P signs, the spruce grove with red pipe railings, the playground, the white commercial hall (Restaurace Skleník, AlzaBox), the purple-roofed shop, trees, and parked cars modelled in Blender after the ones on the street (Škoda Octavia Combi and liftback, Škoda Fabia, a compact SUV and an MPV, in the usual silver/white/grey/black/blue/red), all surrounded by forest. Roads, paths and entrance steps lie flush with the ground and have no colliders, so you can run anywhere without jumping.
+
+### Omsk 1 and Omsk 2
+Two more estates, picked with the buttons on the start screen (the choice is remembered; `?loc=omsk1` / `-- --loc=omsk2` force one). Both are measured from the satellite map and Street View out to ~200 m and built by `district_omsk.gd`, which, unlike the Neratovice builder, lays out every building in its own frame so blocks can stand at any angle; `district_omsk1.gd` and `district_omsk2.gd` hold the layouts, the bot street graphs, the spawn points and the traffic.
+- **Omsk 1**: grey-panel five-storey khrushchyovkas re-roofed with red pitched roofs, stacked balconies (glazed in white PVC, old wood or open sheet railings), entrances with concrete canopies and benches; a main road with a T-junction and parked cars, a street running off at an angle with a slanted block along it, two kindergartens, a school with a court, yards with playgrounds, container sites, clotheslines, a grocery and a beer shop, poplars along the road and birches everywhere.
+- **Omsk 2**: a 100 m nine-storey panel slab with loggias and an L-shaped neighbour, three double rows of brick garages, a tyre-and-car-service shop on a big lot, a gas station, a school, a kindergarten, a sports school, a waste-ground football pitch, a shopping centre across the street, and streets of one-storey wooden houses behind fences.
+
+Every place has its own multiplayer room (Neratovice keeps the old one), so players meet only the people in the same place.
 
 ### Autumn atmosphere
 It is an autumn afternoon: deciduous crowns in yellow, orange and red sway in the wind (`tree_crown.gdshader`), fallen leaves cover the grass (`grass.gdshader`), lie on the paths and roads and drift down around the player. The sky has lit cumulus with grey undersides, high cirrus, a sun halo and horizon haze, with distance fog and a soft glow. Grassy hills rise in the open ground (flattened near anything built, with height-map collision). Loggias carry flower boxes, washing, satellite dishes and curtains; there are graffiti tags on the garages, a bus stop on Beneše, clotheslines between the blocks, bins and benches at the entrances, swings that swing, flocks of birds overhead (`birds.gd`) and cars driving along Dr. E. Beneše and 28. října that stop for people (`traffic.gd`).
 
-Sound (`ambience.gd`, files in `audio/`, see `audio/CREDITS.md`): distant city hum, wind and birdsong everywhere, creaking swings at the playground, an engine hum on every passing car, and a whoosh and crack for the bat. The hum, wind, engine and creak are synthesised by `audio/make_sounds.py`; the birdsong is CC0 from OpenGameArt.
+Sound (`ambience.gd`, files in `audio/`, see `audio/CREDITS.md`): distant city hum, wind and birdsong everywhere, creaking swings at the playground, an engine hum on every passing car, a whoosh and crack for the bat, and a recorded 9 mm gunshot for the pistol (CC BY-SA, Wikimedia Commons). The hum, wind, engine and creak are synthesised by `audio/make_sounds.py`; the birdsong is CC0 from OpenGameArt.
 
 ### Multiplayer
-Everyone who opens the game (web link or the Android APK) lands in the same world and sees the other players, with their names over their heads. Ten armed villagers roam the estate's roads and footpaths and loiter around; hit one and it vanishes and respawns somewhere far from all players.
+Everyone who opens the game (web link or the Android APK) lands in the same world and sees the other players, with their names over their heads. Ten armed villagers roam the estate's roads and footpaths and loiter around; shoot one and its body stays while a new one is born somewhere far from all players. Players hurt each other too: the shooter decides the hit and sends the damage to the victim, who reports the kill to everyone.
 
 - **Server**: `server/relay.js` (Node + `ws`) is a tiny WebSocket relay at `wss://severance.lol/village-ws`. It forwards each client's JSON messages to the others in the same room and picks one client as the *host*, which simulates the bots and streams their positions; if the host leaves or its tab goes to the background, another client takes over. Deploy/update with `server/deploy.sh` (systemd service `village-relay` on 127.0.0.1:8091 behind nginx).
 - **Client**: `net.gd` (autoload `Net`) holds the connection, `net_world.gd` streams the local player and shows remote ones (`remote_player.gd`), `bot_crowd.gd` + `villager_walk.gd` run the bots. Without a server the game plays single-player as before.
+- **Locations**: each place is its own room on the relay: `main` is Neratovice, the Omsk estates use `omsk1` / `omsk2` (or `<room>-omsk1` with a custom room). Switching place in the menu reconnects to that room and rebuilds the world; the relay needs no changes.
 - **Rooms / local server**: `?room=name` or `?server=ws://127.0.0.1:8091` on the web URL; on desktop `-- --room=name --server=ws://...`. `-- --net-debug` auto-starts and prints the network state every 2 s.
 
 ### Controls
@@ -65,14 +78,14 @@ Everyone who opens the game (web link or the Android APK) lands in the same worl
 - **Shift**: Run
 - **Space**: Jump
 - **Mouse**: Look around (vertical look is inverted by default)
-- **Q or left mouse button**: Fire a foam pellet (unlimited ammo) or swing the bat
-- **1 / 2 / 3 or mouse wheel**: Foam pistol / baseball bat / empty hands
+- **Q or left mouse button**: Fire the pistol (unlimited ammo) or swing the bat
+- **1 / 2 / 3 or mouse wheel**: Pistol / baseball bat / empty hands
 - **Health**: The game ends when your health reaches zero; use **Respawn** to drop back into the estate at a random spot.
 - **Esc**: Release the mouse; click to capture it again
 - **Android/mobile**: Use the on-screen joystick to move, drag on the right side to look, and tap **E** to interact. The on-screen buttons also provide jump, run, fire/swing and SWAP (next weapon).
 
 ## Building and deploying
-- Web: `godot --headless --export-release "Web" build/web/index.html`, then `scp build/web/* ubuntu@severance.lol:/var/www/severance/3/`.
+- Web: `godot --headless --export-release "Web" build/web/index.html`, then `scp build/web/* ubuntu@severance.lol:/var/www/maxims/village/`.
 - Windows: `godot --headless --export-release "Windows Desktop" build/windows/GachaVillage.exe` (single exe, pck embedded).
 - Android: `godot --headless --export-debug "Android" build/android/GachaVillage.apk` (debug-signed; no release keystore is set up).
 

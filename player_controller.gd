@@ -1,7 +1,6 @@
 extends CharacterBody3D
 
-const FOAM_PELLET_SCENE: PackedScene = preload("res://foam_pellet.tscn")
-const FOAM_FIRE_SOUND: AudioStream = preload("res://addons/cogito/Assets/Audio/Spray.ogg")
+const SHOT_SOUND: AudioStream = preload("res://audio/pistol_shot.ogg")
 const MOBILE_CONTROLS_SCRIPT = preload("res://mobile_controls.gd")
 const BAT_HIT_SOUND: AudioStream = preload("res://audio/bat_hit.ogg")
 const BAT_WOOSH_SOUND: AudioStream = preload("res://audio/bat_woosh.ogg")
@@ -9,9 +8,18 @@ const BAT_RANGE := 2.6
 const BAT_HIT_DELAY := 0.24 # from the start of the swing to the moment the bat comes down
 const BAT_COOLDOWN := 0.62
 const WEAPONS := ["pistol", "bat", "none"]
-const WEAPON_NAMES := {"pistol": "Foam pistol", "bat": "Baseball bat", "none": "Hands"}
+const WEAPON_NAMES := {"pistol": "Pistol", "bat": "Baseball bat", "none": "Hands"}
 const MAX_HEALTH := 100
-const PLAYER_PROJECTILE_DAMAGE := 25.0
+const FIRE_INTERVAL := 0.22
+const SHOT_RANGE := 150.0
+const CAMERA_KICK := 0.014 # radians the view jumps up per shot
+## Where a round lands on a standing person, in metres above the feet.
+const HEAD_HEIGHT := 1.5
+const CHEST_HEIGHT := 1.12
+const BELLY_HEIGHT := 0.86
+const BODY_RADIUS := 0.32
+const BAT_PLAYER_DAMAGE := 30
+const SPAWN_PROTECTION := 2.0
 const RUN_FOOTSTEP_SOUNDS: Array[AudioStream] = [
 	preload("res://addons/cogito/Assets/Audio/Kenney/Footsteps/footstep00.ogg"),
 	preload("res://addons/cogito/Assets/Audio/Kenney/Footsteps/footstep01.ogg"),
@@ -21,16 +29,6 @@ const RUN_FOOTSTEP_SOUNDS: Array[AudioStream] = [
 ]
 const WALK_FOOTSTEP_INTERVAL := 0.48
 const RUN_FOOTSTEP_INTERVAL := 0.3
-## Open paved spots around the estate (game x, z) where players appear, picked at
-## random: the sidewalk in front of the home block's entrances (939 first), the
-## yard behind it and Za Jednotou. Facing +Z looks at the home block.
-const SPAWN_POINTS: Array[Vector2] = [
-	Vector2(-8.9, -12.6), Vector2(9.0, -12.6), Vector2(-26.8, -12.6),
-	Vector2(26.9, -12.6), Vector2(-44.6, -12.6), Vector2(44.8, -12.6),
-	Vector2(-5.0, 19.9), Vector2(35.0, 19.9), Vector2(-35.0, 19.9),
-	Vector2(-15.0, 59.8), Vector2(25.0, 59.8),
-]
-
 @export var walk_speed := 4.5
 @export var run_speed := 7.5
 @export var jump_velocity := 5.0
@@ -63,6 +61,9 @@ var _woosh_sound: AudioStreamPlayer
 var _start_screen: Control
 var _game_over_screen: Control
 var _name_edit: LineEdit
+var _crosshair: Crosshair
+var _damage_flash: ColorRect
+var _protection := 0.0
 
 
 func _ready() -> void:
@@ -77,9 +78,10 @@ func _ready() -> void:
 		_mobile_controls.swap_pressed.connect(func() -> void: _cycle_weapon(1))
 		_mobile_controls.look_delta.connect(_apply_look_delta)
 	_fire_sound = AudioStreamPlayer.new()
-	_fire_sound.name = "FoamFireSound"
-	_fire_sound.stream = FOAM_FIRE_SOUND
-	_fire_sound.volume_db = -4.0
+	_fire_sound.name = "PistolShotSound"
+	_fire_sound.stream = SHOT_SOUND
+	_fire_sound.volume_db = -3.0
+	_fire_sound.max_polyphony = 3
 	add_child(_fire_sound)
 	_bat_sound = AudioStreamPlayer.new()
 	_bat_sound.name = "BatHitSound"
@@ -169,14 +171,17 @@ func _is_touch_device() -> bool:
 	return OS.has_feature("web") and DisplayServer.is_touchscreen_available()
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	_protection = maxf(_protection - delta, 0.0)
 	_aim_target = _get_aim_target()
 	model.set("aim_point", _aim_target)
 	model.set("has_aim_point", true)
-	# The trigger snaps the arm up first; the foam leaves the barrel once it points at the target.
+	if _crosshair != null:
+		_crosshair.visible = is_playing() and weapon == "pistol"
+	# The trigger snaps the arm up first; the round leaves the barrel once it points at the target.
 	if _shot_pending and model.call("is_gun_raised"):
 		_shot_pending = false
-		_launch_pellet()
+		_fire_shot()
 
 
 func _input(event: InputEvent) -> void:
@@ -233,13 +238,16 @@ func _interact() -> void:
 	target.call("interact")
 
 
-## Drop the player at a random open spot in the estate, facing north into it.
+## Drop the player at a random open spot in the estate, facing the home block.
 ## The small jitter keeps two players spawning together from standing inside each other.
 func _move_to_random_spawn() -> void:
-	var spot: Vector2 = SPAWN_POINTS[randi() % SPAWN_POINTS.size()]
+	var district := get_node_or_null("../Diorama/District")
+	var spots: Array = district.call("spawn_points") if district != null and district.has_method("spawn_points") else [Vector2.ZERO]
+	var spot: Vector2 = spots[randi() % spots.size()]
+	var yaw: float = district.call("spawn_yaw") if district != null and district.has_method("spawn_yaw") else PI
 	var jitter := Vector2(randf_range(-1.5, 1.5), randf_range(-1.0, 1.0))
 	global_transform = Transform3D(
-		Basis(Vector3.UP, PI),
+		Basis(Vector3.UP, yaw),
 		Vector3(spot.x + jitter.x, 0.9, spot.y + jitter.y)
 	)
 	camera_pivot.rotation.x = deg_to_rad(-4.6)
@@ -249,7 +257,7 @@ func _move_to_random_spawn() -> void:
 func _attack() -> void:
 	match weapon:
 		"pistol":
-			_fire_foam_pellet()
+			_pull_trigger()
 		"bat":
 			_swing_bat()
 
@@ -290,46 +298,175 @@ func _bat_hit() -> void:
 			continue
 		body.call("receive_hit", "bat")
 		hit_any = true
+	var net_world := get_tree().current_scene.get_node_or_null("NetWorld")
+	for remote in get_tree().get_nodes_in_group("remote_players"):
+		var other := remote as Node3D
+		if net_world == null or not other.get("active") or not other.visible:
+			continue
+		var to_other := other.global_position - global_position
+		to_other.y = 0.0
+		if to_other.length() > BAT_RANGE:
+			continue
+		if to_other.length() > 0.4 and forward.dot(to_other.normalized()) < 0.45:
+			continue
+		net_world.call("send_damage", int(other.get("peer_id")), BAT_PLAYER_DAMAGE, "bat")
+		ShotFx.blood(get_tree().current_scene, other.global_position + Vector3.UP * 0.6, forward)
+		hit_any = true
 	if hit_any:
 		_bat_sound.pitch_scale = randf_range(0.9, 1.1)
 		_bat_sound.play()
 
 
-func _fire_foam_pellet() -> void:
-	if not _game_started or _game_over or weapon != "pistol" or not _can_fire:
+func _pull_trigger() -> void:
+	if not is_playing() or weapon != "pistol" or not _can_fire:
 		return
 
 	_can_fire = false
 	_shot_pending = true
 	model.call("raise_gun")
-	await get_tree().create_timer(0.25).timeout
+	await get_tree().create_timer(FIRE_INTERVAL).timeout
 	_can_fire = true
 
 
-func _launch_pellet() -> void:
+## One round, hitscan: it goes where the crosshair points (the camera ray), and the
+## tracer is drawn from the muzzle. Villagers die from any hit; other players take
+## damage by where they were hit (pistol_damage) and are told over the network.
+func _fire_shot() -> void:
 	if not is_playing():
 		return
-	var muzzle := model.call("get_muzzle") as Marker3D
-	var pellet := FOAM_PELLET_SCENE.instantiate() as FoamPellet
-	get_tree().current_scene.add_child(pellet)
-	pellet.global_position = muzzle.global_position
-	pellet.global_basis = muzzle.global_basis.orthonormalized()
-	var shot_direction := muzzle.global_position.direction_to(_aim_target)
-	pellet.launch(self, shot_direction, PLAYER_PROJECTILE_DAMAGE, &"villagers")
-	var net_world := get_tree().current_scene.get_node_or_null("NetWorld")
+	var scene := get_tree().current_scene
+	var muzzle := (model.call("get_muzzle") as Marker3D).global_position
+	var hit := _shoot_ray()
+	var end: Vector3 = hit.get("position", camera.global_position - camera.global_basis.z * SHOT_RANGE)
+	var target := _shot_target(hit.get("collider"))
+	var flesh := false
+	var net_world := scene.get_node_or_null("NetWorld")
+	if target != null and target.is_in_group("villagers"):
+		target.call("receive_hit", "pistol")
+		flesh = true
+	elif target != null and target.is_in_group("remote_players"):
+		var damage := pistol_damage((target as Node3D).global_position - Vector3.UP * 0.9, end, muzzle.direction_to(end))
+		if net_world != null:
+			net_world.call("send_damage", int(target.get("peer_id")), damage[0], damage[1])
+		_crosshair.show_hit(damage[1] == "head")
+		flesh = true
+	var normal: Vector3 = hit.get("normal", Vector3.UP)
+	if flesh:
+		ShotFx.blood(scene, end, muzzle.direction_to(end))
+	elif not hit.is_empty():
+		ShotFx.impact(scene, end, normal)
+	ShotFx.tracer(scene, muzzle, end)
+	model.call("fire_effects")
+	_crosshair.kick()
+	camera_pivot.rotation.x = clampf(camera_pivot.rotation.x + CAMERA_KICK, deg_to_rad(-60.0), deg_to_rad(35.0))
 	if net_world != null:
-		net_world.call("broadcast_shot", muzzle.global_position, shot_direction)
+		net_world.call("broadcast_shot", muzzle, end, flesh, normal)
+	_fire_sound.pitch_scale = randf_range(0.96, 1.04)
 	_fire_sound.play()
 
 
-func receive_damage(amount: float) -> void:
-	if not _game_started or _game_over or amount <= 0.0:
+## Camera ray from level with the player (so nothing between the camera and the
+## player's back gets hit) out to SHOT_RANGE. Goes through: ourselves, civilians
+## (bullets are not for them), players who are not in the game, and the empty
+## corners of a player's capsule beside the head.
+func _shoot_ray() -> Dictionary:
+	var forward := -camera.global_basis.z
+	var from := camera.global_position
+	from += forward * maxf((global_position - from).dot(forward), 0.0)
+	var to := from + forward * SHOT_RANGE
+	var exclude: Array[RID] = [get_rid()]
+	var space := get_world_3d().direct_space_state
+	for attempt in 6:
+		var query := PhysicsRayQueryParameters3D.create(from, to)
+		query.exclude = exclude
+		var hit := space.intersect_ray(query)
+		if hit.is_empty():
+			return hit
+		var target := _shot_target(hit.get("collider"))
+		var pass_through := false
+		if target != null and target.is_in_group("civilians"):
+			pass_through = true
+		elif target != null and target.is_in_group("remote_players"):
+			var feet := (target as Node3D).global_position - Vector3.UP * 0.9
+			var point: Vector3 = hit["position"]
+			var off_centre := off_centre_of(feet, point, forward)
+			var beside_head := point.y - feet.y >= HEAD_HEIGHT - 0.02 and off_centre > 0.6
+			pass_through = not target.get("active") or not (target as Node3D).visible or beside_head
+		if not pass_through:
+			return hit
+		exclude.append((hit["collider"] as CollisionObject3D).get_rid())
+	return {}
+
+
+## The person (villager, civilian, other player) a collider belongs to, or null.
+func _shot_target(collider: Variant) -> Node:
+	var node := collider as Node
+	while node != null and node != get_tree().current_scene:
+		if node.is_in_group("villagers") or node.is_in_group("civilians") or node.is_in_group("remote_players"):
+			return node
+		node = node.get_parent()
+	return null
+
+
+## How far from the middle of the body a round passes, 0 (dead centre) .. 1 (the edge):
+## the round's line seen from above against the body's vertical axis. The hit point
+## itself always lies on the capsule's surface, so its own distance says nothing.
+static func off_centre_of(feet: Vector3, point: Vector3, direction: Vector3) -> float:
+	var to_axis := Vector2(feet.x - point.x, feet.z - point.z)
+	var flat := Vector2(direction.x, direction.z)
+	if flat.length_squared() < 0.0001:
+		return to_axis.length() / BODY_RADIUS
+	return absf(flat.normalized().cross(to_axis)) / BODY_RADIUS
+
+
+## [damage, zone] of one round landing at `point` on a standing person whose feet are
+## at `feet`. Head: dead. Chest (heart, lungs) hurts most, the belly less, legs least;
+## the nearer the middle of the body, the more (34 at the heart, ~24 at the side).
+static func pistol_damage(feet: Vector3, point: Vector3, direction := Vector3.ZERO) -> Array:
+	var height := point.y - feet.y
+	var off_centre := clampf(off_centre_of(feet, point, direction), 0.0, 1.0)
+	if height >= HEAD_HEIGHT:
+		return [MAX_HEALTH, "head"]
+	if height >= CHEST_HEIGHT:
+		return [roundi(lerpf(34.0, 24.0, off_centre)), "chest"]
+	if height >= BELLY_HEIGHT:
+		return [roundi(lerpf(28.0, 20.0, off_centre)), "belly"]
+	return [roundi(lerpf(20.0, 15.0, off_centre)), "legs"]
+
+
+## Hurt by a villager's foam (attacker 0) or by another player (their peer id and the
+## body zone, or "bat"). Freshly respawned players are safe for a moment.
+func receive_damage(amount: float, attacker := 0, zone := "") -> void:
+	if not is_playing() or amount <= 0.0 or _protection > 0.0:
 		return
 
 	health = maxi(health - roundi(amount), 0)
 	_update_health_ui()
-	if health == 0:
-		_end_game()
+	_flash_damage(0.55 if zone == "head" else 0.35)
+	if health > 0:
+		return
+	var net_world := get_tree().current_scene.get_node_or_null("NetWorld")
+	var killer := ""
+	if attacker != 0 and net_world != null:
+		killer = net_world.call("peer_name", attacker)
+		net_world.call("report_death", attacker, zone)
+	var how: String = {"head": " with a headshot", "bat": " with a bat"}.get(zone, "")
+	_set_game_over_text("Killed by %s%s." % [killer, how] if not killer.is_empty() else "The villagers got you.")
+	_end_game()
+
+
+func _flash_damage(strength: float) -> void:
+	if _damage_flash == null:
+		return
+	_damage_flash.color.a = strength
+	var tween := _damage_flash.create_tween()
+	tween.tween_property(_damage_flash, "color:a", 0.0, 0.5)
+
+
+func _set_game_over_text(text: String) -> void:
+	var label := _game_over_screen.get_meta("description", null) as Label
+	if label != null:
+		label.text = text
 
 
 ## What the screen centre points at: the first thing the camera ray hits past the player, else far away.
@@ -391,12 +528,22 @@ func _update_footsteps(delta: float, has_movement_input: bool, is_running: bool)
 func _setup_game_ui() -> void:
 	hud.process_mode = Node.PROCESS_MODE_ALWAYS
 	hud.layer = 20
+	_damage_flash = ColorRect.new()
+	_damage_flash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_damage_flash.color = Color(0.8, 0.0, 0.0, 0.0)
+	_damage_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hud.add_child(_damage_flash)
+	_crosshair = Crosshair.new()
+	_crosshair.visible = false
+	hud.add_child(_crosshair)
 	_health_label = _make_hud_label("Health: %d / %d" % [MAX_HEALTH, MAX_HEALTH], 24.0, 58.0, 22)
 	_weapon_label = _make_hud_label("", 58.0, 90.0, 18)
 	_update_weapon_ui()
+	var district := get_node_or_null("../Diorama/District")
+	var intro: String = district.call("intro_text") if district != null and district.has_method("intro_text") else ""
 	_start_screen = _make_game_screen(
 		"GACHA VILLAGE",
-		"Na Skalkách, Neratovice. The villagers carry pistols but won't shoot; they run when they see you armed.\nPlay together: open the same game on another device.\n\nWASD move  |  Shift run  |  Space jump  |  Mouse look\nQ / click: fire or swing  |  1 pistol  2 bat  3 hands (or mouse wheel)\nThe supermarket by the playground is open.",
+		intro + "\nPlay together: open the same game on another device and pick the same place.\n\nWASD move  |  Shift run  |  Space jump  |  Mouse look\nQ / click: fire or swing  |  1 pistol  2 bat  3 hands (or mouse wheel)\nPlayers can shoot each other: a headshot kills, a body hit takes 15-34, a bat 30.",
 		"START GAME",
 		_start_game,
 		true
@@ -437,7 +584,7 @@ func _make_game_screen(title_text: String, message: String, button_text: String,
 	overlay.add_child(center)
 
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(520.0, 420.0 if with_name else 360.0)
+	panel.custom_minimum_size = Vector2(560.0, 470.0 if with_name else 360.0)
 	var panel_style := StyleBoxFlat.new()
 	panel_style.bg_color = Color(0.08, 0.13, 0.16, 0.98)
 	panel_style.border_color = Color(0.76, 0.57, 0.3, 1.0)
@@ -475,6 +622,7 @@ func _make_game_screen(title_text: String, message: String, button_text: String,
 	contents.add_child(description)
 
 	if with_name:
+		contents.add_child(_make_location_row())
 		_name_edit = LineEdit.new()
 		_name_edit.text = Net.player_name
 		_name_edit.placeholder_text = "Your name"
@@ -494,7 +642,45 @@ func _make_game_screen(title_text: String, message: String, button_text: String,
 	button.add_theme_font_size_override("font_size", 20)
 	button.pressed.connect(action)
 	contents.add_child(button)
+	overlay.set_meta("description", description)
 	return overlay
+
+
+## One button per place (Net.LOCATIONS); the current one is lit. Picking another
+## rebuilds the world there and joins that place's multiplayer room.
+func _make_location_row() -> Control:
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 10)
+	for entry in Net.LOCATIONS:
+		var button := Button.new()
+		button.text = entry["name"]
+		button.toggle_mode = true
+		button.button_pressed = entry["id"] == Net.location
+		button.custom_minimum_size = Vector2(140.0, 44.0)
+		button.focus_mode = Control.FOCUS_NONE
+		button.add_theme_font_size_override("font_size", 18)
+		var lit := StyleBoxFlat.new()
+		lit.bg_color = Color(0.76, 0.57, 0.3)
+		lit.set_corner_radius_all(8)
+		button.add_theme_stylebox_override("pressed", lit)
+		button.add_theme_stylebox_override("hover_pressed", lit)
+		button.add_theme_color_override("font_pressed_color", Color(0.08, 0.1, 0.12))
+		button.add_theme_color_override("font_hover_pressed_color", Color(0.08, 0.1, 0.12))
+		var id: String = entry["id"]
+		button.pressed.connect(func() -> void: _choose_location(id, button))
+		row.add_child(button)
+	return row
+
+
+func _choose_location(id: String, button: Button) -> void:
+	if id == Net.location:
+		button.button_pressed = true
+		return
+	if _name_edit != null:
+		Net.set_player_name(_name_edit.text)
+	Net.set_location(id)
+	get_tree().reload_current_scene()
 
 
 func _update_weapon_ui() -> void:
@@ -538,6 +724,7 @@ func _restart_game() -> void:
 	_move_to_random_spawn()
 	velocity = Vector3.ZERO
 	health = MAX_HEALTH
+	_protection = SPAWN_PROTECTION
 	_can_fire = true
 	_shot_pending = false
 	_update_health_ui()

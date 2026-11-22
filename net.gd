@@ -7,6 +7,9 @@ extends Node
 ##
 ## Server override: desktop `-- --server=ws://127.0.0.1:8091`, web `?server=...`.
 ## Room: `-- --room=name` or `?room=name` (default "main").
+## Location: picked in the start menu and remembered; `-- --loc=omsk1` or `?loc=omsk1`
+## overrides it. Every location has its own room on the relay ("main" stays
+## Neratovice, the others get "-<id>" appended), so players only meet in the same place.
 
 signal message_received(from: int, data: Dictionary)
 signal peer_left(id: int)
@@ -16,23 +19,38 @@ signal connection_changed(is_online: bool)
 const DEFAULT_SERVER := "wss://severance.lol/village-ws"
 const RECONNECT_DELAY := 3.0
 const SETTINGS_PATH := "user://settings.cfg"
+## Playable places: id, menu name, the district script that builds it.
+const LOCATIONS := [
+	{"id": "neratovice", "name": "Neratovice", "script": "res://district.gd"},
+	{"id": "omsk1", "name": "Omsk 1", "script": "res://district_omsk1.gd"},
+	{"id": "omsk2", "name": "Omsk 2", "script": "res://district_omsk2.gd"},
+]
 
 var my_id := 0
 var host_id := 0
 var online := false
 var peers: Array[int] = []
 var player_name := ""
+var location := "neratovice"
 
 var _socket := WebSocketPeer.new()
 var _url := ""
+var _server := DEFAULT_SERVER
+var _room := ""
 var _retry_timer := 0.0
 var _socket_started := false
 
 
+func _init() -> void:
+	# Read the name, location and server now: the main scene enters the tree (and
+	# picks its district, world.gd) before this autoload's _ready runs.
+	_load_settings()
+	_resolve_server()
+	_url = _room_url()
+
+
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	_load_name()
-	_url = _resolve_url()
 	_open_socket()
 
 
@@ -59,32 +77,102 @@ func set_player_name(value: String) -> void:
 	config.save(SETTINGS_PATH)
 
 
-func _load_name() -> void:
+## Menu name of the current location.
+func location_name() -> String:
+	for entry in LOCATIONS:
+		if entry["id"] == location:
+			return entry["name"]
+	return location
+
+
+## The district script that builds the current location.
+func location_script() -> String:
+	for entry in LOCATIONS:
+		if entry["id"] == location:
+			return entry["script"]
+	return LOCATIONS[0]["script"]
+
+
+## Switch to another location: remember it and move to that location's room.
+## The caller reloads the scene so the new district gets built.
+func set_location(id: String) -> void:
+	if not _is_location(id) or id == location:
+		return
+	location = id
+	var config := ConfigFile.new()
+	config.load(SETTINGS_PATH)
+	config.set_value("player", "location", location)
+	config.save(SETTINGS_PATH)
+	_url = _room_url()
+	if _socket_started:
+		_socket.close()
+	_socket_started = false
+	if online:
+		online = false
+		peers.clear()
+		connection_changed.emit(false)
+		host_changed.emit()
+	_open_socket()
+
+
+func _is_location(id: String) -> bool:
+	for entry in LOCATIONS:
+		if entry["id"] == id:
+			return true
+	return false
+
+
+func _load_settings() -> void:
 	var config := ConfigFile.new()
 	if config.load(SETTINGS_PATH) == OK:
 		player_name = str(config.get_value("player", "name", ""))
+		var saved := str(config.get_value("player", "location", location))
+		if _is_location(saved):
+			location = saved
 	if player_name.is_empty():
 		player_name = "Player %d" % randi_range(100, 999)
 
 
-func _resolve_url() -> String:
-	var server := DEFAULT_SERVER
-	var room := ""
+func _resolve_server() -> void:
+	var forced_location := ""
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--server="):
-			server = arg.trim_prefix("--server=")
+			_server = arg.trim_prefix("--server=")
 		elif arg.begins_with("--room="):
-			room = arg.trim_prefix("--room=")
+			_room = arg.trim_prefix("--room=")
+		elif arg.begins_with("--loc="):
+			forced_location = arg.trim_prefix("--loc=")
 	if OS.has_feature("web"):
-		var query_server: Variant = JavaScriptBridge.eval("new URLSearchParams(window.location.search).get('server') || ''", true)
-		if query_server is String and not query_server.is_empty():
-			server = query_server
-		var query_room: Variant = JavaScriptBridge.eval("new URLSearchParams(window.location.search).get('room') || ''", true)
-		if query_room is String and not query_room.is_empty():
-			room = query_room
-	if not room.is_empty():
-		server += ("&" if "?" in server else "?") + "room=" + room.uri_encode()
-	return server
+		var query_server := _query("server")
+		if not query_server.is_empty():
+			_server = query_server
+		var query_room := _query("room")
+		if not query_room.is_empty():
+			_room = query_room
+		var query_location := _query("loc")
+		if not query_location.is_empty():
+			forced_location = query_location
+	if _is_location(forced_location):
+		location = forced_location
+
+
+func _query(key: String) -> String:
+	var value: Variant = JavaScriptBridge.eval("new URLSearchParams(window.location.search).get('%s') || ''" % key, true)
+	return value if value is String else ""
+
+
+## Relay URL for the current room: Neratovice keeps the plain room ("main" by default),
+## other locations add their id, e.g. "omsk1" or "friends-omsk1".
+func _room_url() -> String:
+	var room := _room
+	if location != LOCATIONS[0]["id"]:
+		room = (room + "-" if not room.is_empty() else "") + location
+	var server := _server
+	if server.count("/") == 2: # "ws://host:port" -> "ws://host:port/", or the query isn't a valid URL
+		server += "/"
+	if room.is_empty():
+		return server
+	return server + ("&" if "?" in server else "?") + "room=" + room.uri_encode()
 
 
 func _open_socket() -> void:

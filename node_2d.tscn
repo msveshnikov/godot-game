@@ -10,6 +10,7 @@
 [ext_resource type="PackedScene" path="res://doberman.tscn" id="26_doberman"]
 [ext_resource type="Script" uid="uid://caqqbn55qni76" path="res://net_world.gd" id="27_net_world"]
 [ext_resource type="Script" uid="uid://c2gkp5wvautff" path="res://bot_crowd.gd" id="28_bot_crowd"]
+[ext_resource type="Script" uid="uid://5o4lbm54n2ud" path="res://world.gd" id="29_world"]
 
 [sub_resource type="ShaderMaterial" id="Material_sky"]
 shader = ExtResource("10_sky_shader")
@@ -20,6 +21,7 @@ shader_parameter/sun_color = Color(1, 0.92, 0.78, 1)
 shader_parameter/cloud_color = Color(1, 0.99, 0.97, 1)
 shader_parameter/cloud_shadow_color = Color(0.56, 0.6, 0.68, 1)
 shader_parameter/cloud_cover = 0.48
+shader_parameter/ground_color = Color(0.36, 0.38, 0.33, 1)
 
 [sub_resource type="Sky" id="Sky_diorama"]
 sky_material = SubResource("Material_sky")
@@ -42,8 +44,8 @@ fog_light_color = Color(0.76, 0.81, 0.88, 1)
 fog_density = 0.0017
 fog_sky_affect = 0.0
 adjustment_enabled = true
-adjustment_saturation = 1.08
 adjustment_contrast = 1.04
+adjustment_saturation = 1.08
 
 [sub_resource type="CapsuleShape3D" id="Shape_player"]
 radius = 0.32
@@ -64,8 +66,12 @@ shader_parameter/grass_mid = Color(0.25, 0.47, 0.23, 1)
 shader_parameter/grass_light = Color(0.46, 0.72, 0.36, 1)
 shader_parameter/grass_exclusion_center = Vector2(0, 0)
 shader_parameter/grass_exclusion_half_extents = Vector2(0, 0)
+shader_parameter/leaf_density = 0.55
+shader_parameter/autumn_tint = Color(0.62, 0.58, 0.3, 1)
+shader_parameter/autumn_amount = 0.28
 
 [node name="Node3D" type="Node3D" unique_id=2074553589]
+script = ExtResource("29_world")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1325349132]
 environment = SubResource("Environment_diorama")

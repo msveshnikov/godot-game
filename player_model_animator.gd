@@ -1,11 +1,11 @@
 extends Node3D
 ## Drives the procedural walk/run/jump shader on the static main_player mesh
 ## from the parent CharacterBody3D's velocity, and puts the weapon in the right
-## hand: the foam pistol (tucked at the hip, snapped up to aim when firing) or a
+## hand: the pistol (tucked at the hip, snapped up to aim when firing) or a
 ## baseball bat (held forward, swung overhead and down), or nothing.
 
 const BODY_SHADER: Shader = preload("res://player_body.gdshader")
-const FOAM_PISTOL_SCENE: PackedScene = preload("res://foam_pistol_model.tscn")
+const PISTOL_SCENE: PackedScene = preload("res://pistol_model.tscn")
 const PHASE_PER_METER := 1.43  # ~one full stride cycle per 0.96 s at walk speed, matches footsteps
 const WALK_SPEED := 4.5
 const RUN_SPEED := 7.5
@@ -21,8 +21,10 @@ const REST_ROLL := 0.36
 const AIM_ROLL := 0.5 # brings the outstretched arm in front of the right shoulder
 const REST_GUN_DOWN := deg_to_rad(62.0) # barrel angle below horizontal while lowered
 const PISTOL_SCALE := 0.5
-const PISTOL_GRIP := Vector3(0.13, -0.17, 0.0) # where the palm closes on foam_pistol_model.tscn
-const PISTOL_MUZZLE := Vector3(-0.46, 0.12, 0.0)
+const PISTOL_GRIP := Vector3(0.11, -0.08, 0.0) # where the palm closes on pistol_model.tscn
+const PISTOL_MUZZLE := Vector3(-0.33, 0.1, 0.0)
+const FLASH_TIME := 0.05
+const RECOIL_KICK := 0.32 # radians the barrel flips up per shot
 const RAISE_SPEED := 11.0 # up in ~0.09 s
 const LOWER_SPEED := 3.0
 const RAISED_HOLD := 0.9 # seconds the arm stays up after the last shot
@@ -52,6 +54,10 @@ var _pistol: Node3D
 var _bat: Node3D
 var _weapon := "pistol"
 var _swing_t := -1.0 # 0..1 while swinging the bat
+var _flash: Node3D
+var _flash_light: OmniLight3D
+var _flash_time := 0.0
+var _recoil := 0.0
 
 
 func _ready() -> void:
@@ -85,7 +91,7 @@ func _build_gun() -> void:
 	_gun_hand.name = "GunHand"
 	_gun_hand.top_level = true
 	add_child(_gun_hand)
-	var pistol := FOAM_PISTOL_SCENE.instantiate() as Node3D
+	var pistol := PISTOL_SCENE.instantiate() as Node3D
 	pistol.name = "HeldPistol"
 	pistol.scale = Vector3.ONE * PISTOL_SCALE
 	pistol.rotation.y = -PI / 2.0 # model barrel points -X; turn it to -Z
@@ -96,9 +102,52 @@ func _build_gun() -> void:
 	_muzzle.position = PISTOL_MUZZLE
 	pistol.add_child(_muzzle)
 	_pistol = pistol
+	_build_flash()
 	_bat = _build_bat()
 	_gun_hand.add_child(_bat)
 	_bat.visible = false
+
+
+## Muzzle flash: a hot orange-white blob in front of the barrel and a short burst of light.
+func _build_flash() -> void:
+	_flash = Node3D.new()
+	_flash.name = "MuzzleFlash"
+	_muzzle.add_child(_flash)
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	material.albedo_color = Color(1.0, 0.72, 0.3, 0.9)
+	for part in [[Vector3(0.1, 0.1, 0.1), Vector3(-0.05, 0, 0)], [Vector3(0.24, 0.06, 0.06), Vector3(-0.12, 0, 0)]]:
+		var blob := MeshInstance3D.new()
+		var sphere := SphereMesh.new()
+		sphere.radius = 0.5
+		sphere.height = 1.0
+		sphere.radial_segments = 8
+		sphere.rings = 4
+		blob.mesh = sphere
+		blob.material_override = material
+		blob.scale = part[0]
+		blob.position = part[1]
+		blob.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_flash.add_child(blob)
+	_flash_light = OmniLight3D.new()
+	_flash_light.light_color = Color(1.0, 0.75, 0.4)
+	_flash_light.light_energy = 3.0
+	_flash_light.omni_range = 5.0
+	_flash_light.position = Vector3(-0.1, 0, 0)
+	_flash.add_child(_flash_light)
+	_flash.visible = false
+
+
+## A shot just left the barrel: flash and flip the muzzle up a little.
+func fire_effects() -> void:
+	_flash_time = FLASH_TIME
+	_recoil = RECOIL_KICK
+	if _flash != null:
+		_flash.visible = true
+		_flash.rotation.x = randf() * TAU
+		_flash.scale = Vector3.ONE * randf_range(0.8, 1.2)
 
 
 ## Wooden bat along the hand's -Z: knob just behind the palm, barrel end forward.
@@ -194,6 +243,11 @@ func _process(delta: float) -> void:
 		target_lean = 0.08 if backwards else -(0.05 + 0.12 * run_t)
 	_lean = lerpf(_lean, target_lean, 1.0 - exp(-8.0 * delta))
 
+	if _flash_time > 0.0:
+		_flash_time -= delta
+		if _flash_time <= 0.0 and _flash != null:
+			_flash.visible = false
+	_recoil = move_toward(_recoil, 0.0, delta * 3.0)
 	_raise_hold = maxf(_raise_hold - delta, 0.0)
 	if _raise_hold > 0.0:
 		_aim_amount = move_toward(_aim_amount, 1.0, delta * RAISE_SPEED)
@@ -282,7 +336,7 @@ func _update_gun_arm(aim_t: float, run_t: float) -> void:
 		aim_dir = to_mesh.basis.z
 	var aim_basis := Basis.looking_at(aim_dir.normalized(), up)
 	var rotation_q := Quaternion(rest_basis).slerp(Quaternion(aim_basis), aim_t)
-	_gun_hand.global_transform = Transform3D(Basis(rotation_q), hand_world)
+	_gun_hand.global_transform = Transform3D(Basis(rotation_q) * Basis(Vector3.RIGHT, _recoil), hand_world)
 
 
 ## Arm pitch through a swing: wind up overhead and back, chop down in front, recover.
