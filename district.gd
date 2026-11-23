@@ -94,6 +94,8 @@ var _car_spots: Array[Transform3D] = []
 var _car_spot_models: Array[int] = []
 var _wrecked_spots := {}
 var _car_meshes := {}
+## Parked cars worked over with the bat: spot index -> CarDamage state.
+var _battered := {}
 var _trees: Array = [] # [kind, Vector3 game position, scale]
 ## Paved rects (game XZ) and a coarse grid index over all blocked/paved rects.
 var _paved: Array[Rect2] = []
@@ -1489,6 +1491,8 @@ func _spawn_cars() -> void:
 		var mesh := _car_mesh(CAR_MODELS[model][0])
 		if mesh != null:
 			_add_multimesh("Cars_" + str(CAR_MODELS[model][0]).get_file().get_basename(), mesh, per_model[model][0], per_model[model][1])
+			# The copy a battered car starts from, read back now rather than at the first blow.
+			CarDamage.arrays_of(_parked_mesh_of(CAR_MODELS[model][0]))
 
 
 ## Which parked car a bullet hit (hit dictionary from a ray), or -1.
@@ -1515,20 +1519,81 @@ func blow_up_car(index: int, _s: float, by: int) -> bool:
 	_wrecked_spots[index] = true
 	var spot := _car_spots[index]
 	var model: Array = CAR_MODELS[_car_spot_models[index]]
+	_hide_parked(index)
+	var mesh := _parked_mesh(index)
+	if _battered.has(index):
+		# A car already battered with the bat burns out battered.
+		var state: Dictionary = _battered[index]
+		CarDamage.silence(state)
+		(state["node"] as Node).queue_free()
+		_battered.erase(index)
+	var wreck := CarFire.explode(self, global_transform * spot, model[2], mesh)
+	CarFire.blast(get_tree(), wreck.global_position, by)
+	return true
+
+
+## Where a parked car stands (world).
+func car_transform(index: int) -> Transform3D:
+	return global_transform * _car_spots[index] if index >= 0 and index < _car_spots.size() else global_transform
+
+
+## The parked car's mesh as it looks now (battered or not).
+func car_mesh(index: int) -> Mesh:
+	return _parked_mesh(index)
+
+
+## A bat blow on a parked car at `point`, the bat moving along `dir` (both in the
+## car's own space): it dents, the windows craze, the alarm goes off. Burnt-out
+## shells take no more. The first blow swaps the car out of its multimesh for a
+## node of its own, which keeps every dent from then on.
+func dent_car(index: int, point: Vector3, dir: Vector3, glass: bool) -> bool:
+	if index < 0 or index >= _car_spots.size() or _wrecked_spots.has(index):
+		return false
+	if not _battered.has(index):
+		var colour := _hide_parked(index)
+		var node := MeshInstance3D.new()
+		node.name = "BatteredCar%d" % index
+		node.mesh = _parked_mesh(index)
+		add_child(node)
+		node.transform = _car_spots[index]
+		var paint := StandardMaterial3D.new()
+		paint.resource_name = "Paint"
+		paint.albedo_color = colour
+		paint.metallic = 0.45
+		paint.roughness = 0.28
+		_battered[index] = CarDamage.batter(node, paint)
+	CarDamage.hit(_battered[index], point, dir, glass, true)
+	return true
+
+
+func _parked_mesh(index: int) -> Mesh:
+	if _battered.has(index):
+		return CarDamage.mesh_of(_battered[index])
+	return _parked_mesh_of(CAR_MODELS[_car_spot_models[index]][0])
+
+
+func _parked_mesh_of(path: String) -> Mesh:
+	if not _car_meshes.has(path):
+		_car_meshes[path] = _car_mesh(path)
+	return _car_meshes[path]
+
+
+## Take a parked car out of its multimesh (zero scale); returns the colour it had.
+func _hide_parked(index: int) -> Color:
+	var spot := _car_spots[index]
+	var model: Array = CAR_MODELS[_car_spot_models[index]]
 	var base := "Cars_" + str(model[0]).get_file().get_basename()
-	# Take the car out of its multimesh (zero scale), the wreck takes its place.
+	var colour := Color.WHITE
 	for child in get_children():
 		var instance := child as MultiMeshInstance3D
 		if instance == null or not instance.name.begins_with(base):
 			continue
 		for k in instance.multimesh.instance_count:
-			if instance.multimesh.get_instance_transform(k).origin.distance_to(spot.origin) < 0.01:
+			var xf := instance.multimesh.get_instance_transform(k)
+			if xf.origin.distance_to(spot.origin) < 0.01 and xf.basis.get_scale().x > 0.001:
+				colour = instance.multimesh.get_instance_color(k)
 				instance.multimesh.set_instance_transform(k, Transform3D(Basis.from_scale(Vector3.ZERO), spot.origin))
-	if not _car_meshes.has(model[0]):
-		_car_meshes[model[0]] = _car_mesh(model[0])
-	var wreck := CarFire.explode(self, global_transform * spot, model[2], _car_meshes[model[0]])
-	CarFire.blast(get_tree(), wreck.global_position, by)
-	return true
+	return colour
 
 
 func _weighted_pick(table: Array) -> int:
@@ -1561,6 +1626,7 @@ func _car_mesh(path: String) -> Mesh:
 		paint.vertex_color_is_srgb = true
 		paint.metallic = 0.45
 		paint.roughness = 0.28
+		paint.resource_name = "Paint" # car_damage.gd finds the body panels by it
 		_materials["car_paint"] = paint
 	for surface in mesh.get_surface_count():
 		var material := mesh.surface_get_material(surface)

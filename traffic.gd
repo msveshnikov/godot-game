@@ -36,6 +36,8 @@ var _rng := RandomNumberGenerator.new()
 func _ready() -> void:
 	_rng.seed = 2770
 	var engine := _looping_wav(ENGINE_SOUND)
+	for model in models:
+		CarDamage.arrays_of(model[0]) # read back now rather than at the first bat blow
 	for lane_index in lanes.size():
 		var lane: Array = lanes[lane_index]
 		var points: Array = lane[0] if lane[0] is Array else [lane[0], lane[1]]
@@ -87,7 +89,7 @@ func _ready() -> void:
 			_cars.append({
 				"body": body, "lane": lane_index, "s": length * (k + _rng.randf_range(0.0, 0.6)) / count,
 				"speed": cruise, "cruise": cruise, "half": size.z * 0.5, "sound": sound,
-				"mesh_node": mesh_node, "paint": paint, "model": model, "wreck": null,
+				"mesh_node": mesh_node, "paint": paint, "model": model, "wreck": null, "battered": null,
 			})
 			sound.play(_rng.randf_range(0.0, 1.5))
 
@@ -170,6 +172,28 @@ func car_progress(index: int) -> float:
 	return float(_cars[index]["s"]) if index >= 0 and index < _cars.size() else -1.0
 
 
+## Where a car is now (world).
+func car_transform(index: int) -> Transform3D:
+	return (_cars[index]["body"] as Node3D).global_transform if index >= 0 and index < _cars.size() else Transform3D()
+
+
+## The car's mesh as it looks now (battered or not).
+func car_mesh(index: int) -> Mesh:
+	return (_cars[index]["mesh_node"] as MeshInstance3D).mesh
+
+
+## A bat blow at `point`, the bat moving along `dir` (both in the car's own space):
+## the car dents, its windows craze, the driver honks and drives on. Not a wreck.
+func dent_car(index: int, point: Vector3, dir: Vector3, glass: bool) -> bool:
+	if index < 0 or index >= _cars.size() or _cars[index]["wreck"] != null:
+		return false
+	var car: Dictionary = _cars[index]
+	if car["battered"] == null:
+		car["battered"] = CarDamage.batter(car["mesh_node"])
+	CarDamage.hit(car["battered"], point, dir, glass, false)
+	return true
+
+
 ## Shot: the car blows up where it is (or at `s` along its lane, as the shooter saw
 ## it) and burns there; `by` fired the shot. False if it is already a wreck.
 func blow_up_car(index: int, s: float, by: int) -> bool:
@@ -186,7 +210,11 @@ func blow_up_car(index: int, s: float, by: int) -> bool:
 	(car["sound"] as AudioStreamPlayer3D).stop()
 	(car["mesh_node"] as Node3D).visible = false
 	var model: Array = car["model"]
-	car["wreck"] = CarFire.explode(self, body.global_transform, model[1], model[0])
+	var mesh: Mesh = model[0]
+	if car["battered"] != null:
+		CarDamage.silence(car["battered"])
+		mesh = CarDamage.mesh_of(car["battered"]) # it burns out battered
+	car["wreck"] = CarFire.explode(self, body.global_transform, model[1], mesh)
 	CarFire.blast(get_tree(), body.global_position, by)
 	get_tree().create_timer(CarFire.TOTAL_TIME).timeout.connect(_tow_away.bind(index))
 	return true
@@ -199,6 +227,14 @@ func _tow_away(index: int) -> void:
 		(car["wreck"] as Node).queue_free()
 	car["wreck"] = null
 	var model: Array = car["model"]
+	if car["battered"] != null:
+		# The new car comes without the old one's dents and broken glass.
+		var node := car["mesh_node"] as MeshInstance3D
+		node.mesh = model[0]
+		for s in node.get_surface_override_material_count():
+			var material := (model[0] as Mesh).surface_get_material(s)
+			node.set_surface_override_material(s, car["paint"] if material == model[2] else null)
+		car["battered"] = null
 	(car["paint"] as StandardMaterial3D).albedo_color = model[3] if model.size() > 3 and model[3] != null else colors[_rng.randi() % colors.size()]
 	(car["mesh_node"] as Node3D).visible = true
 	(car["sound"] as AudioStreamPlayer3D).play()

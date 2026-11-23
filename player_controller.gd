@@ -345,9 +345,72 @@ func _bat_hit() -> void:
 		net_world.call("send_damage", int(other.get("peer_id")), BAT_PLAYER_DAMAGE, "bat")
 		ShotFx.blood(get_tree().current_scene, other.global_position + Vector3.UP * 0.6, forward)
 		hit_any = true
+	if not hit_any:
+		hit_any = _bat_hit_world(forward)
 	if hit_any:
 		_bat_sound.pitch_scale = randf_range(0.9, 1.1)
 		_bat_sound.play()
+
+
+## The bat coming down on whatever is in front when nobody is: a car (it dents,
+## parked or driving), a shop window (cracks, then smashes), or just a wall.
+## True if it hit anything at all.
+func _bat_hit_world(forward: Vector3) -> bool:
+	var space := get_world_3d().direct_space_state
+	var origin := global_position + Vector3.UP * 0.45
+	var side := forward.cross(Vector3.UP).normalized()
+	var best := {}
+	var best_dir := forward
+	var best_distance := INF
+	# A fan of rays over the reach of the swing: straight ahead first, down to the waist.
+	for pitch: float in [-0.12, -0.45, 0.15]:
+		for yaw: float in [0.0, -0.3, 0.3, -0.6, 0.6]:
+			var dir := (forward.rotated(Vector3.UP, yaw) + Vector3.UP * pitch).normalized()
+			var query := PhysicsRayQueryParameters3D.create(origin, origin + dir * BAT_RANGE)
+			query.exclude = [get_rid()]
+			var hit := space.intersect_ray(query)
+			if hit.is_empty() or _shot_target(hit.get("collider")) != null:
+				continue
+			var distance := origin.distance_to(hit["position"])
+			if distance < best_distance - 0.15:
+				best_distance = distance
+				best = hit
+				best_dir = dir
+	if best.is_empty():
+		return false
+	var owner := (best["collider"] as Node).get_parent()
+	var net_world := get_tree().current_scene.get_node_or_null("NetWorld")
+	if owner != null and owner.has_method("car_index_at") and owner.has_method("dent_car"):
+		var index: int = owner.call("car_index_at", best)
+		if index >= 0:
+			var xf: Transform3D = owner.call("car_transform", index)
+			var swing := (best_dir + Vector3.DOWN * 0.6).normalized()
+			var on_body := CarDamage.ray_mesh(owner.call("car_mesh", index), xf, origin, best["position"] + best_dir * 2.2)
+			var point: Vector3
+			var glass := false
+			var push: Vector3
+			if on_body.is_empty():
+				point = xf.affine_inverse() * (best["position"] as Vector3)
+				push = xf.basis.inverse() * swing
+			else:
+				point = on_body["point"]
+				glass = on_body["glass"]
+				push = (-(on_body["normal"] as Vector3) * 0.7 + (xf.basis.inverse() * swing) * 0.3).normalized()
+			if owner.call("dent_car", index, point, push, glass) and net_world != null:
+				net_world.call("broadcast_dent", "traffic" if owner.name == "Traffic" else "parked", index, point, push, glass)
+			return true
+	_smash_window(best, net_world)
+	return true
+
+
+## A blow or a round landing on a wall: smash the shop window there, if it is one.
+func _smash_window(hit: Dictionary, net_world: Node) -> void:
+	var owner := (hit["collider"] as Node).get_parent()
+	if owner == null or not owner.has_method("smash_window"):
+		return
+	var point: Vector3 = hit["position"]
+	if int(owner.call("smash_window", point)) > 0 and net_world != null:
+		net_world.call("broadcast_window", point)
 
 
 func _pull_trigger() -> void:
@@ -386,6 +449,7 @@ func _fire_shot() -> void:
 	var normal: Vector3 = hit.get("normal", Vector3.UP)
 	if target == null and not hit.is_empty():
 		_shoot_car(hit, net_world)
+		_smash_window(hit, net_world)
 	if flesh:
 		ShotFx.blood(scene, end, muzzle.direction_to(end))
 	elif not hit.is_empty():
@@ -597,7 +661,8 @@ func _setup_game_ui() -> void:
 	var intro: String = district.call("intro_text") if district != null and district.has_method("intro_text") else ""
 	_start_screen = _make_game_screen(
 		"GACHA VILLAGE",
-		intro + "\nPlay together: open the same game on another device and pick the same place.\n\nWASD move  |  Shift run  |  Space jump  |  Mouse look\nQ / click: fire or swing  |  1 pistol  2 bat  3 hands (or mouse wheel)\nPlayers can shoot each other: a headshot kills, a body hit takes 15-34, a bat 30.",
+		intro + "\nPlay together: open the same game on another device and pick the same place.\n\nWASD move  |  Shift run  |  Space jump  |  Mouse look\nQ / click: fire or swing  |  1 pistol  2 bat  3 hands (or mouse wheel)\nPlayers can shoot each other: a headshot kills, a body hit takes 15-34, a bat 30.
+The bat dents cars and smashes shop windows; a bullet blows a car up.",
 		"START GAME",
 		_start_game,
 		true

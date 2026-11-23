@@ -26,6 +26,13 @@ const NYC_CHUNK := 96.0
 
 ## Collision faces of the buildings, per chunk (ConcavePolygonShape3D each).
 var _wall_faces := {}
+## Walls with shop fronts at street level: [a, b (game xz), s at a, facade seed], for
+## smash_window(). The shader draws the windows; which ones are broken it reads
+## from _damage (one texel per window, at the window's middle; 1 m texels).
+var _shop_walls: Array = []
+var _damage: Image
+var _damage_texture: ImageTexture
+var _damage_origin := Vector2.ZERO
 var _screen_material: ShaderMaterial
 var _signal_materials := {}
 
@@ -115,6 +122,8 @@ func _extrude(points: PackedVector2Array, y0: float, y1: float, style: int, seed
 			st.add_vertex(corner[0])
 		if collide:
 			faces.append_array([a0, b1, a1, a0, b0, b1])
+		if shops and y0 < 0.5 and style != Style.BLANK:
+			_shop_walls.append([Vector2(a0.x, a0.z), Vector2(b0.x, b0.z), s, clampf(seed, 0.0, 0.99)])
 		s += length
 	if collide:
 		_wall_faces[_chunk_key(at)] = faces
@@ -214,6 +223,101 @@ func _centroid(points: PackedVector2Array) -> Vector2:
 	for p in points:
 		c += p
 	return c / maxf(1.0, points.size())
+
+
+# ----------------------------------------------------- shop windows ----
+
+## Shop width as facade.gdshader lays the fronts out for a building's seed.
+static func shop_unit(seed: float) -> float:
+	return 7.0 + fposmod(seed * 3.1, 1.0) * 3.0
+
+
+## A blow (bat or bullet) landing on a wall at `point`: if that is a shop window,
+## the first one cracks it, the next smashes it out, glass all over the pavement.
+## Returns the window's state after the blow: 1 cracked, 2 smashed, 0 not a window
+## (or one already gone). Everyone replays the same point (net_world.gd), so all
+## see the same pane go.
+func smash_window(point: Vector3) -> int:
+	var p := Vector2(point.x, point.z)
+	var best := 0.3
+	var wall: Array = []
+	var along := 0.0
+	for w in _shop_walls:
+		var a: Vector2 = w[0]
+		var ab: Vector2 = (w[1] as Vector2) - a
+		var length_sq := ab.length_squared()
+		if length_sq < 0.0001:
+			continue
+		var t := clampf((p - a).dot(ab) / length_sq, 0.0, 1.0)
+		var d := (a + ab * t).distance_to(p)
+		if d < best:
+			best = d
+			wall = w
+			along = t * sqrt(length_sq)
+	if wall.is_empty():
+		return 0
+	var unit := shop_unit(wall[3])
+	var s: float = float(wall[2]) + along
+	var index := floorf(s / unit)
+	var x := s - index * unit
+	var y := point.y
+	var in_window := x > 0.2 and x < unit - 0.2 and y > 0.45 and y < 3.5
+	var in_door := x > unit * 0.62 and x < unit * 0.62 + 1.6 and y < 2.6
+	if not (in_window or in_door):
+		return 0
+	var a: Vector2 = wall[0]
+	var d := ((wall[1] as Vector2) - a).normalized()
+	var middle := a + d * ((index + 0.5) * unit - float(wall[2]))
+	_ensure_damage_map()
+	var texel := Vector2i(((middle - _damage_origin)).floor())
+	if texel.x < 1 or texel.y < 1 or texel.x >= _damage.get_width() - 1 or texel.y >= _damage.get_height() - 1:
+		return 0
+	var before := _damage.get_pixelv(texel)
+	if before.r > 0.75:
+		return 0
+	var stage := 2 if before.r > 0.25 else 1
+	var mark := Color(1.0 if stage == 2 else 0.5, x / unit, clampf(y / 4.0, 0.0, 1.0), fposmod(middle.x * 0.37 + middle.y * 0.71, 1.0))
+	if stage == 2:
+		mark.g = before.g # the cracks stay centred where the first blow landed
+		mark.b = before.b
+		mark.a = before.a
+	for dy in range(-1, 2):
+		for dx in range(-1, 2):
+			_damage.set_pixelv(texel + Vector2i(dx, dy), mark)
+	_damage_texture.update(_damage)
+	var out := Vector3(d.y, 0.0, -d.x)
+	var pane_middle := Vector3(middle.x, 0.45, middle.y)
+	if stage == 1:
+		GlassFx.crack_sound(self, point)
+	else:
+		var ground := GlassFx.ground_below(self, pane_middle + out * 0.6)
+		GlassFx.shatter(self, pane_middle + out * 0.03, Vector3(d.x, 0.0, d.y), unit * 0.5 - 0.25, 3.0, out, ground, 110)
+	return stage
+
+
+## The damage map over the island, made at the first blow: one RGBA8 texel per
+## metre (r: 0 whole, 0.5 cracked, 1 smashed; g, b: where the first blow landed
+## across and up the window; a: a random seed for the crack pattern).
+func _ensure_damage_map() -> void:
+	if _damage != null:
+		return
+	var lo := Vector2(INF, INF)
+	var hi := Vector2(-INF, -INF)
+	for w in _shop_walls:
+		for corner in [w[0], w[1]]:
+			lo = lo.min(corner)
+			hi = hi.max(corner)
+	if lo.x > hi.x:
+		lo = Vector2.ZERO
+		hi = Vector2.ONE
+	_damage_origin = (lo - Vector2(8, 8)).floor()
+	var size := Vector2i((hi - _damage_origin + Vector2(8, 8)).ceil())
+	_damage = Image.create_empty(size.x, size.y, false, Image.FORMAT_RGBA8)
+	_damage_texture = ImageTexture.create_from_image(_damage)
+	var material := _facade_material()
+	material.set_shader_parameter("damage_map", _damage_texture)
+	material.set_shader_parameter("damage_origin", _damage_origin)
+	material.set_shader_parameter("damage_on", true)
 
 
 # ------------------------------------------------------- round things ----

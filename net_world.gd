@@ -97,6 +97,17 @@ func broadcast_car(kind: String, index: int, s: float) -> void:
 	Net.send({"t": "cx", "w": kind, "i": index, "s": snappedf(s, 0.01)})
 
 
+## The local player dented a car with the bat: where and which way (car space),
+## and whether it was a window.
+func broadcast_dent(kind: String, index: int, point: Vector3, dir: Vector3, glass: bool) -> void:
+	Net.send({"t": "dn", "w": kind, "i": index, "p": _vec3(point), "d": _vec3(dir), "g": glass})
+
+
+## The local player cracked or smashed a shop window at `point`.
+func broadcast_window(point: Vector3) -> void:
+	Net.send({"t": "gw", "p": _vec3(point)})
+
+
 ## The local player hit another player for `amount` ("head", "chest", "belly", "legs", "bat").
 func send_damage(peer: int, amount: int, zone: String) -> void:
 	Net.send({"t": "dmg", "to": peer, "a": amount, "z": zone})
@@ -161,6 +172,20 @@ func _on_message(from: int, data: Dictionary) -> void:
 			var cars: Node = district.get_node_or_null("Traffic") if str(data.get("w", "")) == "traffic" else district
 			if cars != null and cars.has_method("blow_up_car"):
 				cars.call("blow_up_car", int(data.get("i", -1)), float(data.get("s", -1.0)), from)
+		"dn":
+			var district_d := get_tree().current_scene.get_node_or_null("Diorama/District")
+			var p: Array = data.get("p", [])
+			var d: Array = data.get("d", [])
+			if district_d == null or p.size() < 3 or d.size() < 3:
+				return
+			var dented: Node = district_d.get_node_or_null("Traffic") if str(data.get("w", "")) == "traffic" else district_d
+			if dented != null and dented.has_method("dent_car"):
+				dented.call("dent_car", int(data.get("i", -1)), Vector3(p[0], p[1], p[2]), Vector3(d[0], d[1], d[2]), bool(data.get("g", false)))
+		"gw":
+			var district_w := get_tree().current_scene.get_node_or_null("Diorama/District")
+			var at: Array = data.get("p", [])
+			if district_w != null and district_w.has_method("smash_window") and at.size() >= 3:
+				district_w.call("smash_window", Vector3(at[0], at[1], at[2]))
 		"dmg":
 			if int(data.get("to", -1)) != Net.my_id:
 				return
@@ -197,6 +222,11 @@ func _add_feed(killer: String, victim: String, zone: String) -> void:
 	tween.tween_interval(FEED_TIME)
 	tween.tween_property(line, "modulate:a", 0.0, 0.6)
 	tween.tween_callback(line.queue_free)
+
+
+## Millimetres, for points that pick one window or one dent.
+static func _vec3(v: Vector3) -> Array:
+	return [snappedf(v.x, 0.001), snappedf(v.y, 0.001), snappedf(v.z, 0.001)]
 
 
 static func _vec(v: Vector3) -> Array:

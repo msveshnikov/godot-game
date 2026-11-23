@@ -7,6 +7,15 @@ shader_type spatial;
 // Styles: 0 brick with punched windows, 1 limestone, 2 glass curtain wall,
 // 3 ribbon windows, 4 modern grid, 5 dark glass tower, 6 blank party wall.
 
+// Smashed shop windows (nyc_builder.gd smash_window): one texel per window, at the
+// window's middle, 1 m per texel from damage_origin. r: 0.5 cracked, 1 smashed;
+// g, b: where the first blow landed (across the shop, height / 4 m); a: a seed.
+uniform sampler2D damage_map : filter_nearest, hint_default_black;
+uniform vec2 damage_origin = vec2(0.0);
+uniform bool damage_on = false;
+
+varying vec3 v_world;
+varying vec3 v_wnormal;
 varying vec3 v_tint;
 varying float v_style;
 varying float v_seed;
@@ -25,6 +34,8 @@ void vertex() {
 	v_style = floor(UV2.x + 0.001);
 	v_seed = fract(UV2.x);
 	v_top = UV2.y;
+	v_world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	v_wnormal = (MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz;
 }
 
 // Soft box mask: 1 inside [lo, hi] on both axes, anti-aliased by the pixel footprint.
@@ -145,6 +156,67 @@ void fragment() {
 		vec3 shop = frame;
 		shop = mix(shop, inside, window);
 		shop = mix(shop, vec3(0.05, 0.05, 0.06), door * 0.8);
+		float pane = max(window, door);
+		if (damage_on && pane > 0.001) {
+			// Which window this is: its middle on the wall, looked up in the damage map.
+			vec2 along = normalize(vec2(-v_wnormal.z, v_wnormal.x));
+			float shop_id = floor(m.x / unit);
+			vec2 middle = v_world.xz + along * ((shop_id + 0.5) * unit - m.x);
+			ivec2 texel = ivec2(floor(middle - damage_origin));
+			ivec2 size = textureSize(damage_map, 0);
+			if (texel.x >= 0 && texel.y >= 0 && texel.x < size.x && texel.y < size.y) {
+				vec4 dmg = texelFetch(damage_map, texel, 0);
+				if (dmg.r > 0.25) {
+					vec2 q = vec2(x, m.y) - vec2(dmg.g * unit, dmg.b * 4.0);
+					float r = length(q);
+					float ang = atan(q.y, q.x) + 3.14159265;
+					float spokes = 15.0;
+					float wedge = 6.2831853 / spokes;
+					float ci = floor(ang / wedge);
+					float cw = fw.x * 1.2 + 0.008;
+					// Radial cracks from the blow, each a little off its wedge's middle,
+					// fading out at their own length; rings of short cracks between them.
+					float web = 0.0;
+					for (int k = 0; k < 2; k++) {
+						float c = ci + float(k);
+						float h = hash(vec2(mod(c, spokes), dmg.a * 97.0));
+						float spoke = (c + 0.5 + (h - 0.5) * 0.8) * wedge;
+						float dist = abs(sin(ang - spoke)) * r;
+						float reach = 0.9 + h * 2.6;
+						web = max(web, (1.0 - smoothstep(0.0, cw, dist)) * (1.0 - smoothstep(reach * 0.6, reach, r)));
+					}
+					float ring_step = 0.22;
+					float rc = floor(r / ring_step);
+					float rh = hash(vec2(rc, ci + dmg.a * 31.0));
+					float ring_r = (rc + 0.3 + rh * 0.4) * ring_step;
+					float ring = (1.0 - smoothstep(0.0, cw, abs(r - ring_r))) * step(0.3, rh) * (1.0 - smoothstep(0.5, 1.3, r));
+					web = max(web, ring);
+					float crush = 1.0 - smoothstep(0.05, 0.16, r);
+					vec3 cracked = mix(shop, vec3(0.86, 0.9, 0.92), max(web * 0.85, crush * 0.7));
+					if (dmg.r > 0.75) {
+						// Smashed out: a hole into the shop, jagged teeth of glass left in the frame.
+						// Distance in from the edge of the opening (window and door together).
+						float in_window = min(min(x - 0.2, unit - 0.2 - x), min(m.y - 0.45, 3.5 - m.y));
+						float in_door = min(min(x - unit * 0.62, unit * 0.62 + 1.6 - x), min(m.y, 2.6 - m.y));
+						float edge = max(in_window, in_door);
+						// Teeth: triangular spikes pointing in at the blow, a few long, most short.
+						float ta = ang * 4.0 + dmg.a * 7.0;
+						float tooth = pow(hash(vec2(floor(ta), dmg.a * 53.0)), 2.5);
+						float spike = 1.0 - abs(fract(ta) * 2.0 - 1.0);
+						float tb = ang * 11.0 + dmg.a * 3.0;
+						float small = hash(vec2(floor(tb), dmg.a * 17.0)) * (1.0 - abs(fract(tb) * 2.0 - 1.0));
+						float teeth = 0.025 + (tooth * spike * 0.75 + small * 0.12) * (0.4 + 0.6 * smoothstep(0.3, 1.5, r));
+						float keep = 1.0 - smoothstep(teeth - fw.x, teeth + fw.x, edge);
+						vec3 hole = mix(vec3(0.02, 0.02, 0.02), vec3(0.2, 0.16, 0.11), smoothstep(0.3, 2.8, m.y) * (0.3 + sid * 0.7));
+						hole += vec3(0.22, 0.15, 0.08) * (1.0 - smoothstep(0.4, 1.6, m.y)) * step(0.4, sid);
+						float rim = keep * (1.0 - smoothstep(0.0, 0.03 + fw.x, teeth - edge));
+						vec3 teeth_col = mix(inside, vec3(0.8, 0.86, 0.9), 0.35 + web * 0.4);
+						cracked = mix(hole, mix(teeth_col, vec3(0.92, 0.95, 0.97), rim * 0.7), keep);
+					}
+					shop = mix(shop, cracked, pane);
+				}
+			}
+		}
 		shop = mix(shop, sign_col, sign_band);
 		col = shop;
 		glow = max(glow, sign_band * 0.45 + window * 0.12);
