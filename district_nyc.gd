@@ -918,9 +918,16 @@ func _screens_on_run(run: PackedVector2Array, h: float, seed: int, phase: float)
 			var s1 := total * (panel + 1) / panels - (0.4 if panel < panels - 1 else 0.0)
 			var piece := _sub_run(run, s0, s1)
 			var aspect := (s1 - s0) / maxf(0.5, ty1 - ty0)
-			var base := 0 if aspect >= 1.0 else 16
-			var ads := Vector2(base + rng.randi() % 16, base + rng.randi() % 16)
+			var ads := Vector2(_pick_ad(rng, aspect < 1.0), _pick_ad(rng, aspect < 1.0))
 			_screen_run(piece, ty0, ty1, ads, fposmod(phase + tier * 0.31 + panel * 0.17, 1.0))
+
+
+## An ad for a screen: the featured ones (NOVA, MaxSoft, Claude, Anthropic) on
+## about every other screen, the made-up brands on the rest.
+func _pick_ad(rng: RandomNumberGenerator, tall: bool) -> int:
+	if rng.randf() < 0.45:
+		return ADS.ad_index(ADS.FEATURED[rng.randi() % ADS.FEATURED.size()], tall)
+	return ADS.ad_index(rng.randi() % 16, tall)
 
 
 ## The part of a polyline between distances s0 and s1 along it.
@@ -973,10 +980,13 @@ func _build_one_times_square() -> void:
 				var b := points[(index + 1) % points.size()]
 				if a.distance_to(b) < 2.0:
 					continue
-				var aspect := a.distance_to(b) / (y_top - y)
-				var base := 0 if aspect >= 1.0 else 16
+				var tall := a.distance_to(b) / (y_top - y) < 1.0
 				phase += 0.23
-				_screen_run(PackedVector2Array([a, b]), y, y_top, Vector2(base + (index * 5 + band * 3) % 16, base + (index * 7 + band * 5 + 3) % 16), fposmod(phase, 1.0), 0.45, 2.4)
+				# The featured ads take turns on the tower's faces, made-up ones between them.
+				var featured: Array = ADS.FEATURED
+				var first: int = featured[(index + band) % featured.size()]
+				var second := (index * 7 + band * 5 + 3) % 16
+				_screen_run(PackedVector2Array([a, b]), y, y_top, Vector2(ADS.ad_index(first, tall), ADS.ad_index(second, tall)), fposmod(phase, 1.0), 0.45, 2.4)
 			y = y_top + 0.8
 			band += 1
 		if h == top:

@@ -4,17 +4,24 @@ extends RefCounted
 ##   0-15  wide ads, 512 x 256, four per row in the top 1024 px
 ##   16-31 tall ads, 256 x 512, eight per row below them
 ##   32-35 ticker strips, 2048 x 64, at the bottom
-## Every brand here is made up. Controls are laid out in a SubViewport that is
-## drawn once; the picture is copied into a mipmapped texture and the viewport freed.
+## Most brands here are made up; the featured ones are real: NOVA (the AGI robot
+## kit, with its Blender renders from the agi-robot project), MaxSoft, Claude and
+## Anthropic. Controls are laid out in a SubViewport that is drawn once; the
+## picture is copied into a mipmapped texture and the viewport freed.
 
 const FONT_PATH := "res://addons/cogito/Assets/Fonts/Montserrat/Montserrat-Bold.ttf"
 const ATLAS := Vector2i(2048, 2304)
+## Designs (index into _paint's list) that district_nyc.gd puts up most often.
+const FEATURED := [1, 8, 10, 14] # NOVA, MaxSoft, Claude, Anthropic
+const CLAUDE_ORANGE := Color(0.851, 0.467, 0.341)
+const CLAUDE_CREAM := Color(0.957, 0.953, 0.933)
+const CLAUDE_INK := Color(0.08, 0.08, 0.075)
 
 const TICKERS := [
 	"BREAKING NEWS  +++  TIMES SQUARE BREAKS AWAY FROM MANHATTAN AND DRIFTS OUT TO SEA  +++  FERRIES TO BROOKLYN SUSPENDED  +++  MAYOR: \"IT'S STILL NEW YORK\"  +++  ",
-	"[color=#7CFC7C]FIZZ 84.10 +1.2%[/color]   [color=#FF6B6B]NOVA 212.55 -0.4%[/color]   [color=#7CFC7C]ZPPY 41.07 +3.9%[/color]   [color=#7CFC7C]QNTM 1,204.30 +0.8%[/color]   [color=#FF6B6B]POLR 18.22 -2.1%[/color]   [color=#7CFC7C]GACHA 999.99 +12.0%[/color]   [color=#FF6B6B]LUNA 63.40 -0.7%[/color]   ",
+	"[color=#7CFC7C]NOVA 412.10 +8.2%[/color]   [color=#FF6B6B]FIZZ 84.10 -0.4%[/color]   [color=#7CFC7C]MAXSOFT 1,997.00 +4.1%[/color]   [color=#7CFC7C]ZPPY 41.07 +3.9%[/color]   [color=#FF6B6B]LUNA 63.40 -0.7%[/color]   [color=#7CFC7C]GACHA 999.99 +12.0%[/color]   [color=#FF6B6B]AURA 18.22 -2.1%[/color]   ",
 	"WELCOME TO TIMES SQUARE  *  THE CROSSROADS OF THE WORLD  *  BROADWAY  *  7TH AVENUE  *  42ND STREET  *  ",
-	"GACHA VILLAGE  *  NOW IN NEW YORK  *  PLAY FREE WITH FRIENDS  *  MAXIMS.TOP/VILLAGE  *  ",
+	"NOVA: THE AGI ROBOT YOU PRINT YOURSELF  *  NOVA.MAXIMS.TOP  *  CLAUDE BY ANTHROPIC  *  MAXSOFT  *  GACHA VILLAGE: NOW IN NEW YORK  *  ",
 ]
 
 static var _font: Font
@@ -54,8 +61,8 @@ static func bake(host: Node, material: ShaderMaterial) -> void:
 
 static func _paint(root: Control) -> void:
 	var designs := [
-		_fizz, _nova, _starlight, _gacha, _skyline_air, _mega_burger, _aurora, _zippy,
-		_polar, _breaking, _quantum, _pixela, _luna, _loves_you, _velvet, _midnight_cats,
+		_fizz, _nova_robot, _starlight, _gacha, _skyline_air, _mega_burger, _aurora, _zippy,
+		_maxsoft, _breaking, _claude, _pixela, _luna, _loves_you, _anthropic, _midnight_cats,
 	]
 	for index in 16:
 		var wide := Rect2(Vector2((index % 4) * 512, (index / 4) * 256), Vector2(512, 256))
@@ -93,11 +100,11 @@ static func _bg(root: Control, r: Rect2, a: Color, b: Color, vertical := true) -
 	texture.fill_from = Vector2(0, 0)
 	texture.fill_to = Vector2(0, 1) if vertical else Vector2(1, 0)
 	var rect := TextureRect.new()
+	rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	rect.stretch_mode = TextureRect.STRETCH_SCALE
 	rect.texture = texture
 	rect.position = r.position
 	rect.size = r.size
-	rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	rect.stretch_mode = TextureRect.STRETCH_SCALE
 	root.add_child(rect)
 
 
@@ -193,23 +200,6 @@ static func _fizz(root: Control, r: Rect2, tall: bool) -> void:
 	_text(root, Rect2(text.position + Vector2(0, text.size.y * 0.55), Vector2(text.size.x, text.size.y * 0.3)), "TASTE THE FIZZ!", int(26 * s), Color(1, 0.95, 0.9))
 
 
-static func _nova(root: Control, r: Rect2, tall: bool) -> void:
-	_bg(root, r, Color(0.02, 0.02, 0.04), Color(0.08, 0.02, 0.15))
-	var s := _scale(r)
-	var parts := _split(r, tall, 0.45)
-	var pic: Rect2 = parts[0]
-	var c := pic.get_center()
-	_circle(root, c, 95.0 * s, Color(0.45, 0.15, 0.9, 0.35))
-	_circle(root, c, 70.0 * s, Color(0.55, 0.25, 1.0, 0.35))
-	var phone := Rect2(c - Vector2(42, 85) * s, Vector2(84, 170) * s)
-	_round(root, phone, Color(0.12, 0.12, 0.14), 14.0 * s, int(3 * s), Color(0.7, 0.7, 0.75))
-	_bg(root, _inset(phone, 7.0 * s), Color(0.1, 0.6, 0.95), Color(0.9, 0.2, 0.7))
-	_circle(root, phone.position + Vector2(phone.size.x * 0.5, 14.0 * s), 3.5 * s, Color.BLACK)
-	var text: Rect2 = parts[1]
-	_text(root, Rect2(text.position, Vector2(text.size.x, text.size.y * 0.6)), "NOVA 12", int(64 * s), Color.WHITE)
-	_text(root, Rect2(text.position + Vector2(0, text.size.y * 0.5), Vector2(text.size.x, text.size.y * 0.35)), "The future fits in your hand", int(20 * s), Color(0.8, 0.7, 1.0))
-
-
 static func _starlight(root: Control, r: Rect2, tall: bool) -> void:
 	_bg(root, r, Color(0.02, 0.03, 0.18), Color(0.12, 0.02, 0.25))
 	var s := _scale(r)
@@ -219,7 +209,7 @@ static func _starlight(root: Control, r: Rect2, tall: bool) -> void:
 		var p := r.position + Vector2(rng.randf() * r.size.x, rng.randf() * r.size.y)
 		_star(root, p, rng.randf_range(3.0, 9.0) * s, Color(1, 0.9, 0.5, rng.randf_range(0.4, 1.0)))
 	_star(root, r.position + r.size * Vector2(0.5, 0.22 if tall else 0.2), 26.0 * s, Color(1, 0.85, 0.3))
-	_text(root, Rect2(r.position + Vector2(0, r.size.y * 0.25), Vector2(r.size.x, r.size.y * 0.35)), "STARLIGHT", int((54 if tall else 76) * s), Color(1, 0.85, 0.35), int(4 * s), Color(0.4, 0.2, 0))
+	_text(root, Rect2(r.position + Vector2(0, r.size.y * 0.25), Vector2(r.size.x, r.size.y * 0.35)), "STARLIGHT", int((40 if tall else 76) * s), Color(1, 0.85, 0.35), int(4 * s), Color(0.4, 0.2, 0))
 	_text(root, Rect2(r.position + Vector2(0, r.size.y * 0.55), Vector2(r.size.x, r.size.y * 0.2)), "THE MUSICAL", int(26 * s), Color.WHITE)
 	_round(root, Rect2(r.position + r.size * Vector2(0.2, 0.78), r.size * Vector2(0.6, 0.13)), Color(0.85, 0.1, 0.2), 6.0 * s)
 	_text(root, Rect2(r.position + r.size * Vector2(0.2, 0.78), r.size * Vector2(0.6, 0.13)), "NOW PLAYING", int(18 * s), Color.WHITE)
@@ -298,7 +288,7 @@ static func _aurora(root: Control, r: Rect2, tall: bool) -> void:
 	_round(root, Rect2(c + Vector2(-2, -42) * s, Vector2(4, 42) * s), Color.WHITE, 2.0)
 	_round(root, Rect2(c + Vector2(-2, -2) * s, Vector2(32, 4) * s), Color(1, 0.4, 0.6), 2.0)
 	var text: Rect2 = parts[1]
-	_text(root, Rect2(text.position, Vector2(text.size.x, text.size.y * 0.6)), "AURORA", int(56 * s), Color.WHITE)
+	_text(root, Rect2(text.position, Vector2(text.size.x, text.size.y * 0.6)), "AURORA", int((44 if tall else 56) * s), Color.WHITE)
 	_text(root, Rect2(text.position + Vector2(0, text.size.y * 0.5), Vector2(text.size.x, text.size.y * 0.3)), "Time, reimagined.", int(22 * s), Color(0.85, 1, 0.95))
 
 
@@ -318,20 +308,6 @@ static func _zippy(root: Control, r: Rect2, tall: bool) -> void:
 	_text(root, Rect2(text.position + Vector2(0, text.size.y * 0.52), Vector2(text.size.x, text.size.y * 0.3)), "JUST RUN.", int(28 * s), Color(0.1, 0.1, 0.1))
 
 
-static func _polar(root: Control, r: Rect2, tall: bool) -> void:
-	_bg(root, r, Color(0.6, 0.92, 1.0), Color(0.2, 0.6, 0.95))
-	var s := _scale(r)
-	var parts := _split(r, tall, 0.45)
-	var c: Vector2 = (parts[0] as Rect2).get_center()
-	_poly(root, PackedVector2Array([c + Vector2(-34, 0) * s, c + Vector2(34, 0) * s, c + Vector2(0, 95) * s]), Color(0.85, 0.6, 0.3))
-	_circle(root, c + Vector2(-16, -12) * s, 30.0 * s, Color(1, 0.75, 0.85))
-	_circle(root, c + Vector2(18, -14) * s, 28.0 * s, Color(1, 0.98, 0.9))
-	_circle(root, c + Vector2(0, -48) * s, 28.0 * s, Color(0.5, 0.3, 0.2))
-	var text: Rect2 = parts[1]
-	_text(root, Rect2(text.position, Vector2(text.size.x, text.size.y * 0.6)), "POLAR", int(66 * s), Color.WHITE, int(5 * s), Color(0.1, 0.3, 0.6))
-	_text(root, Rect2(text.position + Vector2(0, text.size.y * 0.5), Vector2(text.size.x, text.size.y * 0.3)), "stay cool", int(26 * s), Color(0.05, 0.2, 0.45))
-
-
 static func _breaking(root: Control, r: Rect2, tall: bool) -> void:
 	_bg(root, r, Color(0.03, 0.08, 0.25), Color(0.02, 0.03, 0.1))
 	var s := _scale(r)
@@ -341,21 +317,6 @@ static func _breaking(root: Control, r: Rect2, tall: bool) -> void:
 		"Times Square is now an island" if not tall else "Times Square is now an island", int((26 if tall else 30) * s), Color.WHITE)
 	_round(root, Rect2(r.position + Vector2(0, r.size.y * 0.84), Vector2(r.size.x, r.size.y * 0.1)), Color(1, 0.8, 0.1), 0)
 	_text(root, Rect2(r.position + Vector2(0, r.size.y * 0.84), Vector2(r.size.x, r.size.y * 0.1)), "LIVE  |  NEW YORK", int(14 * s), Color.BLACK)
-
-
-static func _quantum(root: Control, r: Rect2, tall: bool) -> void:
-	_bg(root, r, Color(0.02, 0.06, 0.18), Color(0.0, 0.02, 0.08))
-	var s := _scale(r)
-	var parts := _split(r, tall, 0.4)
-	var c: Vector2 = (parts[0] as Rect2).get_center()
-	for k in 3:
-		_round(root, Rect2(c - Vector2(70, 22) * s, Vector2(140, 44) * s), Color(0, 0, 0, 0), 22.0 * s, int(3 * s), Color(0.95, 0.75, 0.3))
-		c.y += 0.0
-	_circle(root, c, 12.0 * s, Color(0.95, 0.75, 0.3))
-	_round(root, Rect2(c - Vector2(22, 70) * s, Vector2(44, 140) * s), Color(0, 0, 0, 0), 22.0 * s, int(3 * s), Color(0.95, 0.75, 0.3))
-	var text: Rect2 = parts[1]
-	_text(root, Rect2(text.position, Vector2(text.size.x, text.size.y * 0.6)), "QUANTUM\nBANK", int(42 * s), Color(0.95, 0.8, 0.4))
-	_text(root, Rect2(text.position + Vector2(0, text.size.y * 0.6), Vector2(text.size.x, text.size.y * 0.3)), "Banking at the speed of light", int(16 * s), Color(0.8, 0.85, 1.0))
 
 
 static func _pixela(root: Control, r: Rect2, tall: bool) -> void:
@@ -395,20 +356,6 @@ static func _loves_you(root: Control, r: Rect2, tall: bool) -> void:
 	_text(root, Rect2(r.position + r.size * Vector2(0, 0.62 if tall else 0.66), r.size * Vector2(1, 0.3)), "NEW YORK\nLOVES YOU", int((36 if tall else 30) * s), Color.BLACK)
 
 
-static func _velvet(root: Control, r: Rect2, tall: bool) -> void:
-	_bg(root, r, Color(0.98, 0.78, 0.7), Color(0.85, 0.45, 0.5), false)
-	var s := _scale(r)
-	_circle(root, r.position + r.size * Vector2(0.75, 0.3), 70.0 * s, Color(1, 0.95, 0.9, 0.5))
-	_circle(root, r.position + r.size * Vector2(0.2, 0.8), 50.0 * s, Color(0.6, 0.2, 0.35, 0.4))
-	# A stylised figure: head, long coat.
-	var c := r.position + r.size * Vector2(0.72 if not tall else 0.5, 0.55)
-	_circle(root, c + Vector2(0, -70) * s, 16.0 * s, Color(0.35, 0.22, 0.18))
-	_poly(root, PackedVector2Array([c + Vector2(-14, -52) * s, c + Vector2(14, -52) * s, c + Vector2(34, 80) * s, c + Vector2(-34, 80) * s]), Color(0.45, 0.05, 0.15))
-	var text := Rect2(r.position + Vector2(r.size.x * 0.05, r.size.y * (0.05 if tall else 0.2)), Vector2(r.size.x * (0.9 if tall else 0.5), r.size.y * 0.35))
-	_text(root, text, "VELVET", int(54 * s), Color(0.3, 0.02, 0.1))
-	_text(root, Rect2(text.position + Vector2(0, text.size.y * 0.75), text.size), "FALL COLLECTION", int(16 * s), Color(0.3, 0.02, 0.1))
-
-
 static func _midnight_cats(root: Control, r: Rect2, tall: bool) -> void:
 	_bg(root, r, Color(0.02, 0.02, 0.03), Color(0.05, 0.05, 0.1))
 	var s := _scale(r)
@@ -419,3 +366,111 @@ static func _midnight_cats(root: Control, r: Rect2, tall: bool) -> void:
 		_round(root, Rect2(e - Vector2(3, 14) * s, Vector2(6, 28) * s), Color.BLACK, 3.0)
 	_text(root, Rect2(r.position + r.size * Vector2(0, 0.62), r.size * Vector2(1, 0.2)), "MIDNIGHT CATS", int((26 if tall else 40) * s), Color(1, 0.85, 0.1))
 	_text(root, Rect2(r.position + r.size * Vector2(0, 0.8), r.size * Vector2(1, 0.14)), "A NEW BROADWAY MUSICAL", int(14 * s), Color(0.8, 0.8, 0.85))
+
+
+# --------------------------------------------------------- featured ads ----
+
+## A photo filling `r`, cropped (not stretched) round `focus` (0..1 in the picture).
+static func _photo(root: Control, r: Rect2, path: String, focus := Vector2(0.5, 0.5)) -> void:
+	var texture := load(path) as Texture2D
+	if texture == null:
+		return
+	var full := texture.get_size()
+	var crop := full
+	if full.x / full.y > r.size.x / r.size.y:
+		crop.x = full.y * r.size.x / r.size.y
+	else:
+		crop.y = full.x * r.size.y / r.size.x
+	var corner := (full * focus - crop * 0.5).clamp(Vector2.ZERO, full - crop)
+	var part := AtlasTexture.new()
+	part.atlas = texture
+	part.region = Rect2(corner, crop)
+	var rect := TextureRect.new()
+	# Expand mode first: otherwise the size is clamped to the picture's own size.
+	rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	rect.stretch_mode = TextureRect.STRETCH_SCALE
+	rect.texture = part
+	rect.position = r.position
+	rect.size = r.size
+	root.add_child(rect)
+
+
+## NOVA, the palm-sized robot driven by a language model (Python/agi-robot).
+static func _nova_robot(root: Control, r: Rect2, tall: bool) -> void:
+	_bg(root, r, Color(0.02, 0.02, 0.03), Color(0.04, 0.05, 0.07))
+	var s := _scale(r)
+	if tall:
+		_photo(root, Rect2(r.position + Vector2(0, r.size.y * 0.3), Vector2(r.size.x, r.size.y * 0.5)), "res://assets/nyc/ads/nova_neon.webp", Vector2(0.5, 0.55))
+		_text(root, Rect2(r.position + Vector2(0, r.size.y * 0.03), Vector2(r.size.x, r.size.y * 0.16)), "NOVA", int(78 * s), Color.WHITE)
+		_text(root, Rect2(r.position + Vector2(8, r.size.y * 0.17), Vector2(r.size.x - 16, r.size.y * 0.13)), "A robot with a mind of its own", int(17 * s), Color(1.0, 0.6, 0.85))
+		_text(root, Rect2(r.position + Vector2(0, r.size.y * 0.82), Vector2(r.size.x, r.size.y * 0.08)), "Print it yourself", int(17 * s), Color(0.85, 0.85, 0.9))
+		_text(root, Rect2(r.position + Vector2(0, r.size.y * 0.9), Vector2(r.size.x, r.size.y * 0.08)), "nova.maxims.top", int(19 * s), Color(0.45, 0.95, 1.0))
+		return
+	_photo(root, Rect2(r.position + Vector2(r.size.x * 0.38, 0), Vector2(r.size.x * 0.62, r.size.y)), "res://assets/nyc/ads/nova_hero_dark.webp", Vector2(0.52, 0.5))
+	var text := Rect2(r.position + Vector2(r.size.x * 0.03, 0), Vector2(r.size.x * 0.4, r.size.y))
+	_text(root, Rect2(text.position + Vector2(0, text.size.y * 0.08), Vector2(text.size.x, text.size.y * 0.35)), "NOVA", int(64 * s), Color.WHITE)
+	_text(root, Rect2(text.position + Vector2(0, text.size.y * 0.42), Vector2(text.size.x, text.size.y * 0.25)), "The AGI robot you print yourself", int(19 * s), Color(0.45, 0.95, 1.0))
+	_round(root, Rect2(text.position + Vector2(text.size.x * 0.08, text.size.y * 0.72), Vector2(text.size.x * 0.84, text.size.y * 0.15)), Color(0.95, 0.55, 0.25), 8.0 * s)
+	_text(root, Rect2(text.position + Vector2(text.size.x * 0.08, text.size.y * 0.72), Vector2(text.size.x * 0.84, text.size.y * 0.15)), "nova.maxims.top", int(17 * s), CLAUDE_INK)
+
+
+## MaxSoft: software, games and AI from maxims.top.
+static func _maxsoft(root: Control, r: Rect2, tall: bool) -> void:
+	_bg(root, r, Color(0.0, 0.13, 0.4), Color(0.0, 0.03, 0.12))
+	var s := _scale(r)
+	# A faint grid behind, like an old IDE's form designer.
+	var step := 24.0 * s
+	var x := r.position.x
+	while x < r.end.x:
+		_round(root, Rect2(Vector2(x, r.position.y), Vector2(1, r.size.y)), Color(0.3, 0.6, 1.0, 0.12), 0)
+		x += step
+	var y := r.position.y
+	while y < r.end.y:
+		_round(root, Rect2(Vector2(r.position.x, y), Vector2(r.size.x, 1)), Color(0.3, 0.6, 1.0, 0.12), 0)
+		y += step
+	var c := r.position + r.size * Vector2(0.5, 0.3 if tall else 0.36)
+	# The M mark: two pillars and a V between them.
+	var k := s * (1.1 if tall else 1.0)
+	_poly(root, PackedVector2Array([c + Vector2(-46, 40) * k, c + Vector2(-46, -40) * k, c + Vector2(-26, -40) * k, c + Vector2(0, 2) * k,
+		c + Vector2(26, -40) * k, c + Vector2(46, -40) * k, c + Vector2(46, 40) * k, c + Vector2(28, 40) * k, c + Vector2(28, -8) * k,
+		c + Vector2(0, 34) * k, c + Vector2(-28, -8) * k, c + Vector2(-28, 40) * k]), Color(1.0, 0.8, 0.2))
+	_text(root, Rect2(r.position + Vector2(0, r.size.y * (0.52 if tall else 0.58)), Vector2(r.size.x, r.size.y * 0.2)), "MAXSOFT", int((46 if tall else 54) * s), Color.WHITE, int(3 * s), Color(0.0, 0.1, 0.35))
+	_text(root, Rect2(r.position + Vector2(0, r.size.y * (0.7 if tall else 0.78)), Vector2(r.size.x, r.size.y * 0.12)), "SOFTWARE  -  GAMES  -  AI", int(16 * s), Color(0.6, 0.85, 1.0))
+	_text(root, Rect2(r.position + Vector2(0, r.size.y * (0.84 if tall else 0.88)), Vector2(r.size.x, r.size.y * 0.1)), "maxims.top", int(15 * s), Color(1.0, 0.8, 0.2))
+
+
+## Claude, by Anthropic: cream, ink and a warm orange burst.
+static func _claude(root: Control, r: Rect2, tall: bool) -> void:
+	_bg(root, r, CLAUDE_CREAM, Color(0.93, 0.91, 0.87))
+	var s := _scale(r)
+	var c := r.position + r.size * (Vector2(0.5, 0.27) if tall else Vector2(0.22, 0.5))
+	var radius := (62.0 if tall else 70.0) * s
+	for k in 12:
+		var a := TAU * k / 12.0 + 0.13
+		var d := Vector2(cos(a), sin(a))
+		var side := d.orthogonal() * radius * 0.085
+		var reach := radius * (1.0 if k % 2 == 0 else 0.82)
+		_poly(root, PackedVector2Array([c + side, c + d * reach + side * 0.6, c + d * reach - side * 0.6, c - side]), CLAUDE_ORANGE)
+	_circle(root, c, radius * 0.16, CLAUDE_ORANGE)
+	var text := Rect2(r.position + Vector2(r.size.x * 0.42, 0), Vector2(r.size.x * 0.55, r.size.y))
+	if tall:
+		text = Rect2(r.position + Vector2(0, r.size.y * 0.5), Vector2(r.size.x, r.size.y * 0.45))
+	_text(root, Rect2(text.position + Vector2(0, text.size.y * 0.1), Vector2(text.size.x, text.size.y * 0.4)), "Claude", int((58 if tall else 64) * s), CLAUDE_INK)
+	_text(root, Rect2(text.position + Vector2(0, text.size.y * 0.48), Vector2(text.size.x, text.size.y * 0.24)), "Think it. Build it.\nWith Claude.", int(18 * s), Color(0.3, 0.29, 0.27))
+	_text(root, Rect2(text.position + Vector2(0, text.size.y * 0.76), Vector2(text.size.x, text.size.y * 0.16)), "claude.ai", int(18 * s), CLAUDE_ORANGE)
+
+
+## Anthropic: ink background, the name spaced wide, a line of orange.
+static func _anthropic(root: Control, r: Rect2, tall: bool) -> void:
+	_bg(root, r, CLAUDE_INK, Color(0.14, 0.13, 0.12))
+	var s := _scale(r)
+	var spaced := "ANTHROPIC" if tall else "A N T H R O P I C"
+	_text(root, Rect2(r.position + Vector2(0, r.size.y * (0.28 if tall else 0.22)), Vector2(r.size.x, r.size.y * 0.25)), spaced, int((30 if tall else 40) * s), CLAUDE_CREAM)
+	_round(root, Rect2(r.position + r.size * Vector2(0.3, 0.52 if tall else 0.5), r.size * Vector2(0.4, 0.008)), CLAUDE_ORANGE, 0)
+	_text(root, Rect2(r.position + Vector2(r.size.x * 0.08, r.size.y * 0.56), Vector2(r.size.x * 0.84, r.size.y * 0.25)), "Building AI that is safe,\nhelpful and honest", int(17 * s), Color(0.8, 0.78, 0.74))
+	_text(root, Rect2(r.position + Vector2(0, r.size.y * 0.82), Vector2(r.size.x, r.size.y * 0.12)), "anthropic.com", int(15 * s), CLAUDE_ORANGE)
+
+
+## Atlas index of a design's wide or tall version (the tall row is shifted by 5).
+static func ad_index(design: int, tall: bool) -> int:
+	return 16 + posmod(design - 5, 16) if tall else design

@@ -67,6 +67,12 @@ func _run() -> void:
 		var key := node.get_class()
 		counts[key] = counts.get(key, 0) + 1
 	print("nodes: ", counts)
+	if OS.get_cmdline_user_args().has("--atlas"):
+		# The baked billboard atlas (nyc_ads.gd), to look at every ad at once.
+		var material = _scene.get_node("Diorama/District").get("_screen_material")
+		if material != null:
+			var texture := (material as ShaderMaterial).get_shader_parameter("atlas") as Texture2D
+			texture.get_image().save_png(ProjectSettings.globalize_path("%s/%s_ad_atlas.png" % [_out, location]))
 	var spots: Array = SPOTS.get(location, [])
 	for index in spots.size():
 		if not only.is_empty() and not only.has(str(index)):
