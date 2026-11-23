@@ -7,3 +7,6 @@ max.apk
 max.apk.idsig
 /build/
 *.blend1
+
+# Screenshot tour output (tools/tour.gd)
+/screenshots/tour/

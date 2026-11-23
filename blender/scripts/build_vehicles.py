@@ -58,6 +58,14 @@ MODELS = {
         roof=[(1.05, 1.0), (2.0, 1.58), (2.4, 1.62), (3.7, 1.6), (4.25, 1.52), (4.36, 1.3), (4.39, 1.04)],
         b_pillar=(2.45, 2.55), pillars=[(3.5, 3.6), (4.22, 4.4)], rear_glass=(4.28, 4.385),
         paint=(0.15, 0.27, 0.55)),
+    # New York yellow cab: a mid-size hybrid saloon (Camry size) with the lit
+    # roof sign and a black stripe along the doors.
+    "car_taxi": dict(
+        L=4.88, W=1.84, wb=2.82, fo=0.96, R=0.33, clear=0.14, rails=False, taxi=True,
+        top=[(0, 0.6), (0.08, 0.77), (0.25, 0.86), (0.6, 0.92), (1.5, 0.99), (3.1, 1.02), (4.5, 1.05), (4.78, 1.03), (4.88, 0.93)],
+        roof=[(1.5, 0.99), (2.3, 1.42), (2.65, 1.46), (3.45, 1.44), (4.0, 1.26), (4.4, 1.1), (4.55, 1.05)],
+        b_pillar=(2.6, 2.7), pillars=[(3.65, 4.88)], rear_glass=(3.52, 4.32),
+        paint=(0.98, 0.72, 0.05)),
 }
 
 MATERIALS = {
@@ -72,6 +80,7 @@ MATERIALS = {
     "TailLight": ((0.6, 0.02, 0.02), 0.0, 0.2, 0.3),
     "Plate": ((0.95, 0.95, 0.93), 0.0, 0.5, 0.0),
     "PlateBlue": ((0.02, 0.15, 0.6), 0.0, 0.5, 0.0),
+    "TaxiSign": ((1.0, 0.93, 0.75), 0.0, 0.3, 1.2),
 }
 
 
@@ -354,6 +363,16 @@ def build_details(m, parts, body):
         add_box(parts, "Trim", (0.15, 0.012, 0.1), (side * (wall + 0.13), my + 0.052, mz))
         for handle in (m["b_pillar"][0] - 0.35, m["b_pillar"][1] + 0.55):
             snap(parts, body, "Chrome", (0.15, 0.025, 0.028), (side * (W + 1.0), yf + handle, top(handle) - 0.09), (-side, 0, 0))
+
+    # Taxi: the lit roof sign on a black base, and the black stripe along the doors.
+    if m.get("taxi"):
+        r_mid = (m["roof"][1][0] + m["roof"][3][0]) / 2
+        roof_z = interp(m["roof"], r_mid)
+        add_box(parts, "Trim", (0.9, 0.3, 0.05), (0, yf + r_mid, roof_z + 0.025))
+        add_box(parts, "TaxiSign", (0.86, 0.26, 0.24), (0, yf + r_mid, roof_z + 0.17))
+        for side in (-1, 1):
+            for x0, x1 in ((m["fo"] + 0.45, m["b_pillar"][0] - 0.05), (m["b_pillar"][1] + 0.05, m["fo"] + m["wb"] - 0.45)):
+                snap(parts, body, "Trim", (x1 - x0, 0.012, 0.07), (side * (W + 1.0), yf + (x0 + x1) / 2, top((x0 + x1) / 2) - 0.32), (-side, 0, 0))
 
     # Roof rails on the estate and the SUV.
     if m["rails"]:

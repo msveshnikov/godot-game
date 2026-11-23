@@ -24,6 +24,7 @@ const LOCATIONS := [
 	{"id": "neratovice", "name": "Neratovice", "script": "res://district.gd"},
 	{"id": "omsk1", "name": "Omsk 1", "script": "res://district_omsk1.gd"},
 	{"id": "omsk2", "name": "Omsk 2", "script": "res://district_omsk2.gd"},
+	{"id": "nyc", "name": "Times Square", "script": "res://district_nyc.gd"},
 ]
 
 var my_id := 0
@@ -31,7 +32,7 @@ var host_id := 0
 var online := false
 var peers: Array[int] = []
 var player_name := ""
-var location := "neratovice"
+var location := "nyc" # new players start in Times Square
 
 var _socket := WebSocketPeer.new()
 var _url := ""

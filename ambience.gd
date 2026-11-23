@@ -12,10 +12,12 @@ const SWING_CREAK := "res://audio/swing_creak.wav"
 
 ## Game-space spot of the playground swings (set by the district).
 var swing_position := Vector3.ZERO
+## [path, volume dB] loops; a district may set its own mix before adding this node.
+var layers: Array = LAYERS
 
 
 func _ready() -> void:
-	for layer in LAYERS:
+	for layer in layers:
 		var player := AudioStreamPlayer.new()
 		player.stream = _looping(layer[0])
 		player.volume_db = layer[1]

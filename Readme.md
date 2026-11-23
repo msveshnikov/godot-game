@@ -1,14 +1,14 @@
 <p align="center">
-  <img src="screenshots/gameplay.jpg" alt="Autumn on Na Skalkách: third-person view in front of the home block with the baseball bat" width="860">
+  <img src="screenshots/nyc_hero.jpg" alt="Times Square from Duffy Square: LED screens on every facade, the Cohan statue and One Times Square at the end of the bowtie" width="860">
 </p>
 
 <h1 align="center">Gacha Village</h1>
 
 <p align="center">
-  <b>A multiplayer third-person sandbox in a real Czech panel-housing estate.</b> Grab a pistol or a baseball bat
-  and roam an autumn neighbourhood rebuilt 1:1 from the satellite map: villagers who run when they see you armed,
-  kids at the playground, a walk-in supermarket, cars on the streets and birds overhead. Everyone who opens the game
-  shares the same world.
+  <b>A multiplayer third-person sandbox in real places rebuilt 1:1 from the map.</b> Grab a pistol or a baseball bat
+  and roam Times Square, cut out of Manhattan and set adrift as an island, or an autumn panel-housing estate in
+  Czechia or Siberia: villagers who run when they see you armed, yellow cabs that stop at the lights, LED screens,
+  kids at the playground, a walk-in supermarket and birds overhead. Everyone who opens the game shares the same world.
 </p>
 
 <p align="center">
@@ -27,9 +27,15 @@
 </p>
 
 ### Features
+- **Times Square, New York.** 41st to 48th Street between 6th and 8th Avenue, about 300 m round the bowtie,
+  every one of 427 buildings extruded from its OpenStreetMap footprint and height (Bank of America Tower,
+  4 Times Square with its mast, the Marriott Marquis, the Broadway theatres), set adrift as an island ringed by a
+  waterfront promenade and the open sea. LED screens wrap every facade that faces the square, One Times Square
+  carries its ball and news ticker, the TKTS red steps glow in Duffy Square, yellow cabs follow the real one-way
+  streets and stop at the lights.
 - **A real place, 1:1.** About 200 m of a Czech panel-housing estate, rebuilt in metres from the satellite map and
   Street View: five-storey blocks with loggias, sixteen-storey towers, garages, a playground, a supermarket, a hill.
-- **Three places to play.** Pick one on the start screen: the Czech estate, or one of two Siberian estates
+- **Four places to play.** Pick one on the start screen: Times Square, the Czech estate, or one of two Siberian estates
   in Omsk (Omsk 1: five-storey khrushchyovkas under new red roofs; Omsk 2: nine-storey panel blocks, garages
   and the old private sector), each rebuilt from the satellite map and Street View ~200 m round.
 - **Pistol, baseball bat, empty hands.** A small CS-style crosshair, hitscan shots with a real gunshot sound,
@@ -45,6 +51,10 @@
 
 | | |
 |---|---|
+| ![One Times Square with its screens, the ball and the NYPD station](screenshots/nyc_one_times_square.jpg) | ![The island from the air: the theatre district in the sea](screenshots/nyc_island.jpg) |
+| ![The TKTS red steps, Father Duffy and his Celtic cross](screenshots/nyc_red_steps.jpg) | ![Broadway theatres on West 45th Street: marquees and blade signs](screenshots/nyc_theatres.jpg) |
+| ![Screens wrapped round the corner of 45th Street and Broadway](screenshots/nyc_corner_45.jpg) | ![The waterfront promenade along 8th Avenue](screenshots/nyc_promenade.jpg) |
+| ![Water tanks on the roofs and The Torch going up on 8th Avenue](screenshots/nyc_rooftops.jpg) | ![Autumn on Na Skalkách with the baseball bat](screenshots/gameplay.jpg) |
 | ![The estate from above, ~200 m round the home block](screenshots/aerial.jpg) | ![Sixteen-storey towers seen from the car park on Dr. E. Beneše](screenshots/towers.jpg) |
 | ![Kids and parents at the Na Skalkách playground](screenshots/playground.jpg) | ![The walk-in supermarket](screenshots/supermarket.jpg) |
 | ![Aisles inside the supermarket](screenshots/supermarket_inside.jpg) | ![Na Skalkách with parked cars](screenshots/street.jpg) |
@@ -58,6 +68,14 @@ The main scene (`node_2d.tscn`) is a third-person village shooter with the custo
 Two more estates, picked with the buttons on the start screen (the choice is remembered; `?loc=omsk1` / `-- --loc=omsk2` force one). Both are measured from the satellite map and Street View out to ~200 m and built by `district_omsk.gd`, which, unlike the Neratovice builder, lays out every building in its own frame so blocks can stand at any angle; `district_omsk1.gd` and `district_omsk2.gd` hold the layouts, the bot street graphs, the spawn points and the traffic.
 - **Omsk 1**: grey-panel five-storey khrushchyovkas re-roofed with red pitched roofs, stacked balconies (glazed in white PVC, old wood or open sheet railings), entrances with concrete canopies and benches; a main road with a T-junction and parked cars, a street running off at an angle with a slanted block along it, two kindergartens, a school with a court, yards with playgrounds, container sites, clotheslines, a grocery and a beer shop, poplars along the road and birches everywhere.
 - **Omsk 2**: a 100 m nine-storey panel slab with loggias and an L-shaped neighbour, three double rows of brick garages, a tyre-and-car-service shop on a big lot, a gas station, a school, a kindergarten, a sports school, a waste-ground football pitch, a shopping centre across the street, and streets of one-storey wooden houses behind fences.
+
+### Times Square, New York
+The default place for new players (`?loc=nyc` / `-- --loc=nyc`), built by `district_nyc.gd` on top of `nyc_builder.gd`. It covers the blocks from West 41st to West 48th Street between 6th and 8th Avenue, about 300 m round the bowtie where Broadway crosses 7th Avenue; the street grid is turned 29 degrees so the avenues run straight north-south in the game. The four boundary streets run along a waterfront promenade of hexagonal pavers with a black iron railing, benches, old lamp posts and trees, on a granite sea wall; beyond it the open sea with ferries, a tug and a yacht circling the island (`ocean.gdshader`).
+- **Buildings from OpenStreetMap.** `tools/nyc/osm_to_json.py` turns an Overpass dump into `assets/nyc/times_square.json`: 427 footprints and building parts with their heights and setbacks, plus street trees and the street lines. Each one is extruded at load time with a procedural facade shader (`facade.gdshader`: brick and limestone with punched windows, glass curtain walls, ribbon windows, concrete grids, shop fronts with lit sign bands at street level), named landmarks get the look they have on Street View, older roofs carry wooden water tanks.
+- **The square.** LED screens on every facade that looks onto the square, wrapped round the corners and stacked in tiers (`screen.gdshader`); the ads are painted once at load time into an atlas (`nyc_ads.gd`, every brand made up). One Times Square is covered in screens almost to the top, with the news ticker round it and the ball on its mast over the lit year. The dark plaza pavers with steel discs, granite benches, café tables, hot dog carts, the TKTS booth under 24 glowing red steps you can climb, George M. Cohan and Father Duffy with his Celtic cross, the NYPD station in blue neon and the recruiting booth with its neon flag.
+- **The streets.** Real roadway widths and one-way directions: 7th Avenue south, 8th and 6th north with green bike lanes, even streets east, odd ones west, 42nd both ways with red bus lanes. Granite kerbs, high-visibility crosswalks, traffic lights on every corner with green street-name signs, lamps, hydrants, trash cans, mailboxes, newsstands, Con Ed steam stacks venting, sidewalk sheds, subway entrances with green globes, Broadway theatres with marquees and vertical blade signs, and The Torch going up on 8th Avenue under a tower crane. Yellow cabs (`car_taxi` in `build_vehicles.py`) are half the traffic; the cars follow the signal cycle (`traffic.gd`, the same wall clock on every client) and keep clear of each other where lanes cross.
+
+Map data © OpenStreetMap contributors (ODbL).
 
 Every place has its own multiplayer room (Neratovice keeps the old one), so players meet only the people in the same place.
 
@@ -91,5 +109,9 @@ Everyone who opens the game (web link or the Android APK) lands in the same worl
 - Android: `godot --headless --export-debug "Android" build/android/GachaVillage.apk` (debug-signed; no release keystore is set up).
 
 Exports ship only what the game can load (`export_files` in `export_presets.cfg`, plus every script and `audio/`, `assets/`), not the whole Cogito demo. After adding a scene, model or sound, regenerate the list: `godot --headless --path . -s tools/update_export_files.gd`.
+
+Rebuild the Times Square data: fetch the Overpass dump with `tools/nyc/overpass_query.txt` (`curl --data-urlencode "data@tools/nyc/overpass_query.txt" https://overpass-api.de/api/interpreter -o raw.json`), then `python -I tools/nyc/osm_to_json.py raw.json assets/nyc/times_square.json`.
+
+Screenshot tour (any place; also prints fps and draw calls, `--check` runs the crowd and traffic for 30 s and reports anyone stuck in a building): `godot --path . -s tools/tour.gd -- --loc=nyc --server=ws://127.0.0.1:1 [--only=0,3] [--ui] [--check]` → `screenshots/tour/`.
 
 Rebuild the cars: `blender -b --factory-startup -P blender/scripts/build_vehicles.py` (Blender 5.2, `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe`) → `assets/vehicles/*.glb` + previews in `blender/renders/vehicles/`.

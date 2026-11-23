@@ -15,9 +15,18 @@ const LANE_HALF_WIDTH := 1.9
 ## Lanes: [start (game xz), end (game xz), cars on it], or [[points (game xz)...], cars on it]
 ## for a lane that turns a corner; set before adding to the tree.
 var lanes: Array = []
-## Car models: [mesh, collision size Vector3, paint material to replace].
+## Car models: [mesh, collision size Vector3, paint material to replace], optionally followed
+## by a fixed paint colour (a taxi is always yellow; null = random) and extra parts
+## [[mesh, Transform3D, material], ...] such as a roof sign.
 var models: Array = []
 var colors: Array = []
+## Optional traffic lights, per lane: [[distance along the lane of the stop line, axis], ...];
+## axis 0 = the light for traffic along game Z, 1 = along X (see light_state()).
+var stops: Array = []
+
+## Signal cycle in seconds, the same on every client (wall clock): Z-traffic green, yellow,
+## all red, X-traffic green, yellow, all red.
+const CYCLE := [24.0, 3.0, 2.0, 18.0, 3.0, 2.0]
 
 var _cars: Array = [] # {body, lane, s, speed, cruise, half, sound, mesh_node, paint, model, wreck}
 var _paths: Array = [] # per lane: {"points": Array[Vector2], "ends": Array[float] (distance at each point), "length"}
@@ -52,12 +61,21 @@ func _ready() -> void:
 			mesh_node.mesh = model[0]
 			var paint := StandardMaterial3D.new()
 			paint.albedo_color = colors[_rng.randi() % colors.size()]
+			if model.size() > 3 and model[3] != null:
+				paint.albedo_color = model[3]
 			paint.metallic = 0.45
 			paint.roughness = 0.28
 			for surface in (model[0] as Mesh).get_surface_count():
 				if (model[0] as Mesh).surface_get_material(surface) == model[2]:
 					mesh_node.set_surface_override_material(surface, paint)
 			body.add_child(mesh_node)
+			if model.size() > 4:
+				for extra in model[4]:
+					var part := MeshInstance3D.new()
+					part.mesh = extra[0]
+					part.transform = extra[1]
+					part.material_override = extra[2]
+					mesh_node.add_child(part)
 			var sound := AudioStreamPlayer3D.new()
 			sound.stream = engine
 			sound.unit_size = 5.0
@@ -92,11 +110,24 @@ func _physics_process(delta: float) -> void:
 		for person in people:
 			gap = minf(gap, _gap_to((person as Node3D).global_position, pos, dir) - float(car["half"]))
 		for other in _cars:
-			if other == car or other["lane"] != car["lane"]:
+			if other == car:
 				continue
-			var ds := fposmod(float(other["s"]) - float(car["s"]), length)
-			if ds > 0.0 and ds < LOOK_AHEAD:
-				gap = minf(gap, ds - float(car["half"]) - float(other["half"]))
+			if other["lane"] == car["lane"]:
+				var ds := fposmod(float(other["s"]) - float(car["s"]), length)
+				if ds > 0.0 and ds < LOOK_AHEAD:
+					gap = minf(gap, ds - float(car["half"]) - float(other["half"]))
+			else:
+				# Lanes that share a stretch of road or cross: keep clear of cars ahead in them too.
+				var other_pos := (other["body"] as Node3D).global_position
+				gap = minf(gap, _gap_to(other_pos, pos, dir) - float(car["half"]) - float(other["half"]))
+		if car["lane"] < stops.size():
+			for stop in stops[car["lane"]]:
+				var to_line := fposmod(float(stop[0]) - float(car["s"]), length)
+				if to_line > LOOK_AHEAD + 4.0:
+					continue
+				var state := light_state(int(stop[1]))
+				if state == 2 or (state == 1 and to_line > 9.0):
+					gap = minf(gap, to_line - float(car["half"]) - 0.5)
 		var target: float = car["cruise"]
 		if gap < LOOK_AHEAD:
 			target = clampf((gap - STOP_GAP) / (LOOK_AHEAD - STOP_GAP), 0.0, 1.0) * float(car["cruise"])
@@ -109,6 +140,21 @@ func _physics_process(delta: float) -> void:
 		(car["body"] as Node3D).global_transform = Transform3D(Basis.looking_at(-dir, Vector3.UP), pos)
 		var sound := car["sound"] as AudioStreamPlayer3D
 		sound.pitch_scale = 0.75 + float(car["speed"]) / 16.0
+
+
+## 0 green, 1 yellow, 2 red for traffic along game Z (axis 0) or X (axis 1).
+static func light_state(axis: int) -> int:
+	var total := 0.0
+	for part in CYCLE:
+		total += part
+	var t := fposmod(Time.get_unix_time_from_system(), total)
+	var phase := 0
+	while phase < CYCLE.size() - 1 and t >= CYCLE[phase]:
+		t -= CYCLE[phase]
+		phase += 1
+	# Phases 0-2 belong to axis 0, 3-5 to axis 1: green, yellow, then red.
+	var own := phase if axis == 0 else (phase + 3) % 6
+	return [0, 1, 2, 2, 2, 2][own]
 
 
 ## Which car a bullet hit (hit dictionary from a ray), or -1.
@@ -152,7 +198,8 @@ func _tow_away(index: int) -> void:
 	if car["wreck"] != null:
 		(car["wreck"] as Node).queue_free()
 	car["wreck"] = null
-	(car["paint"] as StandardMaterial3D).albedo_color = colors[_rng.randi() % colors.size()]
+	var model: Array = car["model"]
+	(car["paint"] as StandardMaterial3D).albedo_color = model[3] if model.size() > 3 and model[3] != null else colors[_rng.randi() % colors.size()]
 	(car["mesh_node"] as Node3D).visible = true
 	(car["sound"] as AudioStreamPlayer3D).play()
 

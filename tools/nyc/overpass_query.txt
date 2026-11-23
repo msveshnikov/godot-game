@@ -1,0 +1,20 @@
+[out:json][timeout:120];
+(
+  way["building"](around:360,40.7580,-73.9855);
+  relation["building"](around:360,40.7580,-73.9855);
+  way["building:part"](around:360,40.7580,-73.9855);
+  relation["building:part"](around:360,40.7580,-73.9855);
+  way["highway"](around:400,40.7580,-73.9855);
+  way["area:highway"](around:400,40.7580,-73.9855);
+  way["place"="square"](around:400,40.7580,-73.9855);
+  node["natural"="tree"](around:360,40.7580,-73.9855);
+  node["railway"="subway_entrance"](around:360,40.7580,-73.9855);
+  node["amenity"](around:360,40.7580,-73.9855);
+  node["tourism"](around:360,40.7580,-73.9855);
+  node["historic"](around:360,40.7580,-73.9855);
+  way["leisure"](around:400,40.7580,-73.9855);
+  way["amenity"](around:360,40.7580,-73.9855);
+);
+out body;
+>;
+out skel qt;
