@@ -185,6 +185,8 @@ func _process(delta: float) -> void:
 	model.set("has_aim_point", true)
 	if _crosshair != null:
 		_crosshair.visible = is_playing() and weapon == "pistol"
+	_fit_game_screen(_start_screen)
+	_fit_game_screen(_game_over_screen)
 	if _mobile_controls != null:
 		_mobile_controls.visible = is_playing()
 		if _mobile_controls.fire_held:
@@ -698,71 +700,106 @@ func _make_game_screen(title_text: String, message: String, button_text: String,
 	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	hud.add_child(overlay)
 
-	var center := CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(center)
-
+	# The panel is placed by _fit_game_screen: never taller than the screen (minus
+	# an on-screen keyboard), with the long text scrolling and the button pinned below it.
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(560.0, 470.0 if with_name else 360.0)
 	var panel_style := StyleBoxFlat.new()
 	panel_style.bg_color = Color(0.08, 0.13, 0.16, 0.98)
 	panel_style.border_color = Color(0.76, 0.57, 0.3, 1.0)
 	panel_style.set_border_width_all(2)
 	panel_style.set_corner_radius_all(16)
 	panel.add_theme_stylebox_override("panel", panel_style)
-	center.add_child(panel)
+	overlay.add_child(panel)
 
 	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 32)
-	margin.add_theme_constant_override("margin_top", 28)
-	margin.add_theme_constant_override("margin_right", 32)
-	margin.add_theme_constant_override("margin_bottom", 28)
+	margin.add_theme_constant_override("margin_left", 28)
+	margin.add_theme_constant_override("margin_top", 16)
+	margin.add_theme_constant_override("margin_right", 28)
+	margin.add_theme_constant_override("margin_bottom", 18)
 	panel.add_child(margin)
 
 	var contents := VBoxContainer.new()
-	contents.add_theme_constant_override("separation", 18)
+	contents.add_theme_constant_override("separation", 12)
 	margin.add_child(contents)
 
 	var title := Label.new()
 	title.text = title_text
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_color_override("font_color", Color(1.0, 0.86, 0.54, 1.0))
-	title.add_theme_font_size_override("font_size", 36)
+	title.add_theme_font_size_override("font_size", 32)
 	contents.add_child(title)
+
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.custom_minimum_size = Vector2(0.0, 40.0)
+	contents.add_child(scroll)
 
 	var description := Label.new()
 	description.text = message
 	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	description.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	description.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	description.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	description.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	description.add_theme_color_override("font_color", Color(0.91, 0.94, 0.91, 1.0))
 	description.add_theme_font_size_override("font_size", 18)
-	contents.add_child(description)
+	scroll.add_child(description)
 
 	if with_name:
 		contents.add_child(_make_location_row())
+
+	# Name and button share one row so the button stays on screen in landscape.
+	var bottom := HBoxContainer.new()
+	bottom.alignment = BoxContainer.ALIGNMENT_CENTER
+	bottom.add_theme_constant_override("separation", 14)
+	contents.add_child(bottom)
+	if with_name:
 		_name_edit = LineEdit.new()
 		_name_edit.text = Net.player_name
 		_name_edit.placeholder_text = "Your name"
 		_name_edit.max_length = 16
 		_name_edit.alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_name_edit.custom_minimum_size = Vector2(260.0, 44.0)
-		_name_edit.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		_name_edit.custom_minimum_size = Vector2(240.0, 52.0)
 		_name_edit.add_theme_font_size_override("font_size", 20)
 		_name_edit.text_submitted.connect(func(_text: String) -> void: _start_game())
-		contents.add_child(_name_edit)
+		bottom.add_child(_name_edit)
 
 	var button := Button.new()
 	button.text = button_text
 	button.custom_minimum_size = Vector2(220.0, 52.0)
-	button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	button.focus_mode = Control.FOCUS_NONE
 	button.add_theme_font_size_override("font_size", 20)
 	button.pressed.connect(action)
-	contents.add_child(button)
+	bottom.add_child(button)
 	overlay.set_meta("description", description)
+	overlay.set_meta("panel", panel)
+	overlay.set_meta("scroll", scroll)
+	overlay.set_meta("max_height", 640.0 if with_name else 380.0)
+	_fit_game_screen(overlay)
 	return overlay
+
+
+## Sizes and centres a start / game-over panel in the part of the screen the
+## on-screen keyboard leaves free. Called on creation and every frame while shown.
+func _fit_game_screen(overlay: Control) -> void:
+	if overlay == null or not overlay.visible:
+		return
+	var panel := overlay.get_meta("panel") as Control
+	var view := get_viewport().get_visible_rect().size
+	var keyboard := 0.0
+	if DisplayServer.has_feature(DisplayServer.FEATURE_VIRTUAL_KEYBOARD):
+		var window := Vector2(DisplayServer.window_get_size())
+		if window.y > 0.0:
+			keyboard = DisplayServer.virtual_keyboard_get_height() * view.y / window.y
+	var free_height := maxf(view.y - keyboard, 160.0)
+	var gap := 10.0
+	var width := minf(view.x - 2.0 * gap, 720.0)
+	var height := minf(free_height - 2.0 * gap, float(overlay.get_meta("max_height")))
+	var rect := Rect2(Vector2((view.x - width) * 0.5, maxf((free_height - height) * 0.5, gap)), Vector2(width, height))
+	if panel.position != rect.position or panel.size != rect.size:
+		panel.position = rect.position
+		panel.size = rect.size
+		# A keyboard popping up can shrink the panel: keep the text box at its top.
+		(overlay.get_meta("scroll") as ScrollContainer).scroll_vertical = 0
 
 
 ## One button per place (Net.LOCATIONS); the current one is lit. Picking another

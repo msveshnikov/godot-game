@@ -32,7 +32,12 @@ var _out := "res://screenshots/tour"
 
 
 func _initialize() -> void:
-	DisplayServer.window_set_size(Vector2i(1600, 900))
+	var window_size := Vector2i(1600, 900)
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--size="): # e.g. --size=1600x720 for a 20:9 phone in landscape
+			var wh := arg.trim_prefix("--size=").split("x")
+			window_size = Vector2i(int(wh[0]), int(wh[1]))
+	DisplayServer.window_set_size(window_size)
 	_scene = (load("res://node_2d.tscn") as PackedScene).instantiate()
 	root.add_child(_scene)
 	_run.call_deferred()
