@@ -53,10 +53,14 @@ const TUBE_BACK := 0.5
 const TUBE_FRONT := 0.72
 const TUBE_RADIUS := 0.075
 ## Where the cap and the sunglasses sit on each body (mesh space): eye height, the
-## front of the face and the back of the head, the head's half width, its top.
+## front of the face and the back of the head, the head's half width, its top;
+## then how far before `front` the lenses sit, their radius (share of the half
+## width), how far the brow is behind `front`, and how far the cap rises over `top`.
 const HEADS := {
-	"male": {"eyes": 1.737, "front": 0.124, "half_width": 0.1, "top": 1.89, "back": -0.115},
-	"female": {"eyes": 1.588, "front": 0.083, "half_width": 0.08, "top": 1.735, "back": -0.12},
+	"male": {"eyes": 1.737, "front": 0.124, "half_width": 0.1, "top": 1.89, "back": -0.115,
+		"lens_z": 0.008, "lens": 0.36, "brow": 0.0, "crown": 0.05},
+	"female": {"eyes": 1.588, "front": 0.083, "half_width": 0.08, "top": 1.735, "back": -0.12,
+		"lens_z": -0.006, "lens": 0.35, "brow": 0.025, "crown": 0.02},
 }
 
 ## World point the gun aims at while raised; set every frame by the owner (camera ray for the
@@ -414,53 +418,84 @@ func _accessory(mesh: Mesh, at: Vector3, color: Color, rough := 0.6, scale_by :=
 	_accessories.append(part)
 
 
-## A baseball cap: a dome over the top of the head and a peak out front.
+## A baseball cap: a dome over the top of the head, sitting just above the brows,
+## and a short peak out over the forehead.
 func _add_cap(head: Dictionary, color: Color) -> void:
 	var top: float = head["top"]
 	var half: float = head["half_width"]
+	var forehead := float(head["front"]) - float(head.get("brow", 0.0))
+	var back: float = head["back"]
 	var radius := half + 0.02
-	var centre_z := (float(head["front"]) + float(head["back"])) * 0.5
-	var depth := (float(head["front"]) - float(head["back"])) * 0.5 + 0.02
-	var base_y := top - radius * 0.7
+	var centre_z := (forehead + back) * 0.5
+	var depth := (forehead - back) * 0.5 + 0.015
+	var base_y := float(head["eyes"]) + 0.055
 	var dome := SphereMesh.new()
 	dome.radius = radius
 	dome.height = radius
 	dome.is_hemisphere = true
-	dome.radial_segments = 20
-	dome.rings = 6
-	_accessory(dome, Vector3(0.0, base_y, centre_z), color, 0.8, Vector3(1.0, 1.12, depth / radius))
+	dome.radial_segments = 24
+	dome.rings = 8
+	_accessory(dome, Vector3(0.0, base_y, centre_z), color, 0.8, Vector3(1.0, (top + float(head.get("crown", 0.02)) - base_y) / radius, depth / radius))
 	var band := CylinderMesh.new()
 	band.top_radius = radius + 0.002
 	band.bottom_radius = radius + 0.002
-	band.height = 0.03
-	band.radial_segments = 20
-	_accessory(band, Vector3(0.0, base_y, centre_z), color.darkened(0.15), 0.8, Vector3(1.0, 1.0, depth / radius))
+	band.height = 0.022
+	band.radial_segments = 24
+	_accessory(band, Vector3(0.0, base_y + 0.009, centre_z), color.darkened(0.15), 0.8, Vector3(1.0, 1.0, (depth + 0.002) / (radius + 0.002)))
 	var peak := CylinderMesh.new()
-	peak.top_radius = 0.095
-	peak.bottom_radius = 0.095
-	peak.height = 0.012
-	peak.radial_segments = 16
-	_accessory(peak, Vector3(0.0, base_y - 0.01, float(head["front"]) + 0.06), color.darkened(0.25), 0.8, Vector3(1.0, 1.0, 0.85), Vector3(0.12, 0.0, 0.0))
+	peak.top_radius = 0.078
+	peak.bottom_radius = 0.078
+	peak.height = 0.01
+	peak.radial_segments = 20
+	_accessory(peak, Vector3(0.0, base_y + 0.004, forehead + 0.005), color.darkened(0.25), 0.8, Vector3(half / 0.075, 1.0, 1.0), Vector3(0.14, 0.0, 0.0))
 
 
-## Sunglasses: two dark lenses, a bridge and the arms back to the ears.
+## Sunglasses, sized to the face: two oval lenses (aviators larger, drooping) on
+## the bridge of the nose, wrapping a little round it, and the arms running back
+## along the temples to the ears, inside the hair.
 func _add_sunglasses(head: Dictionary, color: Color, aviator: bool) -> void:
 	var eyes: float = head["eyes"]
-	var front: float = float(head["front"]) + 0.006
 	var half: float = head["half_width"]
-	var lens := BoxMesh.new()
-	lens.size = Vector3(0.058, 0.038 if aviator else 0.032, 0.008)
+	var front := float(head["front"]) + float(head.get("lens_z", 0.0))
+	var radius := half * (float(head.get("lens", 0.33)) + (0.02 if aviator else 0.0))
+	var apart := half * 0.44 # lens centres either side of the nose
 	var frame_color := Color(0.75, 0.6, 0.25) if aviator else Color(0.03, 0.03, 0.03)
+	var lens := CylinderMesh.new()
+	lens.top_radius = radius
+	lens.bottom_radius = radius
+	lens.height = 0.004
+	lens.radial_segments = 20
+	var rim := CylinderMesh.new()
+	rim.top_radius = radius + 0.003
+	rim.bottom_radius = radius + 0.003
+	rim.height = 0.003
+	rim.radial_segments = 20
+	var tall := 0.9 if aviator else 0.68
+	var drop := radius * 0.15 if aviator else 0.0
 	for side in [-1.0, 1.0]:
-		_accessory(lens, Vector3(side * 0.036, eyes, front), color, 0.08, Vector3.ONE, Vector3(0.0, side * 0.12, 0.0))
+		var at := Vector3(side * apart, eyes - drop, front - absf(side) * 0.004)
+		# Disc axis (Y) turned to face forward (+Z), then turned a little round the face.
+		var turn := Vector3(PI / 2.0, side * 0.16, 0.0)
+		_accessory(lens, at, color, 0.08, Vector3(1.0, 1.0, tall), turn)
+		_accessory(rim, at - Vector3(0.0, 0.0, 0.002), frame_color, 0.3, Vector3(1.0, 1.0, tall), turn)
 	var bridge := BoxMesh.new()
-	bridge.size = Vector3(0.022, 0.006, 0.008)
-	_accessory(bridge, Vector3(0.0, eyes + 0.008, front + 0.002), frame_color, 0.3)
-	var arm := BoxMesh.new()
-	var back := float(head["back"]) * 0.2
-	arm.size = Vector3(0.006, 0.006, front - back)
+	bridge.size = Vector3(apart * 2.0 - radius * 1.6, 0.004, 0.004)
+	_accessory(bridge, Vector3(0.0, eyes + radius * tall * 0.45, front + 0.002), frame_color, 0.3)
 	for side in [-1.0, 1.0]:
-		_accessory(arm, Vector3(side * (half + 0.004), eyes + 0.006, (front + back) * 0.5), frame_color, 0.3)
+		var hinge := Vector3(side * (apart + radius * 0.98), eyes + radius * tall * 0.3, front - 0.008)
+		var temple := Vector3(side * (half - 0.004), eyes + 0.004, front - 0.03)
+		var ear := Vector3(side * (half - 0.01), eyes - 0.004, front - 0.105)
+		_bar(hinge, temple, 0.005, frame_color)
+		_bar(temple, ear, 0.005, frame_color)
+
+
+## A thin square rod from `a` to `b` (mesh space), for glasses' arms.
+func _bar(a: Vector3, b: Vector3, thickness: float, color: Color) -> void:
+	var box := BoxMesh.new()
+	box.size = Vector3(thickness, thickness, a.distance_to(b))
+	var dir := (b - a).normalized()
+	var basis := Basis.looking_at(dir, Vector3.UP if absf(dir.y) < 0.95 else Vector3.RIGHT)
+	_accessory(box, (a + b) * 0.5, color, 0.3, Vector3.ONE, basis.get_euler())
 
 
 ## Joints and shader regions for a body.

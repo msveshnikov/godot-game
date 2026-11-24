@@ -34,6 +34,7 @@ def main():
     views = json.load(open(os.path.join(BUILD, "alice_views.json")))
     verts = hull["verts"]
     verts[:, 2] -= verts[:, 2].min() # feet on the ground
+    trim_upper_back(verts)
     faces = hull["faces"]
     mesh = bpy.data.meshes.new("Alice")
     mesh.from_pydata(verts.tolist(), [], faces[:, ::-1].tolist())
@@ -66,6 +67,29 @@ def main():
     if "--no-render" not in ARGS:
         render_previews()
     print("DONE")
+
+
+def trim_upper_back(verts):
+    """The hull is carved from the front and side silhouettes, and the side one has
+    the ponytail hanging down her back: so across the whole width of the shoulders
+    the upper back reached as far back as the hair (humps behind both shoulders).
+    Outside the ponytail's own column, pull the back in to a body's profile: the
+    back of the chest, curving forward over the shoulders to the neck."""
+    # (height, how far back the body may reach there), +Y is her back.
+    profile = [(1.22, 0.125), (1.28, 0.112), (1.34, 0.098), (1.40, 0.078), (1.43, 0.07)]
+    zs = np.array([p[0] for p in profile])
+    ys = np.array([p[1] for p in profile])
+    x = np.abs(verts[:, 0])
+    z = verts[:, 2]
+    band = (z > zs[0]) & (z < zs[-1])
+    limit = np.interp(z, zs, ys)
+    # Inside the ponytail itself (|x| under 2.5 cm) the hair stays; by 4.5 cm it is all body.
+    hair = np.clip((x - 0.025) / 0.02, 0.0, 1.0)
+    hair = hair * hair * (3.0 - 2.0 * hair)
+    allowed = limit + (1.0 - hair) * 1.0
+    over = band & (verts[:, 1] > allowed)
+    verts[over, 1] = allowed[over]
+    print("upper back: pulled in %d hull verts" % int(over.sum()))
 
 
 def project_uvs(obj, views):
