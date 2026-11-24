@@ -26,6 +26,11 @@ uniform float neck_height = 1.56;
 // Accessories (cap, sunglasses) use this shader too, so they bob along with the
 // head: they are flat-coloured, no texture.
 uniform bool plain = false;
+// An accessory's own vertices are round its own origin: these take them to the body's
+// mesh space and back, so the rig below bends them as the part of the body they sit
+// on (identity for the body itself).
+uniform mat4 part_to_body = mat4(1.0);
+uniform mat4 body_to_part = mat4(1.0);
 
 varying vec3 rest;
 
@@ -65,9 +70,10 @@ vec3 rotate_about(vec3 v, vec3 pivot, float a) {
 }
 
 void vertex() {
-	rest = VERTEX;
-	vec3 v = VERTEX;
-	vec3 n = NORMAL;
+	vec3 base = (part_to_body * vec4(VERTEX, 1.0)).xyz;
+	rest = base;
+	vec3 v = base;
+	vec3 n = mat3(part_to_body) * NORMAL;
 	float side = v.x >= 0.0 ? 1.0 : -1.0;
 	float ax = abs(v.x);
 	float swing = sin(phase) * side;               // +1: this leg is behind the body
@@ -93,10 +99,10 @@ void vertex() {
 	n = rotate_x(n, hip_angle * leg_w);
 
 	// --- Arms swing opposite to the legs ---
-	float low = 1.0 - smoothstep(arm_split - 0.03, arm_split + 0.03, VERTEX.y);
+	float low = 1.0 - smoothstep(arm_split - 0.03, arm_split + 0.03, base.y);
 	float arm_w = smoothstep(mix(arm_inner, arm_inner_low, low), mix(arm_outer, arm_outer_low, low), ax)
 		* (1.0 - smoothstep(shoulder_height + 0.04, shoulder_height + 0.12, v.y))
-		* smoothstep(arm_bottom, arm_bottom + 0.08, VERTEX.y);
+		* smoothstep(arm_bottom, arm_bottom + 0.08, base.y);
 	float arm_angle = mix(-swing * arm_swing * walk_amount, -0.5, air_amount);
 	vec3 shoulder_pivot = vec3(shoulder_x * side, shoulder_height, 0.0);
 	if (side < 0.0) {
@@ -110,18 +116,18 @@ void vertex() {
 	}
 
 	// --- Upper-body lean and idle breathing (arms lean rigidly with the torso) ---
-	float upper_w = max(smoothstep(crotch_bottom, crotch_top, VERTEX.y), arm_w);
+	float upper_w = max(smoothstep(crotch_bottom, crotch_top, base.y), arm_w);
 	v = rotate_about(v, hip_pivot, lean * upper_w);
 	n = rotate_x(n, lean * upper_w);
-	float chest_w = smoothstep(1.0, 1.35, VERTEX.y);
+	float chest_w = smoothstep(1.0, 1.35, base.y);
 	v.y += sin(TIME * 1.7) * 0.006 * chest_w * breathing * (1.0 - walk_amount);
 
 	// --- Keep the planted foot on the ground (legs shorten as they swing) ---
 	float stance_angle = swing * leg_swing * walk_amount * (1.0 - air_amount);
 	v.y -= hip_height * (1.0 - cos(stance_angle));
 
-	VERTEX = v;
-	NORMAL = normalize(n);
+	VERTEX = (body_to_part * vec4(v, 1.0)).xyz;
+	NORMAL = normalize(mat3(body_to_part) * n);
 }
 
 void fragment() {

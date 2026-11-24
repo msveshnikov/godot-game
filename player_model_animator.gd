@@ -414,6 +414,10 @@ func _accessory(mesh: Mesh, at: Vector3, color: Color, rough := 0.6, scale_by :=
 	part.position = at
 	part.scale = scale_by
 	part.rotation = rotation_by
+	# The rig in the shader works in the body's mesh space (that's where the head is);
+	# without this every lens and strap bent as a leg round a knee half a metre away.
+	material.set_shader_parameter("part_to_body", Projection(part.transform))
+	material.set_shader_parameter("body_to_part", Projection(part.transform.affine_inverse()))
 	_mesh.add_child(part)
 	_accessories.append(part)
 

@@ -2,7 +2,8 @@ extends SceneTree
 ## Gait test: a player model (male or female) running on the spot, seen from the side
 ## and from the front, a few frames apart, plus aiming the pistol and swinging the bat.
 ## Writes screenshots/gait/<body>.png (a strip of frames).
-##   godot --path . -s tools/gait_test.gd -- --body=female
+##   godot --path . -s tools/gait_test.gd -- --body=female [--hat=red] [--glasses=dark]
+## (a cap and sunglasses must run with the head, not jump about).
 
 const MODEL_SCENE: PackedScene = preload("res://main_player.glb")
 const MODEL_ANIMATOR = preload("res://player_model_animator.gd")
@@ -24,9 +25,15 @@ func _wait(frames: int) -> void:
 func _run() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(_out))
 	var body_kind := "male"
+	var hat := "none"
+	var glasses := "none"
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--body="):
 			body_kind = arg.trim_prefix("--body=")
+		elif arg.begins_with("--hat="):
+			hat = arg.trim_prefix("--hat=")
+		elif arg.begins_with("--glasses="):
+			glasses = arg.trim_prefix("--glasses=")
 	var world := Node3D.new()
 	root.add_child(world)
 	var environment := Environment.new()
@@ -47,7 +54,7 @@ func _run() -> void:
 	model.transform = Transform3D(Basis(Vector3.UP, PI), Vector3.ZERO)
 	body.add_child(model)
 	await _wait(2)
-	model.call("apply_look", {"body": body_kind, "shirt": "black", "pants": "blue", "hat": "none", "glasses": "none"})
+	model.call("apply_look", {"body": body_kind, "shirt": "black", "pants": "blue", "hat": hat, "glasses": glasses})
 	var camera := Camera3D.new()
 	camera.fov = 40
 	world.add_child(camera)

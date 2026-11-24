@@ -157,6 +157,16 @@ def head_slice(widths, z, body, head_from):
 
 SKULL_BACK_Y = 0.0 # set in main: the skull's centre (y) from the side view's brow
 
+# How far back (+y) her back reaches from the shoulder blades to the neck: the back
+# of the chest, curving forward over the shoulders. (height, y)
+UPPER_BACK = [(1.24, 0.118), (1.30, 0.112), (1.34, 0.1), (1.40, 0.082), (1.46, 0.075)]
+
+
+def upper_back(z):
+    if z < UPPER_BACK[0][0]:
+        return 1.0
+    return float(np.interp(z, [p[0] for p in UPPER_BACK], [p[1] for p in UPPER_BACK]))
+
 
 def main():
     os.makedirs(OUT, exist_ok=True)
@@ -261,6 +271,13 @@ def main():
         if not ssegs:
             continue
         body = max(ssegs, key=lambda s: s[1] - s[0])
+        side_body = body
+        if z < head_from - 0.06 and body[1] > upper_back(z):
+            # From the shoulder blades up the side view's back edge is the ponytail
+            # hanging behind her, not her back: a torso (and arms) as deep as that sat
+            # far behind the chest, the shoulders sticking out backwards. The body
+            # keeps a back's profile; the rest is the ponytail strand (added below).
+            body = (body[0], upper_back(z))
         if armpit_z is not None and armpit_z - 0.01 <= z <= armpit_z + 0.13:
             # Split the one-piece silhouette into torso and arms (overlapping a little).
             split = []
@@ -299,19 +316,20 @@ def main():
             slab = np.maximum(slab, (((X - xc) / a) ** 2 + ((Y - yc) / max(b, 0.01)) ** 2 <= 1.0).astype(np.float32))
         # The ponytail: side-view bits behind the head and back, round, on the middle line.
         for ya, yb in ssegs:
-            behind = max(ya, (body[0] + (body[0] + (body[1] - body[0])) if False else ya))
-            if head_depth is not None and (ya, yb) == body:
+            if head_depth is not None and (ya, yb) == side_body:
                 back_of_head = ya + head_depth
                 if yb - back_of_head > 0.02:
                     ya = back_of_head - 0.02
                 else:
                     continue
-            elif (ya, yb) == body:
-                continue
+            elif (ya, yb) == side_body:
+                if body == side_body:
+                    continue
+                ya = body[1] - 0.02 # the ponytail behind the trimmed back
             d = yb - ya
             if d < 0.015:
                 continue
-            r = min(d / 2.0, 0.05)
+            r = min(d / 2.0, 0.05 if body == side_body else 0.035)
             yc = (ya + yb) / 2.0
             X, Y = np.meshgrid(xs, ys, indexing="ij")
             slab = np.maximum(slab, ((X / r) ** 2 + ((Y - yc) / (d / 2.0)) ** 2 <= 1.0).astype(np.float32))
