@@ -75,13 +75,27 @@
 | ![Flower boxes, washing and curtains on the loggias](screenshots/loggias.jpg) | ![Car models built in Blender](blender/renders/vehicles/car_octavia_combi_front.png) |
 
 ## Alice
-The second player character (`female_player.glb`) is built by `blender/scripts/build_female_player.py`
-(`blender -b --factory-startup -P blender/scripts/build_female_player.py`): a Skin-modifier skeleton subdivided
-into one smooth body and shaped (waist, hips, chest), a head with face details, a hair cap and a ponytail, all
-coloured by region rules (T-shirt, jeans, sneakers, skin) and baked by Cycles into one texture. Her joints sit
-exactly where Max's are (hips 0.86 m, shoulders 1.43 m at 0.22 m out, A-posed palms), so the same procedural rig
-in `player_body.gdshader` walks, runs and aims with her; the shop's recolouring and the cap and sunglasses fit
-her too (`HEADS` in `player_model_animator.gd`). Previews in `blender/renders/alice_*.png`.
+The second player character (`female_player.glb`) is made from a turnaround sheet ChatGPT painted from a text
+prompt (`concept/characters/alice_sheet.png`: front, right side and back, A-pose, on white), the way Max's model
+carries his own sheet:
+
+1. `python blender/scripts/alice_sheet.py` cuts the three silhouettes out of the white, builds her body as a voxel
+   volume (every height slice a set of ellipses, as wide as the front view and as deep as the side view; arms split
+   from the torso above the armpit; the head from a smoothed face width and an ellipsoid skull, so the hair hanging
+   beside the face doesn't widen the jaw; the ponytail round where the side view sticks out behind), smooths it and
+   turns it into a surface with marching cubes, and measures the joints for the rig.
+2. `blender -b --factory-startup -P blender/scripts/build_female_player.py` thins it to ~20k triangles and projects
+   the sheet onto it: the head behind the eyes and the legs below the hands from the side view, everything else from
+   the front or the back (in the side view the arms are drawn over the torso and the profile over the cheeks).
+
+Her joints differ from Max's (hips 0.92 m, shoulders 1.375 m, 0.173 m out), so `BODIES` in
+`player_model_animator.gd` holds each body's rig and the shader's regions (`player_body.gdshader`: hips, knees,
+shoulders, where the arms start above and below the waist, the T-shirt and jeans for the shop's colours). The
+cap and sunglasses sit by `HEADS`. Previews in `blender/renders/alice_*.png`; `tools/gait_test.gd` renders either
+body running, aiming and swinging.
+
+`blender/scripts/fix_max_uvs.py` cleaned up Max's head the same way: his cheeks no longer show the profile's
+nose and glasses, and the underside of his jaw shows neck skin instead of the stretched chin line.
 
 ## Menus
 `main_menu.tscn` (`main_menu.gd`) is the first scene: a picture of the chosen place (`assets/ui/place_*.webp`,

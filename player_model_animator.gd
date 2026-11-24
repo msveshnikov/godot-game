@@ -12,10 +12,25 @@ const RUN_SPEED := 7.5
 const MAX_TURN := deg_to_rad(50.0)
 
 # Mirrors player_body.gdshader (mesh space: feet at y = 0, front +Z, right hand on -X).
-const SHOULDER := Vector3(-0.22, 1.43, 0.0)
-const HIP := Vector3(0.0, 0.86, 0.0)
-const HIP_HEIGHT := 0.86
-const HAND := Vector3(-0.525, 0.855, 0.143) # palm of the A-posed right hand
+## Each body's joints for the procedural rig: the right shoulder, the hip height, the
+## palm of the A-posed right hand, how much steeper (-) the arm hangs than Max's, and
+## the matching player_body.gdshader uniforms (where legs, arms and clothes are).
+const BODIES := {
+	"male": {
+		"shoulder": Vector3(-0.22, 1.43, 0.0), "hip": 0.86, "hand": Vector3(-0.525, 0.855, 0.143), "roll": 0.0,
+		"shader": {"hip_height": 0.86, "knee_height": 0.46, "shoulder_height": 1.43, "shoulder_x": 0.22,
+			"leg_x_limit": 0.24, "crotch_bottom": 0.72, "crotch_top": 0.95, "arm_inner": 0.2, "arm_outer": 0.3,
+			"arm_inner_low": 0.2, "arm_outer_low": 0.3, "arm_split": 1.0,
+			"arm_bottom": 0.7, "waist_height": 0.95, "neck_height": 1.56},
+	},
+	"female": { # measured off her sheet by blender/scripts/alice_sheet.py
+		"shoulder": Vector3(-0.173, 1.375, 0.0), "hip": 0.92, "hand": Vector3(-0.34, 0.805, 0.02), "roll": -0.21,
+		"shader": {"hip_height": 0.92, "knee_height": 0.49, "shoulder_height": 1.375, "shoulder_x": 0.173,
+			"leg_x_limit": 0.22, "crotch_bottom": 0.78, "crotch_top": 1.01, "arm_inner": 0.14, "arm_outer": 0.165,
+			"arm_inner_low": 0.2, "arm_outer_low": 0.25, "arm_split": 1.0,
+			"arm_bottom": 0.6, "waist_height": 1.0, "neck_height": 1.45},
+	},
+}
 const REST_PITCH := -0.22
 const REST_ROLL := 0.36
 const AIM_ROLL := 0.5 # brings the outstretched arm in front of the right shoulder
@@ -36,7 +51,7 @@ const FEMALE_MODEL := "res://female_player.glb"
 ## front of the face and the back of the head, the head's half width, its top.
 const HEADS := {
 	"male": {"eyes": 1.737, "front": 0.124, "half_width": 0.1, "top": 1.89, "back": -0.115},
-	"female": {"eyes": 1.676, "front": 0.09, "half_width": 0.086, "top": 1.8, "back": -0.11},
+	"female": {"eyes": 1.588, "front": 0.083, "half_width": 0.08, "top": 1.735, "back": -0.12},
 }
 
 ## World point the gun aims at while raised; set every frame by the owner (camera ray for the
@@ -66,6 +81,11 @@ var _flash_light: OmniLight3D
 var _flash_time := 0.0
 var _recoil := 0.0
 var _body_kind := "male"
+var _shoulder: Vector3 = BODIES["male"]["shoulder"]
+var _hip := Vector3(0.0, 0.86, 0.0)
+var _hip_height := 0.86
+var _hand: Vector3 = BODIES["male"]["hand"]
+var _roll := 0.0
 var _tint := Color.WHITE
 var _meshes := {} # body kind -> [Mesh, albedo texture, albedo colour]
 var _accessories: Array[MeshInstance3D] = []
@@ -94,6 +114,7 @@ func _ready() -> void:
 		_material.set_shader_parameter("albedo_color", source.albedo_color)
 		_material.set_shader_parameter("roughness", source.roughness)
 	mesh_instance.material_override = _material
+	_apply_rig("male")
 	_build_gun()
 
 
@@ -268,6 +289,7 @@ func _set_body(kind: String) -> void:
 	if kind == _body_kind:
 		return
 	_body_kind = kind
+	_apply_rig(kind)
 	var entry: Array = _meshes[kind]
 	_mesh.mesh = entry[0]
 	_material.set_shader_parameter("albedo_texture", entry[1])
@@ -338,6 +360,18 @@ func _add_sunglasses(head: Dictionary, color: Color, aviator: bool) -> void:
 	arm.size = Vector3(0.006, 0.006, front - back)
 	for side in [-1.0, 1.0]:
 		_accessory(arm, Vector3(side * (half + 0.004), eyes + 0.006, (front + back) * 0.5), frame_color, 0.3)
+
+
+## Joints and shader regions for a body.
+func _apply_rig(kind: String) -> void:
+	var body: Dictionary = BODIES.get(kind, BODIES["male"])
+	_shoulder = body["shoulder"]
+	_hip_height = body["hip"]
+	_hip = Vector3(0.0, _hip_height, 0.0)
+	_hand = body["hand"]
+	_roll = body["roll"]
+	for key in body["shader"]:
+		_material.set_shader_parameter(key, body["shader"][key])
 
 
 ## Pose uniforms go to the body and to whatever it wears.
@@ -427,33 +461,33 @@ func _update_gun_arm(aim_t: float, run_t: float) -> void:
 
 	# Aim pitch from the shoulder to the aim point, minus the body lean the shader adds on top.
 	var aim_pitch := 0.0
-	var shoulder_world := to_mesh * SHOULDER
+	var shoulder_world := to_mesh * _shoulder
 	var target := _get_aim_point(to_mesh)
 	var to_target := target - shoulder_world
 	if to_target.length_squared() > 0.01:
 		aim_pitch = asin(clampf(to_target.normalized().y, -1.0, 1.0))
 	aim_pitch = clampf(aim_pitch, deg_to_rad(-70.0), deg_to_rad(70.0))
 	var pitch := lerpf(rest_pitch, -PI / 2.0 - aim_pitch - _lean, aim_t)
-	var roll := lerpf(REST_ROLL, AIM_ROLL, aim_t)
+	var roll := lerpf(REST_ROLL + _roll, AIM_ROLL + _roll, aim_t)
 	if _weapon != "pistol":
 		pitch = rest_pitch
-		roll = REST_ROLL
+		roll = REST_ROLL + _roll
 		if _weapon == "bat" and _swing_t >= 0.0:
 			pitch = _swing_pitch(_swing_t, rest_pitch)
-			roll = lerpf(REST_ROLL, AIM_ROLL, sin(_swing_t * PI))
+			roll = lerpf(REST_ROLL + _roll, AIM_ROLL + _roll, sin(_swing_t * PI))
 	_set_param("gun_arm_pitch", pitch)
 	_set_param("gun_arm_roll", roll)
 
 	# Same transforms as the shader: shoulder roll + pitch, lean about the hip, planted-foot drop.
-	var hand := Basis(Vector3.RIGHT, pitch) * (Basis(Vector3.BACK, roll) * (HAND - SHOULDER)) + SHOULDER
-	hand = Basis(Vector3.RIGHT, _lean) * (hand - HIP) + HIP
+	var hand := Basis(Vector3.RIGHT, pitch) * (Basis(Vector3.BACK, roll) * (_hand - _shoulder)) + _shoulder
+	hand = Basis(Vector3.RIGHT, _lean) * (hand - _hip) + _hip
 	var stance := sin(_phase) * lerpf(0.42, 0.62, run_t) * _walk_amount * (1.0 - _air_amount)
-	hand.y -= HIP_HEIGHT * (1.0 - cos(stance))
+	hand.y -= _hip_height * (1.0 - cos(stance))
 	var hand_world := to_mesh * hand
 
 	if _weapon == "bat":
 		# The bat continues the forearm, tilted forward.
-		var arm := Basis(Vector3.RIGHT, pitch) * (Basis(Vector3.BACK, roll) * (HAND - SHOULDER))
+		var arm := Basis(Vector3.RIGHT, pitch) * (Basis(Vector3.BACK, roll) * (_hand - _shoulder))
 		var bat_dir := to_mesh.basis * Basis(Vector3.RIGHT, _lean) * (Basis(Vector3.RIGHT, BAT_TILT) * arm.normalized())
 		var side := to_mesh.basis.x.normalized()
 		if absf(bat_dir.normalized().dot(side)) > 0.95:
@@ -489,4 +523,4 @@ func _swing_pitch(t: float, rest: float) -> float:
 func _get_aim_point(to_mesh: Transform3D) -> Vector3:
 	if has_aim_point:
 		return aim_point
-	return to_mesh * (SHOULDER + Vector3(0.0, 0.0, 20.0))
+	return to_mesh * (_shoulder + Vector3(0.0, 0.0, 20.0))

@@ -79,6 +79,21 @@ func _run() -> void:
 	cam.global_position = player.global_position + player.global_basis.x * 1.2 + Vector3.UP * 0.9
 	cam.look_at(player.global_position + Vector3.UP * 0.8)
 	await _snap("06_side")
+	# Running, seen from the side (W + Shift held).
+	for key in [KEY_W, KEY_SHIFT]:
+		var down := InputEventKey.new()
+		down.physical_keycode = key
+		down.keycode = key
+		down.pressed = true
+		Input.parse_input_event(down)
+	await _wait(25)
+	cam.global_position = player.global_position + player.global_basis.x * 3.0 + Vector3.UP * 0.4
+	cam.look_at(player.global_position)
+	await _snap("07_run_side")
+	await _wait(9)
+	cam.global_position = player.global_position + player.global_basis.x * 3.0 + Vector3.UP * 0.4
+	cam.look_at(player.global_position)
+	await _snap("08_run_side_b")
 	# Put the saved progress back.
 	var file := FileAccess.open("user://progress.cfg", FileAccess.WRITE)
 	file.store_string(saved)

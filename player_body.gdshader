@@ -36,6 +36,12 @@ uniform float shoulder_x = 0.22;
 uniform float leg_x_limit = 0.24;
 uniform float crotch_bottom = 0.72;
 uniform float crotch_top = 0.95;
+uniform float arm_inner = 0.2;      // |x| where the arms start (fully at arm_outer) above arm_split
+uniform float arm_outer = 0.3;
+uniform float arm_inner_low = 0.2;  // the same below arm_split (round the hips, which are wider)
+uniform float arm_outer_low = 0.3;
+uniform float arm_split = 1.0;
+uniform float arm_bottom = 0.7;     // below this nothing is arm (the hands reach down to here)
 
 // The right arm (mesh -X) holds the pistol: player_model_animator.gd sets these
 // two angles directly (and mirrors the same maths to place the gun in the hand).
@@ -87,9 +93,10 @@ void vertex() {
 	n = rotate_x(n, hip_angle * leg_w);
 
 	// --- Arms swing opposite to the legs ---
-	float arm_w = smoothstep(0.2, 0.3, ax)
+	float low = 1.0 - smoothstep(arm_split - 0.03, arm_split + 0.03, VERTEX.y);
+	float arm_w = smoothstep(mix(arm_inner, arm_inner_low, low), mix(arm_outer, arm_outer_low, low), ax)
 		* (1.0 - smoothstep(shoulder_height + 0.04, shoulder_height + 0.12, v.y))
-		* smoothstep(0.7, 0.78, VERTEX.y);
+		* smoothstep(arm_bottom, arm_bottom + 0.08, VERTEX.y);
 	float arm_angle = mix(-swing * arm_swing * walk_amount, -0.5, air_amount);
 	vec3 shoulder_pivot = vec3(shoulder_x * side, shoulder_height, 0.0);
 	if (side < 0.0) {
