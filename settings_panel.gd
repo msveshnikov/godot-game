@@ -98,6 +98,12 @@ func _ready() -> void:
 	rows.add_child(_row("Look sensitivity", look_box))
 	rows.add_child(_row("Invert look up/down", _toggle(_settings.get("invert_y"), func(on: bool) -> void: _settings.call("set_value", "invert_y", on))))
 
+	var privacy := LinkButton.new()
+	privacy.text = "Privacy Policy"
+	privacy.uri = "https://maxims.top/village/privacy.html"
+	privacy.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	column.add_child(privacy)
+
 	var back := Button.new()
 	back.text = "BACK"
 	back.custom_minimum_size = Vector2(180.0, 52.0)
