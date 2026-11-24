@@ -295,6 +295,44 @@ func smash_window(point: Vector3) -> int:
 	return stage
 
 
+## A blast at `centre`: every shop window along the walls within `radius` is blown
+## out at once. Returns the points hit (each window's middle), for the network:
+## smash_window at each, twice, does the same on another screen.
+func blow_out_windows(centre: Vector3, radius: float) -> Array[Vector3]:
+	var hit: Array[Vector3] = []
+	if centre.y > 3.5 + radius:
+		return hit
+	var c := Vector2(centre.x, centre.z)
+	for w in _shop_walls:
+		var a: Vector2 = w[0]
+		var ab: Vector2 = (w[1] as Vector2) - a
+		var length := ab.length()
+		if length < 0.01:
+			continue
+		var d := ab / length
+		var t := clampf((c - a).dot(d), 0.0, length)
+		if (a + d * t).distance_to(c) > radius:
+			continue
+		var unit := shop_unit(w[3])
+		var s0 := float(w[2])
+		var first := floori((s0 + maxf(t - radius, 0.0)) / unit)
+		var last := floori((s0 + minf(t + radius, length)) / unit)
+		for index in range(first, last + 1):
+			var along := (index + 0.4) * unit - s0
+			if along < 0.0 or along > length:
+				continue
+			var spot := a + d * along
+			var point := Vector3(spot.x, 1.6, spot.y)
+			if point.distance_to(centre) > radius + 1.0:
+				continue
+			var stage := smash_window(point)
+			if stage == 1:
+				stage = smash_window(point)
+			if stage == 2:
+				hit.append(point)
+	return hit
+
+
 ## The damage map over the island, made at the first blow: one RGBA8 texel per
 ## metre (r: 0 whole, 0.5 cracked, 1 smashed; g, b: where the first blow landed
 ## across and up the window; a: a random seed for the crack pattern).

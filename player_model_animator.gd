@@ -1,8 +1,9 @@
 extends Node3D
 ## Drives the procedural walk/run/jump shader on the static main_player mesh
 ## from the parent CharacterBody3D's velocity, and puts the weapon in the right
-## hand: the pistol (tucked at the hip, snapped up to aim when firing) or a
-## baseball bat (held forward, swung overhead and down), or nothing.
+## hand: the pistol (tucked at the hip, snapped up to aim when firing), a
+## baseball bat (held forward, swung overhead and down), the bazooka (on the right
+## shoulder, always pointing at the aim point), or nothing.
 
 const BODY_SHADER: Shader = preload("res://player_body.gdshader")
 const PISTOL_SCENE: PackedScene = preload("res://pistol_model.tscn")
@@ -47,6 +48,10 @@ const SWING_TIME := 0.55
 const BAT_TILT := -1.1 # bat angle forward of the forearm line
 const BAT_LENGTH := 0.84
 const FEMALE_MODEL := "res://female_player.glb"
+## The bazooka tube: length behind and ahead of the shoulder, radius.
+const TUBE_BACK := 0.5
+const TUBE_FRONT := 0.72
+const TUBE_RADIUS := 0.075
 ## Where the cap and the sunglasses sit on each body (mesh space): eye height, the
 ## front of the face and the back of the head, the head's half width, its top.
 const HEADS := {
@@ -74,6 +79,9 @@ var _gun_hand: Node3D
 var _muzzle: Marker3D
 var _pistol: Node3D
 var _bat: Node3D
+var _bazooka: Node3D
+var _bazooka_muzzle: Marker3D
+var _warhead: Node3D
 var _weapon := "pistol"
 var _swing_t := -1.0 # 0..1 while swinging the bat
 var _flash: Node3D
@@ -138,6 +146,8 @@ func _build_gun() -> void:
 	_build_flash()
 	_bat = _build_bat()
 	_gun_hand.add_child(_bat)
+	_bazooka = _build_bazooka()
+	add_child(_bazooka)
 	set_weapon(_weapon) # whatever was picked before the model was ready
 
 
@@ -214,7 +224,96 @@ func _build_bat() -> Node3D:
 	return bat
 
 
-## "pistol", "bat" or "none".
+## Olive tube along its -Z (the muzzle end), flared at both ends, with a grip and
+## trigger under it, a sight on the left, and the warhead poking out while loaded.
+func _build_bazooka() -> Node3D:
+	var root := Node3D.new()
+	root.name = "HeldBazooka"
+	var olive := StandardMaterial3D.new()
+	olive.albedo_color = Color(0.25, 0.29, 0.17)
+	olive.roughness = 0.7
+	olive.metallic = 0.2
+	var dark := StandardMaterial3D.new()
+	dark.albedo_color = Color(0.06, 0.06, 0.06)
+	dark.roughness = 0.6
+	var warhead_paint := StandardMaterial3D.new()
+	warhead_paint.albedo_color = Color(0.36, 0.38, 0.3)
+	warhead_paint.roughness = 0.5
+	warhead_paint.metallic = 0.4
+	var tip_paint := StandardMaterial3D.new()
+	tip_paint.albedo_color = Color(0.75, 0.12, 0.08)
+	var length := TUBE_BACK + TUBE_FRONT
+	# [top radius, bottom radius, height, centre along -Z, material]; "top" faces the muzzle.
+	var parts := [
+		[TUBE_RADIUS, TUBE_RADIUS, length, (TUBE_FRONT - TUBE_BACK) * 0.5, olive],
+		[TUBE_RADIUS * 1.45, TUBE_RADIUS * 1.05, 0.16, TUBE_FRONT - 0.08, olive],
+		[TUBE_RADIUS * 1.05, TUBE_RADIUS * 1.6, 0.2, -TUBE_BACK + 0.1, olive],
+		[TUBE_RADIUS * 1.12, TUBE_RADIUS * 1.12, 0.05, 0.1, dark],
+		[TUBE_RADIUS * 1.12, TUBE_RADIUS * 1.12, 0.05, -0.25, dark],
+	]
+	for part in parts:
+		var mesh := CylinderMesh.new()
+		mesh.top_radius = part[0]
+		mesh.bottom_radius = part[1]
+		mesh.height = part[2]
+		mesh.radial_segments = 14
+		mesh.material = part[4]
+		var instance := MeshInstance3D.new()
+		instance.mesh = mesh
+		instance.rotation.x = -PI / 2.0 # cylinder +Y -> -Z
+		instance.position = Vector3(0, 0, -float(part[3]))
+		root.add_child(instance)
+	# Black inside, so the open ends read as a tube.
+	for end in [[TUBE_FRONT + 0.001, PI / 2.0], [-TUBE_BACK - 0.001, -PI / 2.0]]:
+		var cap := MeshInstance3D.new()
+		var disc := CylinderMesh.new()
+		disc.top_radius = TUBE_RADIUS * 0.9
+		disc.bottom_radius = TUBE_RADIUS * 0.9
+		disc.height = 0.002
+		disc.material = dark
+		cap.mesh = disc
+		cap.rotation.x = -PI / 2.0
+		cap.position = Vector3(0, 0, -float(end[0]))
+		root.add_child(cap)
+	for box in [[Vector3(0.04, 0.16, 0.06), Vector3(0.0, -0.14, -0.3), dark], [Vector3(0.035, 0.13, 0.05), Vector3(0.0, -0.13, 0.05), dark],
+			[Vector3(0.03, 0.07, 0.05), Vector3(0.08, 0.05, -0.05), dark]]:
+		var mesh := BoxMesh.new()
+		mesh.size = box[0]
+		mesh.material = box[2]
+		var instance := MeshInstance3D.new()
+		instance.mesh = mesh
+		instance.position = box[1]
+		root.add_child(instance)
+	_warhead = Node3D.new()
+	_warhead.position = Vector3(0, 0, -TUBE_FRONT)
+	root.add_child(_warhead)
+	for cone in [[0.055, 0.065, 0.12, 0.0, warhead_paint], [0.012, 0.055, 0.1, 0.11, tip_paint]]:
+		var mesh := CylinderMesh.new()
+		mesh.top_radius = cone[0]
+		mesh.bottom_radius = cone[1]
+		mesh.height = cone[2]
+		mesh.radial_segments = 12
+		mesh.material = cone[4]
+		var instance := MeshInstance3D.new()
+		instance.mesh = mesh
+		instance.rotation.x = -PI / 2.0
+		instance.position = Vector3(0, 0, -float(cone[3]) - float(cone[2]) * 0.5)
+		_warhead.add_child(instance)
+	_bazooka_muzzle = Marker3D.new()
+	_bazooka_muzzle.name = "BazookaMuzzle"
+	_bazooka_muzzle.position = Vector3(0, 0, -TUBE_FRONT - 0.05)
+	root.add_child(_bazooka_muzzle)
+	root.visible = false
+	return root
+
+
+## Whether a rocket sits in the tube (the warhead shows at the muzzle).
+func set_loaded(loaded: bool) -> void:
+	if _warhead != null:
+		_warhead.visible = loaded
+
+
+## "pistol", "bat", "bazooka" or "none".
 func set_weapon(value: String) -> void:
 	_weapon = value
 	_swing_t = -1.0
@@ -222,6 +321,8 @@ func set_weapon(value: String) -> void:
 		_pistol.visible = value == "pistol"
 	if _bat != null:
 		_bat.visible = value == "bat"
+	if _bazooka != null:
+		_bazooka.visible = value == "bazooka"
 	if value != "pistol":
 		_raise_hold = 0.0
 
@@ -243,7 +344,7 @@ func is_gun_raised() -> bool:
 
 
 func get_muzzle() -> Marker3D:
-	return _muzzle
+	return _bazooka_muzzle if _weapon == "bazooka" and _bazooka_muzzle != null else _muzzle
 
 
 ## Dress the model as game_state.gd describes (slot -> item id): which body, the
@@ -418,7 +519,7 @@ func _process(delta: float) -> void:
 			_flash.visible = false
 	_recoil = move_toward(_recoil, 0.0, delta * 3.0)
 	_raise_hold = maxf(_raise_hold - delta, 0.0)
-	if _raise_hold > 0.0:
+	if _raise_hold > 0.0 or _weapon == "bazooka":
 		_aim_amount = move_toward(_aim_amount, 1.0, delta * RAISE_SPEED)
 	else:
 		_aim_amount = move_toward(_aim_amount, 0.0, delta * LOWER_SPEED)
@@ -469,7 +570,7 @@ func _update_gun_arm(aim_t: float, run_t: float) -> void:
 	aim_pitch = clampf(aim_pitch, deg_to_rad(-70.0), deg_to_rad(70.0))
 	var pitch := lerpf(rest_pitch, -PI / 2.0 - aim_pitch - _lean, aim_t)
 	var roll := lerpf(REST_ROLL + _roll, AIM_ROLL + _roll, aim_t)
-	if _weapon != "pistol":
+	if _weapon != "pistol" and _weapon != "bazooka":
 		pitch = rest_pitch
 		roll = REST_ROLL + _roll
 		if _weapon == "bat" and _swing_t >= 0.0:
@@ -484,6 +585,16 @@ func _update_gun_arm(aim_t: float, run_t: float) -> void:
 	var stance := sin(_phase) * lerpf(0.42, 0.62, run_t) * _walk_amount * (1.0 - _air_amount)
 	hand.y -= _hip_height * (1.0 - cos(stance))
 	var hand_world := to_mesh * hand
+
+	if _weapon == "bazooka":
+		# The tube lies on the right shoulder and points at the aim point; the hand holds the grip.
+		var on_shoulder := to_mesh * (Basis(Vector3.RIGHT, _lean) * (_shoulder + Vector3(0.03, 0.13, 0.0) - _hip) + _hip)
+		var tube_dir := target - on_shoulder
+		if tube_dir.length_squared() < 0.25:
+			tube_dir = to_mesh.basis.z
+		_bazooka.global_transform = Transform3D(Basis.looking_at(tube_dir.normalized(), to_mesh.basis.y.normalized()) * Basis(Vector3.RIGHT, _recoil * 0.5), on_shoulder)
+		_gun_hand.global_transform = Transform3D(_bazooka.global_basis, hand_world)
+		return
 
 	if _weapon == "bat":
 		# The bat continues the forearm, tilted forward.

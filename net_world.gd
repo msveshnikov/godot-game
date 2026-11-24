@@ -13,6 +13,7 @@ const REMOTE_TIMEOUT_MSEC := 10000
 const FEED_TIME := 6.0
 
 var _remotes := {} # peer id -> remote player body
+var _rockets := {} # peer id -> their rockets in flight (harmless copies), oldest first
 var _send_timer := 0.0
 var _status_label: Label
 var _feed: VBoxContainer
@@ -104,6 +105,17 @@ func broadcast_dent(kind: String, index: int, point: Vector3, dir: Vector3, glas
 	Net.send({"t": "dn", "w": kind, "i": index, "p": _vec3(point), "d": _vec3(dir), "g": glass})
 
 
+## The local player fired the bazooka: others see the rocket fly (harmless) until
+## its blast arrives (broadcast_blast).
+func broadcast_rocket(origin: Vector3, direction: Vector3) -> void:
+	Net.send({"t": "rf", "o": _vec(origin), "d": _vec3(direction)})
+
+
+## The local player's rocket blew up at `at` ("ground", "wall", "car", "body", "air").
+func broadcast_blast(at: Vector3, normal: Vector3, surface: String) -> void:
+	Net.send({"t": "rx", "p": _vec(at), "nm": _vec3(normal), "s": surface})
+
+
 ## The local player cracked or smashed a shop window at `point`.
 func broadcast_window(point: Vector3) -> void:
 	Net.send({"t": "gw", "p": _vec3(point)})
@@ -182,6 +194,31 @@ func _on_message(from: int, data: Dictionary) -> void:
 			var dented: Node = district_d.get_node_or_null("Traffic") if str(data.get("w", "")) == "traffic" else district_d
 			if dented != null and dented.has_method("dent_car"):
 				dented.call("dent_car", int(data.get("i", -1)), Vector3(p[0], p[1], p[2]), Vector3(d[0], d[1], d[2]), bool(data.get("g", false)))
+		"rf":
+			var ro: Array = data.get("o", [])
+			var rd: Array = data.get("d", [])
+			if ro.size() < 3 or rd.size() < 3:
+				return
+			var rocket_from := Vector3(ro[0], ro[1], ro[2])
+			var direction := Vector3(rd[0], rd[1], rd[2])
+			var launcher = _remotes.get(from)
+			if launcher != null:
+				launcher.show_shot(rocket_from, direction)
+			var flying: Array = _rockets.get(from, [])
+			flying.append(Rocket.launch(get_parent(), rocket_from, direction, from, false))
+			_rockets[from] = flying
+		"rx":
+			var bp: Array = data.get("p", [])
+			var bn: Array = data.get("nm", [])
+			if bp.size() < 3 or bn.size() < 3:
+				return
+			var in_flight: Array = _rockets.get(from, [])
+			while not in_flight.is_empty():
+				var rocket = in_flight.pop_front()
+				if is_instance_valid(rocket):
+					rocket.fizzle()
+					break
+			Rocket.explode(get_parent(), Vector3(bp[0], bp[1], bp[2]), Vector3(bn[0], bn[1], bn[2]), str(data.get("s", "air")), from)
 		"gw":
 			var district_w := get_tree().current_scene.get_node_or_null("Diorama/District")
 			var at: Array = data.get("p", [])
@@ -207,7 +244,7 @@ func _on_message(from: int, data: Dictionary) -> void:
 ## One line in the kill feed under the status: "Killer > Victim (headshot)", gone after a while.
 func _add_feed(killer: String, victim: String, zone: String) -> void:
 	var line := Label.new()
-	var how: String = {"head": "  (headshot)", "bat": "  (bat)", "blast": "  (car bomb)"}.get(zone, "")
+	var how: String = {"head": "  (headshot)", "bat": "  (bat)", "blast": "  (car bomb)", "rocket": "  (bazooka)"}.get(zone, "")
 	line.text = "%s  >  %s%s" % [killer, victim, how]
 	line.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	line.add_theme_font_size_override("font_size", 18)

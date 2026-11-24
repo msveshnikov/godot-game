@@ -7,8 +7,10 @@ const BAT_WOOSH_SOUND: AudioStream = preload("res://audio/bat_woosh.ogg")
 const BAT_RANGE := 2.6
 const BAT_HIT_DELAY := 0.24 # from the start of the swing to the moment the bat comes down
 const BAT_COOLDOWN := 0.62
-const WEAPONS := ["pistol", "bat", "none"]
-const WEAPON_NAMES := {"pistol": "Pistol", "bat": "Baseball bat", "none": "Hands"}
+const WEAPONS := ["pistol", "bat", "bazooka", "none"]
+const WEAPON_NAMES := {"pistol": "Pistol", "bat": "Baseball bat", "bazooka": "Bazooka", "none": "Hands"}
+const ROCKET_RELOAD := 1.4 # seconds between rockets
+const ROCKET_KICK := 0.06
 const MAX_HEALTH := 100
 const FIRE_INTERVAL := 0.22
 const SHOT_RANGE := 150.0
@@ -38,6 +40,9 @@ const HEAT_CRACK := 5.0
 const HEAT_SMASH := 10.0
 const HEAT_CAR := 30.0
 const HEAT_KILL := 20.0
+const CASH_WALL := 30 # a hole blown in a building
+const CASH_CRATER := 10
+const HEAT_ROCKET := 25.0
 const RUN_FOOTSTEP_SOUNDS: Array[AudioStream] = [
 	preload("res://addons/cogito/Assets/Audio/Kenney/Footsteps/footstep00.ogg"),
 	preload("res://addons/cogito/Assets/Audio/Kenney/Footsteps/footstep01.ogg"),
@@ -87,6 +92,7 @@ var _auto_yaw_speed := 0.0
 var _money_label: Label
 var _toast_label: Label
 var _police: Police
+var _shake := 0.0
 ## Bat blows paid so far per car ("<cars node id>:<index>"), so one car can't be farmed forever.
 var _dents_paid := {}
 
@@ -131,6 +137,8 @@ func _ready() -> void:
 	model.call("apply_look", Game.look)
 	_start_game.call_deferred()
 	Game.look_changed.connect(func() -> void: model.call("apply_look", Game.look))
+	Game.arsenal_changed.connect(_on_arsenal_changed)
+	_on_arsenal_changed.call_deferred()
 
 
 ## Autumn leaves drifting down around the player, wherever they go.
@@ -187,6 +195,9 @@ func is_armed() -> bool:
 func set_weapon(value: String) -> void:
 	if not WEAPONS.has(value) or value == weapon:
 		return
+	if value == "bazooka" and not Game.has_bazooka:
+		show_toast("Buy the bazooka in the SHOP ($%d)" % Game.BAZOOKA_PRICE)
+		return
 	weapon = value
 	_shot_pending = false
 	model.call("set_weapon", weapon)
@@ -194,7 +205,12 @@ func set_weapon(value: String) -> void:
 
 
 func _cycle_weapon(step: int) -> void:
-	set_weapon(WEAPONS[(WEAPONS.find(weapon) + step + WEAPONS.size()) % WEAPONS.size()])
+	var at := WEAPONS.find(weapon)
+	for k in WEAPONS.size():
+		at = (at + step + WEAPONS.size()) % WEAPONS.size()
+		if WEAPONS[at] != "bazooka" or Game.has_bazooka:
+			break
+	set_weapon(WEAPONS[at])
 
 
 func _is_touch_device() -> bool:
@@ -209,7 +225,10 @@ func _process(delta: float) -> void:
 	model.set("aim_point", _aim_target)
 	model.set("has_aim_point", true)
 	if _crosshair != null:
-		_crosshair.visible = is_playing() and weapon == "pistol"
+		_crosshair.visible = is_playing() and (weapon == "pistol" or weapon == "bazooka")
+	_shake = move_toward(_shake, 0.0, delta * 1.6)
+	camera.h_offset = randf_range(-1.0, 1.0) * _shake * 0.35
+	camera.v_offset = randf_range(-1.0, 1.0) * _shake * 0.35
 	_fit_game_screen(_game_over_screen)
 	_fit_game_screen(_pause_screen)
 	if _pause_button != null:
@@ -239,6 +258,8 @@ func _input(event: InputEvent) -> void:
 				set_weapon("bat")
 			KEY_3:
 				set_weapon("none")
+			KEY_4:
+				set_weapon("bazooka")
 	elif _mobile_controls == null and event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
@@ -328,6 +349,85 @@ func _attack() -> void:
 			_pull_trigger()
 		"bat":
 			_swing_bat()
+		"bazooka":
+			_fire_rocket()
+
+
+## The camera jolts (0..1), e.g. from a blast nearby.
+func shake(amount: float) -> void:
+	_shake = maxf(_shake, amount)
+
+
+func _fire_rocket() -> void:
+	if not is_playing() or weapon != "bazooka" or not _can_fire:
+		return
+	if not Game.use_rocket():
+		_can_fire = false
+		show_toast("Out of rockets! $%d each in the SHOP (5 at most)" % Game.ROCKET_PRICE)
+		await get_tree().create_timer(0.6).timeout
+		_can_fire = true
+		return
+	_can_fire = false
+	var muzzle := (model.call("get_muzzle") as Marker3D).global_position
+	# Toward what the crosshair is on: the camera ray, from level with the player.
+	var forward := -camera.global_basis.z
+	var from := camera.global_position + forward * maxf((global_position - camera.global_position).dot(forward), 0.0)
+	var query := PhysicsRayQueryParameters3D.create(from, from + forward * Rocket.RANGE)
+	query.exclude = [get_rid()]
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	var target: Vector3 = hit.get("position", from + forward * Rocket.RANGE)
+	var direction := muzzle.direction_to(target) if muzzle.distance_to(target) > 1.5 else forward
+	var rocket := Rocket.launch(get_parent(), muzzle, direction, Net.my_id, true, [get_rid()])
+	rocket.exploded.connect(_on_rocket_exploded)
+	var net_world := get_parent().get_node_or_null("NetWorld")
+	if net_world != null:
+		net_world.call("broadcast_rocket", muzzle, direction)
+	model.call("fire_effects")
+	shake(0.25)
+	_crosshair.kick()
+	camera_pivot.rotation.x = clampf(camera_pivot.rotation.x + ROCKET_KICK, deg_to_rad(-60.0), deg_to_rad(35.0))
+	await get_tree().create_timer(ROCKET_RELOAD).timeout
+	_can_fire = true
+
+
+## Our rocket hit something: the blast here and on every screen, every car near
+## it goes up, shop windows round it blow out, and it all pays (and draws heat).
+func _on_rocket_exploded(at: Vector3, normal: Vector3, surface: String, collider: Object) -> void:
+	var scene := get_parent()
+	var net_world := scene.get_node_or_null("NetWorld")
+	if collider != null and is_instance_valid(collider):
+		var cars := (collider as Node).get_parent()
+		if _shot_target(collider) != null:
+			surface = "body"
+		elif cars != null and cars.has_method("cars_near") and not (cars.call("cars_near", at, 3.5) as Array).is_empty():
+			surface = "car"
+	Rocket.explode(scene, at, normal, surface, Net.my_id)
+	if net_world != null:
+		net_world.call("broadcast_blast", at, normal, surface)
+	_police.add_heat(HEAT_ROCKET)
+	if surface == "wall":
+		_reward(at + normal * 1.5, CASH_WALL, 5.0)
+	elif surface == "ground":
+		_reward(at + Vector3.UP, CASH_CRATER, 0.0)
+	var district := scene.get_node_or_null("Diorama/District")
+	if district == null:
+		return
+	for cars: Node in [district, district.get_node_or_null("Traffic")]:
+		if cars == null or not cars.has_method("cars_near"):
+			continue
+		for index: int in cars.call("cars_near", at, Rocket.CAR_RADIUS):
+			var s: float = cars.call("car_progress", index)
+			if cars.call("blow_up_car", index, s, Net.my_id):
+				if net_world != null:
+					net_world.call("broadcast_car", "traffic" if cars.name == "Traffic" else "parked", index, s)
+				var wreck: Transform3D = cars.call("car_transform", index)
+				_reward(wreck.origin + Vector3.UP * 1.0, CASH_CAR, HEAT_CAR)
+	if district.has_method("blow_out_windows"):
+		for point: Vector3 in district.call("blow_out_windows", at, Rocket.WINDOW_RADIUS):
+			if net_world != null:
+				net_world.call("broadcast_window", point)
+				net_world.call("broadcast_window", point)
+			_reward(point, CASH_SMASH, HEAT_SMASH)
 
 
 func _swing_bat() -> void:
@@ -625,12 +725,14 @@ func receive_damage(amount: float, attacker := 0, zone := "") -> void:
 	if attacker != 0 and attacker != Net.my_id and net_world != null:
 		killer = net_world.call("peer_name", attacker)
 		net_world.call("report_death", attacker, zone)
-	var how: String = {"head": " with a headshot", "bat": " with a bat", "blast": " with an exploding car"}.get(zone, "")
+	var how: String = {"head": " with a headshot", "bat": " with a bat", "blast": " with an exploding car", "rocket": " with a bazooka"}.get(zone, "")
 	var text := "The villagers got you."
 	if zone == "police":
 		text = "The police got you."
 	elif zone == "blast" and (killer.is_empty() or attacker == Net.my_id):
 		text = "You were too close to an exploding car."
+	elif zone == "rocket" and (killer.is_empty() or attacker == Net.my_id):
+		text = "You were caught in your own rocket blast."
 	elif not killer.is_empty():
 		text = "Killed by %s%s." % [killer, how]
 	_set_game_over_text(text)
@@ -777,8 +879,8 @@ func _setup_game_ui() -> void:
 ## The controls, for the pause screen.
 func _controls_text() -> String:
 	if _mobile_controls != null:
-		return "Left thumb: walk, pull further to run  |  Right thumb: look\nFIRE: shoot or swing  |  SWAP: pistol, bat, hands  |  JUMP"
-	return "WASD move  |  Shift run  |  Space jump  |  Mouse look\nQ / click: fire or swing  |  1 pistol  2 bat  3 hands (or mouse wheel)
+		return "Left thumb: walk, pull further to run  |  Right thumb: look\nFIRE: shoot or swing  |  SWAP: pistol, bat, bazooka, hands  |  JUMP"
+	return "WASD move  |  Shift run  |  Space jump  |  Mouse look\nQ / click: fire or swing  |  1 pistol  2 bat  3 hands  4 bazooka (or mouse wheel)
 Esc: pause"
 
 
@@ -965,8 +1067,22 @@ static func _thousands(value: int) -> String:
 
 
 func _update_weapon_ui() -> void:
-	if _weapon_label != null:
-		_weapon_label.text = "%s   [1] pistol  [2] bat  [3] hands" % WEAPON_NAMES[weapon]
+	if _weapon_label == null:
+		return
+	var held: String = WEAPON_NAMES[weapon]
+	if weapon == "bazooka":
+		held += "  %d / %d rockets" % [Game.rockets, Game.MAX_ROCKETS]
+	var keys := "[1] pistol  [2] bat  [3] hands"
+	if Game.has_bazooka:
+		keys += "  [4] bazooka"
+	_weapon_label.text = "%s   %s" % [held, keys]
+
+
+func _on_arsenal_changed() -> void:
+	_update_weapon_ui()
+	model.call("set_loaded", Game.rockets > 0)
+	if weapon == "bazooka" and not Game.has_bazooka:
+		set_weapon("pistol")
 
 
 func _update_health_ui() -> void:

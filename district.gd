@@ -1532,6 +1532,15 @@ func blow_up_car(index: int, _s: float, by: int) -> bool:
 	return true
 
 
+## Parked cars (spot indices) still whole within `radius` of `centre` (world).
+func cars_near(centre: Vector3, radius: float) -> Array[int]:
+	var found: Array[int] = []
+	for index in _car_spots.size():
+		if not _wrecked_spots.has(index) and (global_transform * _car_spots[index].origin).distance_to(centre) < radius:
+			found.append(index)
+	return found
+
+
 ## Where a parked car stands (world).
 func car_transform(index: int) -> Transform3D:
 	return global_transform * _car_spots[index] if index >= 0 and index < _car_spots.size() else global_transform

@@ -1,7 +1,8 @@
 class_name Shop
 extends ColorRect
 ## The shop, opened from the start and game-over screens: spend the money smashed
-## up in the world (game_state.gd) on the character's looks. The character turns
+## up in the world (game_state.gd) on the bazooka and its rockets and on the
+## character's looks. The character turns
 ## slowly on the left; every item is a button on the right: bought ones are put on
 ## at once, ones you can't afford yet are tried on so you can see them.
 
@@ -174,6 +175,7 @@ func _refresh() -> void:
 	_on_money(int(_game.get("money")))
 	for child in _items.get_children():
 		child.free()
+	_add_weapons()
 	var look: Dictionary = (_game.get("look") as Dictionary).duplicate()
 	for slot in _const("SLOTS"):
 		var heading := Label.new()
@@ -194,6 +196,94 @@ func _refresh() -> void:
 	for slot in _try_on:
 		shown[slot] = _try_on[slot]
 	_model.call("apply_look", shown)
+
+
+## The bazooka, then its rockets: one at a time or the tube's worth.
+func _add_weapons() -> void:
+	var heading := Label.new()
+	heading.text = "Weapons"
+	heading.add_theme_font_size_override("font_size", 18)
+	heading.add_theme_color_override("font_color", Color(1.0, 0.86, 0.54))
+	_items.add_child(heading)
+	var row := HFlowContainer.new()
+	row.add_theme_constant_override("h_separation", 8)
+	row.add_theme_constant_override("v_separation", 8)
+	_items.add_child(row)
+	var money := int(_game.get("money"))
+	var owned: bool = _game.get("has_bazooka")
+	var rockets := int(_game.get("rockets"))
+	var most := int(_const("MAX_ROCKETS"))
+	var rocket_price := int(_const("ROCKET_PRICE"))
+	var bazooka := _plain_button("Bazooka
+%s" % ("OWNED" if owned else "$%d" % int(_const("BAZOOKA_PRICE"))), owned, not owned and money < int(_const("BAZOOKA_PRICE")))
+	bazooka.custom_minimum_size.x = 140.0
+	bazooka.pressed.connect(_on_bazooka)
+	row.add_child(bazooka)
+	if not owned:
+		return
+	var count := Label.new()
+	count.text = "Rockets
+%d / %d" % [rockets, most]
+	count.custom_minimum_size = Vector2(96.0, 50.0)
+	count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	count.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	count.add_theme_font_size_override("font_size", 16)
+	count.add_theme_color_override("font_color", GOLD)
+	row.add_child(count)
+	var one := _plain_button("+1 rocket
+$%d" % rocket_price, false, rockets >= most or money < rocket_price)
+	one.pressed.connect(_on_rockets.bind(1))
+	row.add_child(one)
+	var missing := most - rockets
+	if missing > 1:
+		var fill := _plain_button("Fill up +%d
+$%d" % [missing, missing * rocket_price], false, money < missing * rocket_price)
+		fill.pressed.connect(_on_rockets.bind(missing))
+		row.add_child(fill)
+
+
+func _plain_button(text: String, lit: bool, dim: bool) -> Button:
+	var button := Button.new()
+	button.focus_mode = Control.FOCUS_NONE
+	button.custom_minimum_size = Vector2(118.0, 50.0)
+	button.add_theme_font_size_override("font_size", 16)
+	button.text = text
+	if lit:
+		var style := StyleBoxFlat.new()
+		style.bg_color = Color(0.76, 0.57, 0.3)
+		style.set_corner_radius_all(8)
+		for state in ["normal", "hover", "pressed"]:
+			button.add_theme_stylebox_override(state, style)
+		button.add_theme_color_override("font_color", Color(0.08, 0.1, 0.12))
+		button.add_theme_color_override("font_hover_color", Color(0.08, 0.1, 0.12))
+	elif dim:
+		button.add_theme_color_override("font_color", Color(0.7, 0.62, 0.55))
+	return button
+
+
+func _on_bazooka() -> void:
+	if _game.get("has_bazooka"):
+		_note.text = "Press 4 (or SWAP) to take the bazooka. Every rocket costs $%d." % int(_const("ROCKET_PRICE"))
+	elif _game.call("buy_bazooka"):
+		_sound.play()
+		_note.text = "Bazooka bought! It comes empty: buy rockets, %d at most." % int(_const("MAX_ROCKETS"))
+	else:
+		_note.text = "The bazooka costs $%d: smash some more." % int(_const("BAZOOKA_PRICE"))
+	_refresh()
+
+
+func _on_rockets(count: int) -> void:
+	var most := int(_const("MAX_ROCKETS"))
+	if int(_game.get("rockets")) >= most:
+		_note.text = "The tube takes %d rockets: fire some first." % most
+	else:
+		var bought := int(_game.call("buy_rockets", count))
+		if bought > 0:
+			_sound.play()
+			_note.text = "+%d rocket%s." % [bought, "" if bought == 1 else "s"]
+		else:
+			_note.text = "A rocket costs $%d." % int(_const("ROCKET_PRICE"))
+	_refresh()
 
 
 func _item_button(slot: String, entry: Dictionary, worn: bool) -> Button:

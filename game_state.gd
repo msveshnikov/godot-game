@@ -2,16 +2,22 @@ extends Node
 ## Autoload "Game": the player's money and looks, kept between sessions on this
 ## device (user://progress.cfg). Money comes from smashing things (coins.gd picks it
 ## up), a part of it is lost on death, and the shop (shop.gd) spends it on the
-## character's looks. Nothing here is networked except the look code, which the
-## other players' screens use to dress this player's avatar (net_world.gd).
+## character's looks and on the bazooka and its rockets. Nothing here is networked
+## except the look code, which the other players' screens use to dress this
+## player's avatar (net_world.gd).
 
 signal money_changed(value: int)
 signal look_changed
+signal arsenal_changed
 
 const SAVE_PATH := "user://progress.cfg"
 ## Share of the money lost when the player dies.
 const DEATH_LOSS := 0.25
 const FEMALE_MODEL := "res://female_player.glb"
+## The bazooka: bought once, then every rocket is paid for; at most MAX_ROCKETS carried.
+const BAZOOKA_PRICE := 1000
+const ROCKET_PRICE := 100
+const MAX_ROCKETS := 5
 
 ## What the shop sells, per slot, in display order. The first item of every slot is
 ## free and worn from the start. "color" tints the clothes (null: as painted).
@@ -56,6 +62,8 @@ var money := 0
 var look := {}
 ## "slot/id" of everything bought (the free items are always owned)
 var owned := {}
+var has_bazooka := false
+var rockets := 0
 
 
 func _init() -> void:
@@ -115,6 +123,41 @@ func buy_or_wear(slot: String, id: String) -> bool:
 	return true
 
 
+## Buy the bazooka (it comes empty). False if already owned or too dear.
+func buy_bazooka() -> bool:
+	if has_bazooka or money < BAZOOKA_PRICE:
+		return false
+	has_bazooka = true
+	add_money(-BAZOOKA_PRICE)
+	arsenal_changed.emit()
+	_save()
+	return true
+
+
+## Buy up to `count` rockets (never past MAX_ROCKETS). Returns how many were bought.
+func buy_rockets(count: int) -> int:
+	if not has_bazooka:
+		return 0
+	var n := mini(mini(count, MAX_ROCKETS - rockets), money / ROCKET_PRICE)
+	if n <= 0:
+		return 0
+	rockets += n
+	add_money(-n * ROCKET_PRICE)
+	arsenal_changed.emit()
+	_save()
+	return n
+
+
+## One rocket leaves the tube. False if there are none.
+func use_rocket() -> bool:
+	if rockets <= 0:
+		return false
+	rockets -= 1
+	arsenal_changed.emit()
+	_save()
+	return true
+
+
 ## The look as a short string for the network: "female,red,blue,none,dark".
 func look_code() -> String:
 	var parts := []
@@ -153,6 +196,8 @@ func _load() -> void:
 	money = maxi(int(config.get_value("progress", "money", 0)), 0)
 	for key in config.get_value("progress", "owned", []):
 		owned[str(key)] = true
+	has_bazooka = bool(config.get_value("progress", "bazooka", false))
+	rockets = clampi(int(config.get_value("progress", "rockets", 0)), 0, MAX_ROCKETS) if has_bazooka else 0
 	var saved: Dictionary = decode_look(str(config.get_value("progress", "look", "")))
 	for slot in SLOTS:
 		if is_owned(slot, saved[slot]):
@@ -164,4 +209,6 @@ func _save() -> void:
 	config.set_value("progress", "money", money)
 	config.set_value("progress", "owned", owned.keys())
 	config.set_value("progress", "look", look_code())
+	config.set_value("progress", "bazooka", has_bazooka)
+	config.set_value("progress", "rockets", rockets)
 	config.save(SAVE_PATH)

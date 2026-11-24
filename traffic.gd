@@ -172,6 +172,15 @@ func car_progress(index: int) -> float:
 	return float(_cars[index]["s"]) if index >= 0 and index < _cars.size() else -1.0
 
 
+## Cars (indices) on the road and not wrecks within `radius` of `centre`.
+func cars_near(centre: Vector3, radius: float) -> Array[int]:
+	var found: Array[int] = []
+	for index in _cars.size():
+		if _cars[index]["wreck"] == null and (_cars[index]["body"] as Node3D).global_position.distance_to(centre) < radius:
+			found.append(index)
+	return found
+
+
 ## Where a car is now (world).
 func car_transform(index: int) -> Transform3D:
 	return (_cars[index]["body"] as Node3D).global_transform if index >= 0 and index < _cars.size() else Transform3D()
