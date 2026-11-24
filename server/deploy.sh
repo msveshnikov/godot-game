@@ -20,7 +20,7 @@ cd ~/village-relay
 
 sudo tee /etc/systemd/system/village-relay.service >/dev/null <<'UNIT'
 [Unit]
-Description=Gacha Village multiplayer relay
+Description=Smash Atlas multiplayer relay
 After=network.target
 
 [Service]

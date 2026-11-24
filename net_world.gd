@@ -77,6 +77,7 @@ func _process(delta: float) -> void:
 		"a": player.call("is_playing"),
 		"w": player.get("weapon"),
 		"n": Net.player_name,
+		"lk": Game.look_code(),
 	})
 
 

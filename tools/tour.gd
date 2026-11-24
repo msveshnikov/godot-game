@@ -5,6 +5,8 @@ extends SceneTree
 ## Spots: name, camera position (game x, y, z), point looked at.
 
 const SPOTS := {
+	"neratovice": [["estate", Vector3(-16.0, 2.4, -22.0), Vector3(14.0, 7.0, 22.0)]],
+	"omsk2": [["slab", Vector3(-34.0, 2.4, -30.0), Vector3(8.0, 9.0, 6.0)]],
 	"omsk1": [["yard", Vector3(0.0, 1.7, -20.0), Vector3(30.0, 5.0, 60.0)], ["aerial", Vector3(-300.0, 200.0, 300.0), Vector3(0.0, 0.0, 0.0)]],
 	"nyc": [
 		["tkts_south", Vector3(-21.0, 6.6, -144.0), Vector3(14.0, 6.0, 230.0)],

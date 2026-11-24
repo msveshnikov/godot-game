@@ -17,6 +17,18 @@ uniform float knee_bend = 0.9;      // max knee flex during leg recovery
 uniform float lean = 0.0;           // upper-body pitch, negative = forward
 uniform float breathing = 1.0;
 
+// Shop looks (game_state.gd): the T-shirt (the dark cloth between the waist and the
+// neck) and the jeans (the blue cloth below the waist) repainted; alpha 0 = as painted.
+uniform vec4 shirt_tint : source_color = vec4(0.0);
+uniform vec4 pants_tint : source_color = vec4(0.0);
+uniform float waist_height = 0.95;
+uniform float neck_height = 1.56;
+// Accessories (cap, sunglasses) use this shader too, so they bob along with the
+// head: they are flat-coloured, no texture.
+uniform bool plain = false;
+
+varying vec3 rest;
+
 uniform float hip_height = 0.86;
 uniform float knee_height = 0.46;
 uniform float shoulder_height = 1.43;
@@ -47,6 +59,7 @@ vec3 rotate_about(vec3 v, vec3 pivot, float a) {
 }
 
 void vertex() {
+	rest = VERTEX;
 	vec3 v = VERTEX;
 	vec3 n = NORMAL;
 	float side = v.x >= 0.0 ? 1.0 : -1.0;
@@ -105,8 +118,26 @@ void vertex() {
 }
 
 void fragment() {
-	vec4 tex = texture(albedo_texture, UV) * albedo_color;
-	ALBEDO = tex.rgb;
-	ROUGHNESS = roughness;
-	METALLIC = 0.0;
+	if (plain) {
+		ALBEDO = albedo_color.rgb;
+		ROUGHNESS = roughness;
+		METALLIC = 0.0;
+	} else {
+		vec4 tex = texture(albedo_texture, UV) * albedo_color;
+		vec3 c = tex.rgb;
+		float luma = dot(c, vec3(0.2126, 0.7152, 0.0722));
+		// T-shirt: dark, above the waist; the print on it stays.
+		float top = smoothstep(waist_height - 0.04, waist_height + 0.02, rest.y) * (1.0 - smoothstep(neck_height - 0.03, neck_height + 0.01, rest.y));
+		float dark = 1.0 - smoothstep(0.1, 0.22, max(c.r, max(c.g, c.b)));
+		vec3 shirt = shirt_tint.rgb * (0.5 + luma * 6.0);
+		c = mix(c, shirt, top * dark * shirt_tint.a);
+		// Jeans: bluer than red or green, below the waist (not the shoes).
+		float bottom = (1.0 - smoothstep(waist_height - 0.02, waist_height + 0.04, rest.y)) * smoothstep(0.1, 0.14, rest.y);
+		float blue = smoothstep(0.0, 0.035, c.b - max(c.r, c.g * 0.85));
+		vec3 pants = pants_tint.rgb * (0.35 + luma * 6.0);
+		c = mix(c, pants, bottom * blue * pants_tint.a);
+		ALBEDO = c;
+		ROUGHNESS = roughness;
+		METALLIC = 0.0;
+	}
 }

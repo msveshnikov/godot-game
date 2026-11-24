@@ -19,6 +19,7 @@ var _since_update := 0.0
 var _label: Label3D
 var _animator: Node3D
 var weapon := "pistol"
+var _look_code := ""
 
 
 func _init() -> void:
@@ -88,6 +89,10 @@ func apply_state(data: Dictionary) -> void:
 		weapon = held
 		_animator.call("set_weapon", weapon)
 	_label.text = str(data.get("n", "Player"))
+	var look := str(data.get("lk", ""))
+	if look != _look_code:
+		_look_code = look
+		_animator.call("apply_look", Game.decode_look(look))
 	last_update_msec = Time.get_ticks_msec()
 	_since_update = 0.0
 	if not _has_state or global_position.distance_to(_target_position) > SNAP_DISTANCE:

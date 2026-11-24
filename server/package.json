@@ -2,7 +2,7 @@
   "name": "gacha-village-relay",
   "version": "1.0.0",
   "private": true,
-  "description": "WebSocket relay for Gacha Village multiplayer",
+  "description": "WebSocket relay for Smash Atlas multiplayer",
   "main": "relay.js",
   "scripts": {
     "start": "node relay.js"

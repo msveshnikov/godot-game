@@ -9,6 +9,8 @@ extends "res://addons/cogito/CogitoNPC/cogito_npc.gd"
 ##   civilian - an unarmed grown-up who wanders a small zone (playground, shop) or
 ##              stands still; can't be hurt, but runs from armed players too.
 ##   child    - like a civilian, smaller and quicker on its feet.
+##   police   - an officer sent by police.gd: uniform and cap, a pistol it really
+##              fires; police_officer.gd drives it. Local to the player it hunts.
 ## Civilians and children are local to each client (not networked).
 
 const PISTOL_SCENE: PackedScene = preload("res://pistol_model.tscn")
@@ -23,7 +25,7 @@ const FALL_TIME := 0.45
 const OUTFITS_PER_LIFE := 1000 # outfit index = bot_index + lives * this
 const CHILD_SCALE := 0.62
 
-@export_enum("villager", "civilian", "child") var role := "villager"
+@export_enum("villager", "civilian", "child", "police") var role := "villager"
 ## Villagers only carry their pistols around; turn this on to let them fire at players again.
 @export var shoots_back := false
 @export var firing_range := 26.0
@@ -68,13 +70,16 @@ var _rig: Node3D
 func _ready() -> void:
 	super._ready()
 	_rig = get_node_or_null("Rig") as Node3D
-	OUTFIT.apply(self, bot_index)
+	if role == "police":
+		OUTFIT.apply_police(self, bot_index, bot_index % 2 == 1)
+	else:
+		OUTFIT.apply(self, bot_index)
 	_rng.seed = hash(bot_index * 7919 + Time.get_ticks_usec())
 	_attack_timer = _rng.randf_range(0.5, fire_interval)
 	_spawn_collision_layer = collision_layer
 	_spawn_collision_mask = collision_mask
-	if role == "villager":
-		add_to_group("villagers")
+	if role == "villager" or role == "police":
+		add_to_group("villagers" if role == "villager" else "police")
 		var pistol := PISTOL_SCENE.instantiate() as Node3D
 		pistol.name = "VillagerPistol"
 		pistol.scale = Vector3.ONE * 0.65
@@ -107,9 +112,9 @@ func _make_child() -> void:
 	walk_volume_db -= 6.0
 
 
-## True for anyone a player can kill (adult villagers only).
+## True for anyone a player can kill (adult villagers and the police).
 func can_be_hit() -> bool:
-	return role == "villager" and alive
+	return (role == "villager" or role == "police") and alive
 
 
 func _physics_process(delta: float) -> void:
@@ -333,7 +338,7 @@ func _leave_corpse() -> void:
 		return
 	var copy := skeleton.duplicate() as Skeleton3D
 	for child in copy.get_children():
-		if child.name == "Mannequin":
+		if child.name == "Mannequin" or child.name == "PoliceCap":
 			continue
 		if child.name == "HandAttachment":
 			for part in child.get_children():

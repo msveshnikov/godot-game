@@ -31,6 +31,13 @@ const RAISED_HOLD := 0.9 # seconds the arm stays up after the last shot
 const SWING_TIME := 0.55
 const BAT_TILT := -1.1 # bat angle forward of the forearm line
 const BAT_LENGTH := 0.84
+const FEMALE_MODEL := "res://female_player.glb"
+## Where the cap and the sunglasses sit on each body (mesh space): eye height, the
+## front of the face and the back of the head, the head's half width, its top.
+const HEADS := {
+	"male": {"eyes": 1.737, "front": 0.124, "half_width": 0.1, "top": 1.89, "back": -0.115},
+	"female": {"eyes": 1.737, "front": 0.124, "half_width": 0.1, "top": 1.89, "back": -0.115},
+}
 
 ## World point the gun aims at while raised; set every frame by the owner (camera ray for the
 ## local player, the shot direction for remote ones). Straight ahead when never set.
@@ -58,6 +65,10 @@ var _flash: Node3D
 var _flash_light: OmniLight3D
 var _flash_time := 0.0
 var _recoil := 0.0
+var _body_kind := "male"
+var _tint := Color.WHITE
+var _meshes := {} # body kind -> [Mesh, albedo texture, albedo colour]
+var _accessories: Array[MeshInstance3D] = []
 
 
 func _ready() -> void:
@@ -77,6 +88,7 @@ func _ready() -> void:
 	_material = ShaderMaterial.new()
 	_material.shader = BODY_SHADER
 	var source := mesh_instance.get_active_material(0) as BaseMaterial3D
+	_meshes["male"] = [mesh_instance.mesh, source.albedo_texture if source != null else null, source.albedo_color if source != null else Color.WHITE]
 	if source != null:
 		_material.set_shader_parameter("albedo_texture", source.albedo_texture)
 		_material.set_shader_parameter("albedo_color", source.albedo_color)
@@ -105,7 +117,7 @@ func _build_gun() -> void:
 	_build_flash()
 	_bat = _build_bat()
 	_gun_hand.add_child(_bat)
-	_bat.visible = false
+	set_weapon(_weapon) # whatever was picked before the model was ready
 
 
 ## Muzzle flash: a hot orange-white blob in front of the barrel and a short burst of light.
@@ -213,8 +225,131 @@ func get_muzzle() -> Marker3D:
 	return _muzzle
 
 
+## Dress the model as game_state.gd describes (slot -> item id): which body, the
+## T-shirt and jeans colours, a cap, sunglasses.
+func apply_look(look: Dictionary) -> void:
+	if _material == null:
+		return
+	_set_body(str(look.get("body", "male")))
+	var game := get_tree().root.get_node_or_null("Game")
+	if game == null:
+		return
+	var shirt: Variant = game.call("item_color", "shirt", str(look.get("shirt", "")))
+	var pants: Variant = game.call("item_color", "pants", str(look.get("pants", "")))
+	_material.set_shader_parameter("shirt_tint", Color(shirt.r, shirt.g, shirt.b, 1.0) if shirt is Color else Color(0, 0, 0, 0))
+	_material.set_shader_parameter("pants_tint", Color(pants.r, pants.g, pants.b, 1.0) if pants is Color else Color(0, 0, 0, 0))
+	for part in _accessories:
+		part.queue_free()
+	_accessories.clear()
+	var head: Dictionary = HEADS.get(_body_kind, HEADS["male"])
+	var hat: Variant = game.call("item_color", "hat", str(look.get("hat", "none")))
+	if hat is Color:
+		_add_cap(head, hat)
+	var shades: Variant = game.call("item_color", "glasses", str(look.get("glasses", "none")))
+	if shades is Color:
+		_add_sunglasses(head, shades, str(look.get("glasses", "")) == "gold")
+
+
+## "male" or "female" (falls back to male while her model isn't in the game).
+func _set_body(kind: String) -> void:
+	if kind == "female" and not _meshes.has("female"):
+		if not ResourceLoader.exists(FEMALE_MODEL):
+			kind = "male"
+		else:
+			var scene := (load(FEMALE_MODEL) as PackedScene).instantiate()
+			var found := scene.find_children("*", "MeshInstance3D", true, false)
+			if found.is_empty():
+				kind = "male"
+			else:
+				var mi := found[0] as MeshInstance3D
+				var source := mi.get_active_material(0) as BaseMaterial3D
+				_meshes["female"] = [mi.mesh, source.albedo_texture if source != null else null, source.albedo_color if source != null else Color.WHITE]
+			scene.free()
+	if kind == _body_kind:
+		return
+	_body_kind = kind
+	var entry: Array = _meshes[kind]
+	_mesh.mesh = entry[0]
+	_material.set_shader_parameter("albedo_texture", entry[1])
+	_material.set_shader_parameter("albedo_color", (entry[2] as Color) * _tint)
+
+
+func _accessory(mesh: Mesh, at: Vector3, color: Color, rough := 0.6, scale_by := Vector3.ONE, rotation_by := Vector3.ZERO) -> void:
+	var material := ShaderMaterial.new()
+	material.shader = BODY_SHADER
+	material.set_shader_parameter("plain", true)
+	material.set_shader_parameter("albedo_color", color)
+	material.set_shader_parameter("roughness", rough)
+	material.set_shader_parameter("breathing", 0.0)
+	var part := MeshInstance3D.new()
+	part.mesh = mesh
+	part.material_override = material
+	part.position = at
+	part.scale = scale_by
+	part.rotation = rotation_by
+	_mesh.add_child(part)
+	_accessories.append(part)
+
+
+## A baseball cap: a dome over the top of the head and a peak out front.
+func _add_cap(head: Dictionary, color: Color) -> void:
+	var top: float = head["top"]
+	var half: float = head["half_width"]
+	var radius := half + 0.02
+	var centre_z := (float(head["front"]) + float(head["back"])) * 0.5
+	var depth := (float(head["front"]) - float(head["back"])) * 0.5 + 0.02
+	var base_y := top - radius * 0.7
+	var dome := SphereMesh.new()
+	dome.radius = radius
+	dome.height = radius
+	dome.is_hemisphere = true
+	dome.radial_segments = 20
+	dome.rings = 6
+	_accessory(dome, Vector3(0.0, base_y, centre_z), color, 0.8, Vector3(1.0, 1.12, depth / radius))
+	var band := CylinderMesh.new()
+	band.top_radius = radius + 0.002
+	band.bottom_radius = radius + 0.002
+	band.height = 0.03
+	band.radial_segments = 20
+	_accessory(band, Vector3(0.0, base_y, centre_z), color.darkened(0.15), 0.8, Vector3(1.0, 1.0, depth / radius))
+	var peak := CylinderMesh.new()
+	peak.top_radius = 0.095
+	peak.bottom_radius = 0.095
+	peak.height = 0.012
+	peak.radial_segments = 16
+	_accessory(peak, Vector3(0.0, base_y - 0.01, float(head["front"]) + 0.06), color.darkened(0.25), 0.8, Vector3(1.0, 1.0, 0.85), Vector3(0.12, 0.0, 0.0))
+
+
+## Sunglasses: two dark lenses, a bridge and the arms back to the ears.
+func _add_sunglasses(head: Dictionary, color: Color, aviator: bool) -> void:
+	var eyes: float = head["eyes"]
+	var front: float = float(head["front"]) + 0.006
+	var half: float = head["half_width"]
+	var lens := BoxMesh.new()
+	lens.size = Vector3(0.058, 0.038 if aviator else 0.032, 0.008)
+	var frame_color := Color(0.75, 0.6, 0.25) if aviator else Color(0.03, 0.03, 0.03)
+	for side in [-1.0, 1.0]:
+		_accessory(lens, Vector3(side * 0.036, eyes, front), color, 0.08, Vector3.ONE, Vector3(0.0, side * 0.12, 0.0))
+	var bridge := BoxMesh.new()
+	bridge.size = Vector3(0.022, 0.006, 0.008)
+	_accessory(bridge, Vector3(0.0, eyes + 0.008, front + 0.002), frame_color, 0.3)
+	var arm := BoxMesh.new()
+	var back := float(head["back"]) * 0.2
+	arm.size = Vector3(0.006, 0.006, front - back)
+	for side in [-1.0, 1.0]:
+		_accessory(arm, Vector3(side * (half + 0.004), eyes + 0.006, (front + back) * 0.5), frame_color, 0.3)
+
+
+## Pose uniforms go to the body and to whatever it wears.
+func _set_param(param: String, value: Variant) -> void:
+	_material.set_shader_parameter(param, value)
+	for part in _accessories:
+		(part.material_override as ShaderMaterial).set_shader_parameter(param, value)
+
+
 ## Multiplies the model colour, so other players are told apart at a glance.
 func set_tint(tint: Color) -> void:
+	_tint = tint
 	if _material != null:
 		var base: Variant = _material.get_shader_parameter("albedo_color")
 		_material.set_shader_parameter("albedo_color", (base if base is Color else Color.WHITE) * tint)
@@ -271,13 +406,13 @@ func _process(delta: float) -> void:
 	_yaw = lerp_angle(_yaw, target_yaw, 1.0 - exp(-(10.0 + 20.0 * aim_t) * delta))
 	rotation.y = _base_yaw + _yaw
 
-	_material.set_shader_parameter("phase", _phase)
-	_material.set_shader_parameter("walk_amount", _walk_amount)
-	_material.set_shader_parameter("air_amount", _air_amount)
-	_material.set_shader_parameter("leg_swing", lerpf(0.42, 0.62, run_t))
-	_material.set_shader_parameter("arm_swing", lerpf(0.45, 0.75, run_t))
-	_material.set_shader_parameter("knee_bend", lerpf(0.8, 1.25, run_t))
-	_material.set_shader_parameter("lean", _lean)
+	_set_param("phase", _phase)
+	_set_param("walk_amount", _walk_amount)
+	_set_param("air_amount", _air_amount)
+	_set_param("leg_swing", lerpf(0.42, 0.62, run_t))
+	_set_param("arm_swing", lerpf(0.45, 0.75, run_t))
+	_set_param("knee_bend", lerpf(0.8, 1.25, run_t))
+	_set_param("lean", _lean)
 	_update_gun_arm(aim_t, run_t)
 
 
@@ -306,8 +441,8 @@ func _update_gun_arm(aim_t: float, run_t: float) -> void:
 		if _weapon == "bat" and _swing_t >= 0.0:
 			pitch = _swing_pitch(_swing_t, rest_pitch)
 			roll = lerpf(REST_ROLL, AIM_ROLL, sin(_swing_t * PI))
-	_material.set_shader_parameter("gun_arm_pitch", pitch)
-	_material.set_shader_parameter("gun_arm_roll", roll)
+	_set_param("gun_arm_pitch", pitch)
+	_set_param("gun_arm_roll", roll)
 
 	# Same transforms as the shader: shoulder roll + pitch, lean about the hip, planted-foot drop.
 	var hand := Basis(Vector3.RIGHT, pitch) * (Basis(Vector3.BACK, roll) * (HAND - SHOULDER)) + SHOULDER

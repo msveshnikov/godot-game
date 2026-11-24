@@ -175,6 +175,11 @@ static func blast(tree: SceneTree, centre: Vector3, by: int) -> void:
 		if distance < BLAST_RADIUS:
 			var t := clampf((distance - LETHAL_RADIUS) / (BLAST_RADIUS - LETHAL_RADIUS), 0.0, 1.0)
 			player.call("receive_damage", lerpf(100.0, 15.0, t), by, "blast")
+	# The police are local to each player (police.gd), so every client hurts its own.
+	for officer in tree.get_nodes_in_group("police"):
+		var cop := officer as Node3D
+		if cop.global_position.distance_to(centre) < VILLAGER_KILL_RADIUS and cop.call("can_be_hit"):
+			cop.call("receive_hit", "blast")
 	var net := tree.root.get_node_or_null("Net")
 	if net != null and not net.call("is_host"):
 		return

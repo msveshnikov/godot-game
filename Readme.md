@@ -2,7 +2,7 @@
   <img src="screenshots/nyc_hero.jpg" alt="Times Square from Duffy Square: LED screens on every facade, the Cohan statue and One Times Square at the end of the bowtie" width="860">
 </p>
 
-<h1 align="center">Gacha Village</h1>
+<h1 align="center">Smash Atlas</h1>
 
 <p align="center">
   <b>A multiplayer third-person sandbox in real places rebuilt 1:1 from the map.</b> Grab a pistol or a baseball bat
@@ -13,8 +13,8 @@
 
 <p align="center">
   <a href="https://maxims.top/village/"><b>▶ Play in the browser</b></a> ·
-  <a href="https://github.com/msveshnikov/godot-game/releases/latest/download/GachaVillage.exe">Windows .exe</a> ·
-  <a href="https://github.com/msveshnikov/godot-game/releases/latest/download/GachaVillage.apk">Android .apk</a> ·
+  <a href="https://github.com/msveshnikov/godot-game/releases/latest/download/SmashAtlas.exe">Windows .exe</a> ·
+  <a href="https://github.com/msveshnikov/godot-game/releases/latest/download/SmashAtlas.apk">Android .apk</a> ·
   <a href="https://github.com/msveshnikov/godot-game/releases/latest">All releases</a>
 </p>
 
@@ -35,7 +35,7 @@
   streets and stop at the lights.
 - **A real place, 1:1.** About 200 m of a Czech panel-housing estate, rebuilt in metres from the satellite map and
   Street View: five-storey blocks with loggias, sixteen-storey towers, garages, a playground, a supermarket, a hill.
-- **Four places to play.** Pick one on the start screen: Times Square, the Czech estate, or one of two Siberian estates
+- **Four places to play.** Pick one in the main menu: Times Square, the Czech estate, or one of two Siberian estates
   in Omsk (Omsk 1: five-storey khrushchyovkas under new red roofs; Omsk 2: nine-storey panel blocks, garages
   and the old private sector), each rebuilt from the satellite map and Street View ~200 m round.
 - **Pistol, baseball bat, empty hands.** A small CS-style crosshair, hitscan shots with a real gunshot sound,
@@ -45,6 +45,17 @@
   the windows craze and crumble and the alarm goes off; in Times Square the shop windows crack, then smash out
   with glass all over the pavement, and it all stays that way. Villagers flee as soon as they see you armed; the dead stay lying
   in a pool of blood while new ones are born elsewhere.
+- **A proper main menu.** The chosen place full-screen behind the logo; PLAY, SHOP, SETTINGS (graphics quality,
+  render scale, shadows, fullscreen, volume, city ambience, look sensitivity, invert Y), HOW TO PLAY; your name,
+  your cash, who else is online there, and a card for each place. In the game, Esc (or the pause button on a
+  phone) brings up the pause menu.
+- **Smash for cash, then shop.** Every dent, cracked or smashed shop window and blown-up car pays out in gold coins
+  that pop out and fly into your pockets when you walk up to them. Spend them in the shop (start and game-over
+  screens): T-shirt and jeans colours, caps and sunglasses (a second character is on the way). Money and looks are saved on the
+  device; die and you drop a quarter of it.
+- **Heat and the police.** Violence fills a heat meter that cools off slowly while you behave. When it tops out a
+  patrol car comes in along the streets with lights and siren, and two officers, a man and a woman, get out and
+  shoot back for real. Put both down to clear the heat (they drop $150), or outrun them to halve it.
 - **A living autumn afternoon.** Swaying coloured crowns, falling leaves, cumulus clouds, traffic that stops for
   people, flocks of birds, washing on the loggias, and ambient sound.
 - **Multiplayer in the browser.** Open the link, see the other players with their names; a tiny WebSocket relay
@@ -63,11 +74,38 @@
 | ![Graffiti on the garage row under the towers](screenshots/garages.jpg) | ![The grassy hill by the poliklinika](screenshots/hill.jpg) |
 | ![Flower boxes, washing and curtains on the loggias](screenshots/loggias.jpg) | ![Car models built in Blender](blender/renders/vehicles/car_octavia_combi_front.png) |
 
+## Menus
+`main_menu.tscn` (`main_menu.gd`) is the first scene: a picture of the chosen place (`assets/ui/place_*.webp`,
+rendered by `tools/tour.gd`), the buttons on the left, the player card and the place cards on the right; picking
+a place joins its room right away, so the card shows who is online there. PLAY puts up `loading_screen.gd` on the
+tree's root, loads `node_2d.tscn` in the background and switches to it; `world.gd` takes the loading screen down
+once the place is built. `settings.gd` (autoload `Settings`) keeps graphics, sound and controls in
+`user://settings.cfg` and applies them to the running scene; `settings_panel.gd` is the panel for them, shared by
+the main menu and the pause menu. Every menu uses `ui_theme.gd`. `tools/menu_test.gd` walks through all of it.
+
+## Money, heat and the police
+- **Coins** (`coins.gd`): `player_controller.gd` pays out for what the player breaks: a dent $5 (the first six per
+  car), a cracked shop window $10, a smashed one $25, a car blown up $40. The coins hop out, settle spinning and
+  fly into the player within 2.4 m. `game_state.gd` (autoload `Game`) keeps the money and the shop's catalogue,
+  saved in `user://progress.cfg`.
+- **Heat** (`police.gd`): a villager killed adds 20, a car blown up 30, a smashed window 10, a cracked one 5, a
+  dent 3; after four calm seconds it drops 3 a second. At 100 a patrol car (a white Octavia with a blue band,
+  light bar and siren) drives in over the bot street graph (`path_between` in `bot_crowd.gd`) and stops about
+  13 m off; two officers (`police_officer.gd`, the villager mannequin in navy uniform and peaked cap) get out,
+  run in until they see the player, then circle at 7-15 m and fire hitscan rounds, 7-12 damage, likelier to hit
+  the nearer and stiller the player is. A headshot kills an officer; body shots take three or four. Both down:
+  heat 0 and $150 in coins. Run 75 m away for 12 s: they lose you and the heat drops to 50. Die: they leave,
+  the heat is gone and so is a quarter of your cash. The police are local to each player.
+- **Shop** (`shop.gd`): the character on a turntable and every item as a button; owned ones are put on at once,
+  ones you can't afford are tried on. Looks are drawn by `player_body.gdshader` (the dark T-shirt and the blue
+  jeans repainted; cap and sunglasses are small meshes with the same shader so they move with the body) and sent
+  to the other players as a short look code.
+
 ## Playable estate
 The main scene (`node_2d.tscn`) is a third-person village shooter with the custom player character and an over-the-shoulder camera. Every player appears at a random spot inside the panel-housing estate. Switch between a black pistol (tucked at the hip, snapped up to aim when firing; hitscan along the crosshair with muzzle flash, recoil, tracer, bullet holes and blood), a baseball bat (overhead swing) and empty hands. Other players can be shot (`pistol_damage` in `player_controller.gd`: head 100, chest 24-34, belly 20-28, legs 15-20, the nearer the middle of the body the more; bat 30), with a hit marker for the shooter, a kill feed for everyone and two seconds of spawn protection. A round into a car (parked or driving) blows it up (`car_fire.gd`): fireball, flash, flying debris and a bang heard across the estate; anyone within 2 m dies, up to 6.5 m gets hurt, villagers within 4.5 m die. The charred shell then burns for two and a half minutes and smokes for another minute and a half; parked wrecks stay for good, a burnt car in the traffic stops where it was hit (the cars behind queue up) and is towed away once it has burnt out. The bat does no fire but plenty of damage (`car_damage.gd`): the car gets its own copy of its mesh, pushed in round each blow with the normals rebuilt, so it stays battered; windows hit craze (`car_glass.gdshader`) and crumble on the second blow; a parked car's alarm wails with the lights flashing, a driver honks and drives on dented. In Times Square the shop windows break too (`smash_window` in `nyc_builder.gd`, drawn by `facade.gdshader` from a one-texel-per-window damage map): the first blow or bullet cracks a spider web round where it landed, the next smashes the pane out leaving jagged teeth in the frame, and the shards stay on the pavement (`glass_fx.gd`). Dents and broken windows are replayed on every player's screen. Sixteen villagers roam the streets carrying pistols but never fire back (`shoots_back` in `villager_walk.gd` turns that on again); they run away as soon as they see you armed. A bullet or a bat blow kills one; its body stays lying where it fell (the newest 30 are kept) and a new villager in other clothes is born far from the players after a short delay. Parents and kids play at the playground and shoppers and cashiers fill the supermarket; they run from an armed player too but can't be hurt. The estate (`district.gd`) is the real neighbourhood around Na Skalkách in Neratovice, rebuilt 1:1 in metres from the satellite map and Google Street View, in detail for about 100 m around the home block and out to ~200 m with the surrounding streets (Dr. E. Beneše, 28. října, Za Jednotou, J. K. Tyla, Lomená, Travní), the long blocks on Beneše, the poliklinika, the family-house quarter, five sixteen-storey towers and a walk-in supermarket (POTRAVINY) with aisles, fridges and checkouts. Near the home block: the three 107 m five-storey panel blocks with full-width loggias (ochre fins, white slabs, brown/white/red/glass railings, yellow stair entrances), the point towers across Na Skalkách with their coloured end walls and ground-floor shops (salon, florist), the old garage row opposite the home block, the concrete and mesh bin pens with sorting bins, street lamps, P signs, the spruce grove with red pipe railings, the playground, the white commercial hall (Restaurace Skleník, AlzaBox), the purple-roofed shop, trees, and parked cars modelled in Blender after the ones on the street (Škoda Octavia Combi and liftback, Škoda Fabia, a compact SUV and an MPV, in the usual silver/white/grey/black/blue/red), all surrounded by forest. Roads, paths and entrance steps lie flush with the ground and have no colliders, so you can run anywhere without jumping.
 
 ### Omsk 1 and Omsk 2
-Two more estates, picked with the buttons on the start screen (the choice is remembered; `?loc=omsk1` / `-- --loc=omsk2` force one). Both are measured from the satellite map and Street View out to ~200 m and built by `district_omsk.gd`, which, unlike the Neratovice builder, lays out every building in its own frame so blocks can stand at any angle; `district_omsk1.gd` and `district_omsk2.gd` hold the layouts, the bot street graphs, the spawn points and the traffic.
+Two more estates, picked with the place cards in the main menu (the choice is remembered; `?loc=omsk1` / `-- --loc=omsk2` force one). Both are measured from the satellite map and Street View out to ~200 m and built by `district_omsk.gd`, which, unlike the Neratovice builder, lays out every building in its own frame so blocks can stand at any angle; `district_omsk1.gd` and `district_omsk2.gd` hold the layouts, the bot street graphs, the spawn points and the traffic.
 - **Omsk 1**: grey-panel five-storey khrushchyovkas re-roofed with red pitched roofs, stacked balconies (glazed in white PVC, old wood or open sheet railings), entrances with concrete canopies and benches; a main road with a T-junction and parked cars, a street running off at an angle with a slanted block along it, two kindergartens, a school with a court, yards with playgrounds, container sites, clotheslines, a grocery and a beer shop, poplars along the road and birches everywhere.
 - **Omsk 2**: a 100 m nine-storey panel slab with loggias and an L-shaped neighbour, three double rows of brick garages, a tyre-and-car-service shop on a big lot, a gas station, a school, a kindergarten, a sports school, a waste-ground football pitch, a shopping centre across the street, and streets of one-storey wooden houses behind fences.
 
@@ -107,8 +145,8 @@ Everyone who opens the game (web link or the Android APK) lands in the same worl
 
 ## Building and deploying
 - Web: `godot --headless --export-release "Web" build/web/index.html`, then `scp build/web/* ubuntu@severance.lol:/var/www/maxims/village/`.
-- Windows: `godot --headless --export-release "Windows Desktop" build/windows/GachaVillage.exe` (single exe, pck embedded).
-- Android: `godot --headless --export-debug "Android" build/android/GachaVillage.apk` (debug-signed; no release keystore is set up).
+- Windows: `godot --headless --export-release "Windows Desktop" build/windows/SmashAtlas.exe` (single exe, pck embedded).
+- Android: `godot --headless --export-debug "Android" build/android/SmashAtlas.apk` (debug-signed; no release keystore is set up).
 
 Exports ship only what the game can load (`export_files` in `export_presets.cfg`, plus every script and `audio/`, `assets/`), not the whole Cogito demo. After adding a scene, model or sound, regenerate the list: `godot --headless --path . -s tools/update_export_files.gd`.
 

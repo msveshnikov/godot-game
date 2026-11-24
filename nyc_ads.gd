@@ -19,9 +19,9 @@ const CLAUDE_INK := Color(0.08, 0.08, 0.075)
 
 const TICKERS := [
 	"BREAKING NEWS  +++  TIMES SQUARE BREAKS AWAY FROM MANHATTAN AND DRIFTS OUT TO SEA  +++  FERRIES TO BROOKLYN SUSPENDED  +++  MAYOR: \"IT'S STILL NEW YORK\"  +++  ",
-	"[color=#7CFC7C]NOVA 412.10 +8.2%[/color]   [color=#FF6B6B]FIZZ 84.10 -0.4%[/color]   [color=#7CFC7C]MAXSOFT 1,997.00 +4.1%[/color]   [color=#7CFC7C]ZPPY 41.07 +3.9%[/color]   [color=#FF6B6B]LUNA 63.40 -0.7%[/color]   [color=#7CFC7C]GACHA 999.99 +12.0%[/color]   [color=#FF6B6B]AURA 18.22 -2.1%[/color]   ",
+	"[color=#7CFC7C]NOVA 412.10 +8.2%[/color]   [color=#FF6B6B]FIZZ 84.10 -0.4%[/color]   [color=#7CFC7C]MAXSOFT 1,997.00 +4.1%[/color]   [color=#7CFC7C]ZPPY 41.07 +3.9%[/color]   [color=#FF6B6B]LUNA 63.40 -0.7%[/color]   [color=#7CFC7C]SMASH 999.99 +12.0%[/color]   [color=#FF6B6B]AURA 18.22 -2.1%[/color]   ",
 	"WELCOME TO TIMES SQUARE  *  THE CROSSROADS OF THE WORLD  *  BROADWAY  *  7TH AVENUE  *  42ND STREET  *  ",
-	"NOVA: THE AGI ROBOT YOU PRINT YOURSELF  *  NOVA.MAXIMS.TOP  *  CLAUDE BY ANTHROPIC  *  MAXSOFT  *  GACHA VILLAGE: NOW IN NEW YORK  *  ",
+	"NOVA: THE AGI ROBOT YOU PRINT YOURSELF  *  NOVA.MAXIMS.TOP  *  CLAUDE BY ANTHROPIC  *  MAXSOFT  *  SMASH ATLAS: NOW IN NEW YORK  *  ",
 ]
 
 static var _font: Font
@@ -61,7 +61,7 @@ static func bake(host: Node, material: ShaderMaterial) -> void:
 
 static func _paint(root: Control) -> void:
 	var designs := [
-		_fizz, _nova_robot, _starlight, _gacha, _skyline_air, _mega_burger, _aurora, _zippy,
+		_fizz, _nova_robot, _starlight, _smash_atlas, _skyline_air, _mega_burger, _aurora, _zippy,
 		_maxsoft, _breaking, _claude, _pixela, _luna, _loves_you, _anthropic, _midnight_cats,
 	]
 	for index in 16:
@@ -223,7 +223,7 @@ static func _star(root: Control, c: Vector2, radius: float, color: Color) -> voi
 	_poly(root, points, color)
 
 
-static func _gacha(root: Control, r: Rect2, tall: bool) -> void:
+static func _smash_atlas(root: Control, r: Rect2, tall: bool) -> void:
 	_bg(root, r, Color(0.1, 0.55, 0.2), Color(0.02, 0.25, 0.1))
 	var s := _scale(r)
 	var parts := _split(r, tall, 0.4)
@@ -237,7 +237,7 @@ static func _gacha(root: Control, r: Rect2, tall: bool) -> void:
 	_round(root, Rect2(c + Vector2(-2, -70) * s, Vector2(4, 140) * s), Color(1, 1, 1, 0.8), 1.0)
 	_round(root, Rect2(c + Vector2(-70, -2) * s, Vector2(140, 4) * s), Color(1, 1, 1, 0.8), 1.0)
 	var text: Rect2 = parts[1]
-	_text(root, Rect2(text.position, Vector2(text.size.x, text.size.y * 0.5)), "GACHA VILLAGE", int(44 * s), Color(1, 0.95, 0.6), int(4 * s), Color(0.05, 0.2, 0.05))
+	_text(root, Rect2(text.position, Vector2(text.size.x, text.size.y * 0.5)), "SMASH ATLAS", int(44 * s), Color(1, 0.95, 0.6), int(4 * s), Color(0.05, 0.2, 0.05))
 	_text(root, Rect2(text.position + Vector2(0, text.size.y * 0.45), Vector2(text.size.x, text.size.y * 0.25)), "PLAY FREE WITH FRIENDS", int(18 * s), Color.WHITE)
 	_text(root, Rect2(text.position + Vector2(0, text.size.y * 0.68), Vector2(text.size.x, text.size.y * 0.25)), "maxims.top/village", int(20 * s), Color(0.6, 1, 0.6))
 

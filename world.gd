@@ -4,6 +4,19 @@ extends Node3D
 ## the bots and the traffic all find the right place.
 
 
+func _ready() -> void:
+	apply_settings()
+	# The menu's loading screen came along over the build; the game is running now.
+	for k in 3:
+		await get_tree().process_frame
+	LoadingScreen.finish_on(get_tree())
+
+
+## Graphics quality from the settings (settings.gd calls this again when they change).
+func apply_settings() -> void:
+	get_tree().root.get_node("Settings").call("apply_scene", self)
+
+
 func _enter_tree() -> void:
 	var district := get_node_or_null("Diorama/District")
 	if district == null:

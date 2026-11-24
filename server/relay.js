@@ -1,4 +1,4 @@
-// Gacha Village multiplayer relay.
+// Smash Atlas multiplayer relay.
 //
 // A dumb WebSocket hub: every JSON message a client sends is stamped with its
 // id and forwarded to everyone else in the same room. The server also picks a
@@ -128,4 +128,4 @@ setInterval(() => {
   }
 }, 15000);
 
-console.log(`Gacha Village relay on ws://${HOST}:${PORT}`);
+console.log(`Smash Atlas relay on ws://${HOST}:${PORT}`);

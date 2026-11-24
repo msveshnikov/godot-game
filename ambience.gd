@@ -21,6 +21,7 @@ func _ready() -> void:
 		var player := AudioStreamPlayer.new()
 		player.stream = _looping(layer[0])
 		player.volume_db = layer[1]
+		player.bus = &"Ambience" # its own volume slider (settings.gd)
 		player.autoplay = true
 		add_child(player)
 	if swing_position != Vector3.ZERO:
@@ -30,6 +31,7 @@ func _ready() -> void:
 		creak.unit_size = 4.0
 		creak.max_distance = 35.0
 		creak.volume_db = -8.0
+		creak.bus = &"Ambience"
 		creak.autoplay = true
 		add_child(creak)
 

@@ -27,6 +27,17 @@ const AUTO_YAW_RATE := 0.9
 const AUTO_YAW_RUN_RATE := 1.2
 const AUTO_YAW_MAX_ANGLE := 2.0 # ~115°: further back counts as backing up, no turning
 const AUTO_PITCH_RATE := 2.5
+## What smashing things pays (coins popping out) and how much heat it draws (police.gd).
+const CASH_DENT := 5
+const CASH_CRACK := 10
+const CASH_SMASH := 25
+const CASH_CAR := 40
+const DENTS_PAID_PER_CAR := 6
+const HEAT_DENT := 3.0
+const HEAT_CRACK := 5.0
+const HEAT_SMASH := 10.0
+const HEAT_CAR := 30.0
+const HEAT_KILL := 20.0
 const RUN_FOOTSTEP_SOUNDS: Array[AudioStream] = [
 	preload("res://addons/cogito/Assets/Audio/Kenney/Footsteps/footstep00.ogg"),
 	preload("res://addons/cogito/Assets/Audio/Kenney/Footsteps/footstep01.ogg"),
@@ -65,13 +76,19 @@ var _health_label: Label
 var _weapon_label: Label
 var _bat_sound: AudioStreamPlayer
 var _woosh_sound: AudioStreamPlayer
-var _start_screen: Control
 var _game_over_screen: Control
-var _name_edit: LineEdit
+var _pause_screen: Control
+var _pause_button: Button
+var _paused := false
 var _crosshair: Crosshair
 var _damage_flash: ColorRect
 var _protection := 0.0
 var _auto_yaw_speed := 0.0
+var _money_label: Label
+var _toast_label: Label
+var _police: Police
+## Bat blows paid so far per car ("<cars node id>:<index>"), so one car can't be farmed forever.
+var _dents_paid := {}
 
 
 func _ready() -> void:
@@ -106,6 +123,14 @@ func _ready() -> void:
 	add_child(_footstep_sound)
 	_setup_game_ui()
 	_update_health_ui()
+	_police = Police.new()
+	_police.name = "Police"
+	_police.player = self
+	get_parent().add_child.call_deferred(_police)
+	Game.money_changed.connect(_on_money_changed)
+	model.call("apply_look", Game.look)
+	_start_game.call_deferred()
+	Game.look_changed.connect(func() -> void: model.call("apply_look", Game.look))
 
 
 ## Autumn leaves drifting down around the player, wherever they go.
@@ -151,7 +176,7 @@ func _add_falling_leaves() -> void:
 
 ## True while this player is in the world and can be targeted (not on the start or game-over screen).
 func is_playing() -> bool:
-	return _game_started and not _game_over
+	return _game_started and not _game_over and not _paused
 
 
 ## People run away from a player holding a pistol or a bat.
@@ -185,8 +210,10 @@ func _process(delta: float) -> void:
 	model.set("has_aim_point", true)
 	if _crosshair != null:
 		_crosshair.visible = is_playing() and weapon == "pistol"
-	_fit_game_screen(_start_screen)
 	_fit_game_screen(_game_over_screen)
+	_fit_game_screen(_pause_screen)
+	if _pause_button != null:
+		_pause_button.visible = is_playing()
 	if _mobile_controls != null:
 		_mobile_controls.visible = is_playing()
 		if _mobile_controls.fire_held:
@@ -199,7 +226,7 @@ func _process(delta: float) -> void:
 
 
 func _input(event: InputEvent) -> void:
-	if not _game_started or _game_over:
+	if not is_playing():
 		return
 
 	if event is InputEventKey and event.pressed and not event.echo:
@@ -224,20 +251,26 @@ func _input(event: InputEvent) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _paused and event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+		get_viewport().set_input_as_handled()
+		_resume()
+		return
 	if not is_playing():
 		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		_apply_look_delta(event.relative)
-	elif event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	elif event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+		get_viewport().set_input_as_handled()
+		_pause()
 	elif event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_E:
 		_interact()
 
 
 func _apply_look_delta(relative: Vector2) -> void:
-	rotate_y(-relative.x * mouse_sensitivity)
-	var vertical_mouse_direction := 1.0 if invert_mouse_y else -1.0
-	camera_pivot.rotate_x(relative.y * mouse_sensitivity * vertical_mouse_direction)
+	var sensitivity := mouse_sensitivity * Settings.look_sensitivity
+	rotate_y(-relative.x * sensitivity)
+	var vertical_mouse_direction := 1.0 if invert_mouse_y != Settings.invert_y else -1.0
+	camera_pivot.rotate_x(relative.y * sensitivity * vertical_mouse_direction)
 	camera_pivot.rotation.x = clampf(camera_pivot.rotation.x, deg_to_rad(-60.0), deg_to_rad(35.0))
 
 
@@ -321,7 +354,8 @@ func _bat_hit() -> void:
 	forward.y = 0.0
 	forward = forward.normalized()
 	var hit_any := false
-	for villager in get_tree().get_nodes_in_group("villagers"):
+	var people := get_tree().get_nodes_in_group("villagers") + get_tree().get_nodes_in_group("police")
+	for villager in people:
 		var body := villager as Node3D
 		if not body.call("can_be_hit"):
 			continue
@@ -332,6 +366,10 @@ func _bat_hit() -> void:
 		if to_body.length() > 0.4 and forward.dot(to_body.normalized()) < 0.45:
 			continue
 		body.call("receive_hit", "bat")
+		if body.is_in_group("villagers"):
+			_police.add_heat(HEAT_KILL)
+		else:
+			ShotFx.blood(get_tree().current_scene, body.global_position + Vector3.UP * 1.2, forward)
 		hit_any = true
 	var net_world := get_tree().current_scene.get_node_or_null("NetWorld")
 	for remote in get_tree().get_nodes_in_group("remote_players"):
@@ -398,8 +436,14 @@ func _bat_hit_world(forward: Vector3) -> bool:
 				point = on_body["point"]
 				glass = on_body["glass"]
 				push = (-(on_body["normal"] as Vector3) * 0.7 + (xf.basis.inverse() * swing) * 0.3).normalized()
-			if owner.call("dent_car", index, point, push, glass) and net_world != null:
-				net_world.call("broadcast_dent", "traffic" if owner.name == "Traffic" else "parked", index, point, push, glass)
+			if owner.call("dent_car", index, point, push, glass):
+				if net_world != null:
+					net_world.call("broadcast_dent", "traffic" if owner.name == "Traffic" else "parked", index, point, push, glass)
+				var key := "%d:%d" % [owner.get_instance_id(), index]
+				var paid := int(_dents_paid.get(key, 0))
+				if paid < DENTS_PAID_PER_CAR:
+					_dents_paid[key] = paid + 1
+					_reward(best["position"], CASH_DENT, HEAT_DENT)
 			return true
 	_smash_window(best, net_world)
 	return true
@@ -411,8 +455,14 @@ func _smash_window(hit: Dictionary, net_world: Node) -> void:
 	if owner == null or not owner.has_method("smash_window"):
 		return
 	var point: Vector3 = hit["position"]
-	if int(owner.call("smash_window", point)) > 0 and net_world != null:
-		net_world.call("broadcast_window", point)
+	var stage := int(owner.call("smash_window", point))
+	if stage > 0:
+		if net_world != null:
+			net_world.call("broadcast_window", point)
+		if stage == 1:
+			_reward(point, CASH_CRACK, HEAT_CRACK)
+		else:
+			_reward(point, CASH_SMASH, HEAT_SMASH)
 
 
 func _pull_trigger() -> void:
@@ -440,7 +490,14 @@ func _fire_shot() -> void:
 	var flesh := false
 	var net_world := scene.get_node_or_null("NetWorld")
 	if target != null and target.is_in_group("villagers"):
+		if target.call("can_be_hit"):
+			_police.add_heat(HEAT_KILL)
 		target.call("receive_hit", "pistol")
+		flesh = true
+	elif target != null and target.is_in_group("police"):
+		var wound := pistol_damage((target as Node3D).global_position, end, muzzle.direction_to(end))
+		target.call("take_damage", float(wound[0]))
+		_crosshair.show_hit(wound[1] == "head")
 		flesh = true
 	elif target != null and target.is_in_group("remote_players"):
 		var damage := pistol_damage((target as Node3D).global_position - Vector3.UP * 0.9, end, muzzle.direction_to(end))
@@ -476,8 +533,11 @@ func _shoot_car(hit: Dictionary, net_world: Node) -> void:
 	if index < 0:
 		return
 	var s: float = cars.call("car_progress", index)
-	if cars.call("blow_up_car", index, s, Net.my_id) and net_world != null:
-		net_world.call("broadcast_car", "traffic" if cars.name == "Traffic" else "parked", index, s)
+	if cars.call("blow_up_car", index, s, Net.my_id):
+		if net_world != null:
+			net_world.call("broadcast_car", "traffic" if cars.name == "Traffic" else "parked", index, s)
+		var wreck: Transform3D = cars.call("car_transform", index)
+		_reward(wreck.origin + Vector3.UP * 1.0, CASH_CAR, HEAT_CAR)
 
 
 ## Camera ray from level with the player (so nothing between the camera and the
@@ -517,7 +577,7 @@ func _shoot_ray() -> Dictionary:
 func _shot_target(collider: Variant) -> Node:
 	var node := collider as Node
 	while node != null and node != get_tree().current_scene:
-		if node.is_in_group("villagers") or node.is_in_group("civilians") or node.is_in_group("remote_players"):
+		if node.is_in_group("villagers") or node.is_in_group("civilians") or node.is_in_group("remote_players") or node.is_in_group("police"):
 			return node
 		node = node.get_parent()
 	return null
@@ -567,7 +627,9 @@ func receive_damage(amount: float, attacker := 0, zone := "") -> void:
 		net_world.call("report_death", attacker, zone)
 	var how: String = {"head": " with a headshot", "bat": " with a bat", "blast": " with an exploding car"}.get(zone, "")
 	var text := "The villagers got you."
-	if zone == "blast" and (killer.is_empty() or attacker == Net.my_id):
+	if zone == "police":
+		text = "The police got you."
+	elif zone == "blast" and (killer.is_empty() or attacker == Net.my_id):
 		text = "You were too close to an exploding car."
 	elif not killer.is_empty():
 		text = "Killed by %s%s." % [killer, how]
@@ -604,6 +666,13 @@ func _get_aim_target() -> Vector3:
 
 func _physics_process(delta: float) -> void:
 	if not _game_started or _game_over:
+		return
+	if _paused:
+		velocity.x = 0.0
+		velocity.z = 0.0
+		if not is_on_floor():
+			velocity += get_gravity() * delta
+		move_and_slide()
 		return
 
 	if not is_on_floor():
@@ -658,24 +727,59 @@ func _setup_game_ui() -> void:
 	hud.add_child(_crosshair)
 	_health_label = _make_hud_label("Health: %d / %d" % [MAX_HEALTH, MAX_HEALTH], 24.0, 58.0, 22)
 	_weapon_label = _make_hud_label("", 58.0, 90.0, 18)
+	_money_label = _make_hud_label("", 88.0, 124.0, 26)
+	_money_label.add_theme_color_override("font_color", Color(1.0, 0.82, 0.25))
+	_money_label.pivot_offset = Vector2(0.0, 18.0)
+	_on_money_changed(Game.money)
+	_toast_label = Label.new()
+	_toast_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	_toast_label.offset_left = -360.0
+	_toast_label.offset_right = 360.0
+	_toast_label.offset_top = 96.0
+	_toast_label.offset_bottom = 140.0
+	_toast_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_toast_label.add_theme_font_size_override("font_size", 28)
+	_toast_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.55))
+	_toast_label.add_theme_color_override("font_outline_color", Color(0.1, 0.05, 0.02))
+	_toast_label.add_theme_constant_override("outline_size", 8)
+	_toast_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_toast_label.modulate.a = 0.0
+	hud.add_child(_toast_label)
 	_update_weapon_ui()
-	var district := get_node_or_null("../Diorama/District")
-	var intro: String = district.call("intro_text") if district != null and district.has_method("intro_text") else ""
-	_start_screen = _make_game_screen(
-		"GACHA VILLAGE",
-		intro + "\nPlay together: open the same game on another device and pick the same place.\n\nWASD move  |  Shift run  |  Space jump  |  Mouse look\nQ / click: fire or swing  |  1 pistol  2 bat  3 hands (or mouse wheel)\nPlayers can shoot each other: a headshot kills, a body hit takes 15-34, a bat 30.
-The bat dents cars and smashes shop windows; a bullet blows a car up.",
-		"START GAME",
-		_start_game,
-		true
-	)
-	_game_over_screen = _make_game_screen(
-		"GAME OVER",
-		"The villagers got you.",
-		"RESPAWN",
-		_restart_game
-	)
+	_game_over_screen = _make_game_screen("GAME OVER", "The villagers got you.", [
+		["SHOP", _open_shop, false],
+		["MENU", _to_main_menu, false],
+		["RESPAWN", _restart_game, true],
+	])
 	_game_over_screen.hide()
+	_pause_screen = _make_game_screen("PAUSED", _controls_text(), [
+		["RESUME", _resume, true],
+		["SHOP", _open_shop, false],
+		["SETTINGS", _open_settings, false],
+		["MAIN MENU", _to_main_menu, false],
+	])
+	_pause_screen.hide()
+	if _mobile_controls != null:
+		# Touch screens have no Esc: a pause button up by the status line.
+		_pause_button = Button.new()
+		_pause_button.text = "II"
+		_pause_button.theme = UiTheme.get_theme()
+		_pause_button.focus_mode = Control.FOCUS_NONE
+		_pause_button.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+		_pause_button.offset_left = -84.0
+		_pause_button.offset_right = -24.0
+		_pause_button.offset_top = 96.0
+		_pause_button.offset_bottom = 150.0
+		_pause_button.pressed.connect(_pause)
+		hud.add_child(_pause_button)
+
+
+## The controls, for the pause screen.
+func _controls_text() -> String:
+	if _mobile_controls != null:
+		return "Left thumb: walk, pull further to run  |  Right thumb: look\nFIRE: shoot or swing  |  SWAP: pistol, bat, hands  |  JUMP"
+	return "WASD move  |  Shift run  |  Space jump  |  Mouse look\nQ / click: fire or swing  |  1 pistol  2 bat  3 hands (or mouse wheel)
+Esc: pause"
 
 
 func _make_hud_label(label_text: String, top: float, bottom: float, font_size: int) -> Label:
@@ -693,40 +797,31 @@ func _make_hud_label(label_text: String, top: float, bottom: float, font_size: i
 	return label
 
 
-func _make_game_screen(title_text: String, message: String, button_text: String, action: Callable, with_name := false) -> Control:
+## A full-screen panel over the game (game over, pause): a title, a message and a
+## row of buttons [text, action, primary?]. Fitted to the screen every frame.
+func _make_game_screen(title_text: String, message: String, buttons: Array) -> Control:
 	var overlay := ColorRect.new()
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	overlay.color = Color(0.025, 0.045, 0.065, 0.84)
+	overlay.color = Color(0.025, 0.045, 0.065, 0.78)
 	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	overlay.theme = UiTheme.get_theme()
 	hud.add_child(overlay)
 
-	# The panel is placed by _fit_game_screen: never taller than the screen (minus
-	# an on-screen keyboard), with the long text scrolling and the button pinned below it.
 	var panel := PanelContainer.new()
-	var panel_style := StyleBoxFlat.new()
-	panel_style.bg_color = Color(0.08, 0.13, 0.16, 0.98)
-	panel_style.border_color = Color(0.76, 0.57, 0.3, 1.0)
-	panel_style.set_border_width_all(2)
-	panel_style.set_corner_radius_all(16)
-	panel.add_theme_stylebox_override("panel", panel_style)
 	overlay.add_child(panel)
-
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 28)
-	margin.add_theme_constant_override("margin_top", 16)
+	margin.add_theme_constant_override("margin_top", 18)
 	margin.add_theme_constant_override("margin_right", 28)
-	margin.add_theme_constant_override("margin_bottom", 18)
+	margin.add_theme_constant_override("margin_bottom", 22)
 	panel.add_child(margin)
 
 	var contents := VBoxContainer.new()
-	contents.add_theme_constant_override("separation", 12)
+	contents.add_theme_constant_override("separation", 14)
 	margin.add_child(contents)
 
-	var title := Label.new()
-	title.text = title_text
+	var title := UiTheme.heading(title_text, 40)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_color_override("font_color", Color(1.0, 0.86, 0.54, 1.0))
-	title.add_theme_font_size_override("font_size", 32)
 	contents.add_child(title)
 
 	var scroll := ScrollContainer.new()
@@ -739,46 +834,76 @@ func _make_game_screen(title_text: String, message: String, button_text: String,
 	description.text = message
 	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	description.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	description.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	description.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	description.add_theme_color_override("font_color", Color(0.91, 0.94, 0.91, 1.0))
-	description.add_theme_font_size_override("font_size", 18)
+	description.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	description.add_theme_font_size_override("font_size", 19)
 	scroll.add_child(description)
 
-	if with_name:
-		contents.add_child(_make_location_row())
-
-	# Name and button share one row so the button stays on screen in landscape.
-	var bottom := HBoxContainer.new()
-	bottom.alignment = BoxContainer.ALIGNMENT_CENTER
-	bottom.add_theme_constant_override("separation", 14)
-	contents.add_child(bottom)
-	if with_name:
-		_name_edit = LineEdit.new()
-		_name_edit.text = Net.player_name
-		_name_edit.placeholder_text = "Your name"
-		_name_edit.max_length = 16
-		_name_edit.alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_name_edit.custom_minimum_size = Vector2(240.0, 52.0)
-		_name_edit.add_theme_font_size_override("font_size", 20)
-		_name_edit.text_submitted.connect(func(_text: String) -> void: _start_game())
-		bottom.add_child(_name_edit)
-
-	var button := Button.new()
-	button.text = button_text
-	button.custom_minimum_size = Vector2(220.0, 52.0)
-	button.focus_mode = Control.FOCUS_NONE
-	button.add_theme_font_size_override("font_size", 20)
-	button.pressed.connect(action)
-	bottom.add_child(button)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 12)
+	contents.add_child(row)
+	for entry in buttons:
+		var button := Button.new()
+		button.text = entry[0]
+		button.focus_mode = Control.FOCUS_NONE
+		button.custom_minimum_size = Vector2(200.0 if entry[2] else 140.0, 56.0)
+		if entry[2]:
+			button.theme_type_variation = &"PrimaryButton"
+			button.add_theme_font_size_override("font_size", 24)
+		button.pressed.connect(entry[1])
+		row.add_child(button)
 	overlay.set_meta("description", description)
 	overlay.set_meta("panel", panel)
 	overlay.set_meta("scroll", scroll)
-	overlay.set_meta("max_height", 640.0 if with_name else 380.0)
+	overlay.set_meta("max_height", 420.0)
 	_fit_game_screen(overlay)
 	return overlay
 
 
-## Sizes and centres a start / game-over panel in the part of the screen the
+func _open_shop() -> void:
+	Shop.open(hud)
+
+
+func _open_settings() -> void:
+	SettingsPanel.open(hud)
+
+
+## Esc / the pause button: the pause menu over the game. The world (and the other
+## players) carry on; this player just stands there, safe from nothing.
+func _pause() -> void:
+	if not is_playing():
+		return
+	_paused = true
+	_pause_screen.show()
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	if _mobile_controls != null:
+		_mobile_controls.call("release_all")
+
+
+## Android's back button: pause, or back into the game from the pause menu.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST and _game_started and not _game_over:
+		if _paused:
+			_resume()
+		else:
+			_pause()
+
+
+func _resume() -> void:
+	_paused = false
+	_pause_screen.hide()
+	if _mobile_controls == null:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+func _to_main_menu() -> void:
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	get_tree().change_scene_to_file("res://main_menu.tscn")
+
+
+## Sizes and centres a game-over / pause panel in the part of the screen the
 ## on-screen keyboard leaves free. Called on creation and every frame while shown.
 func _fit_game_screen(overlay: Control) -> void:
 	if overlay == null or not overlay.visible:
@@ -792,51 +917,51 @@ func _fit_game_screen(overlay: Control) -> void:
 			keyboard = DisplayServer.virtual_keyboard_get_height() * view.y / window.y
 	var free_height := maxf(view.y - keyboard, 160.0)
 	var gap := 10.0
-	var width := minf(view.x - 2.0 * gap, 720.0)
+	var width := minf(view.x - 2.0 * gap, 760.0)
 	var height := minf(free_height - 2.0 * gap, float(overlay.get_meta("max_height")))
 	var rect := Rect2(Vector2((view.x - width) * 0.5, maxf((free_height - height) * 0.5, gap)), Vector2(width, height))
 	if panel.position != rect.position or panel.size != rect.size:
 		panel.position = rect.position
 		panel.size = rect.size
-		# A keyboard popping up can shrink the panel: keep the text box at its top.
 		(overlay.get_meta("scroll") as ScrollContainer).scroll_vertical = 0
 
 
-## One button per place (Net.LOCATIONS); the current one is lit. Picking another
-## rebuilds the world there and joins that place's multiplayer room.
-func _make_location_row() -> Control:
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 10)
-	for entry in Net.LOCATIONS:
-		var button := Button.new()
-		button.text = entry["name"]
-		button.toggle_mode = true
-		button.button_pressed = entry["id"] == Net.location
-		button.custom_minimum_size = Vector2(140.0, 44.0)
-		button.focus_mode = Control.FOCUS_NONE
-		button.add_theme_font_size_override("font_size", 18)
-		var lit := StyleBoxFlat.new()
-		lit.bg_color = Color(0.76, 0.57, 0.3)
-		lit.set_corner_radius_all(8)
-		button.add_theme_stylebox_override("pressed", lit)
-		button.add_theme_stylebox_override("hover_pressed", lit)
-		button.add_theme_color_override("font_pressed_color", Color(0.08, 0.1, 0.12))
-		button.add_theme_color_override("font_hover_pressed_color", Color(0.08, 0.1, 0.12))
-		var id: String = entry["id"]
-		button.pressed.connect(func() -> void: _choose_location(id, button))
-		row.add_child(button)
-	return row
+## Coins worth `cash` pop out at `at` (toward the player), and the police take note.
+func _reward(at: Vector3, cash: int, heat: float) -> void:
+	Coins.spawn(get_parent(), at, cash, global_position)
+	if _police != null:
+		_police.add_heat(heat)
 
 
-func _choose_location(id: String, button: Button) -> void:
-	if id == Net.location:
-		button.button_pressed = true
+## A line of news in the middle of the screen for a few seconds.
+func show_toast(text: String) -> void:
+	if _toast_label == null:
 		return
-	if _name_edit != null:
-		Net.set_player_name(_name_edit.text)
-	Net.set_location(id)
-	get_tree().reload_current_scene()
+	_toast_label.text = text
+	_toast_label.modulate.a = 1.0
+	var tween := _toast_label.create_tween()
+	tween.tween_interval(2.5)
+	tween.tween_property(_toast_label, "modulate:a", 0.0, 0.8)
+
+
+func _on_money_changed(value: int) -> void:
+	if _money_label == null:
+		return
+	var before := _money_label.text
+	_money_label.text = "$ %s" % _thousands(value)
+	if not before.is_empty() and before != _money_label.text:
+		_money_label.scale = Vector2.ONE * 1.25
+		_money_label.create_tween().tween_property(_money_label, "scale", Vector2.ONE, 0.25)
+
+
+## 12345 -> "12,345"
+static func _thousands(value: int) -> String:
+	var digits := str(absi(value))
+	var out := ""
+	while digits.length() > 3:
+		out = "," + digits.right(3) + out
+		digits = digits.left(digits.length() - 3)
+	return ("-" if value < 0 else "") + digits + out
 
 
 func _update_weapon_ui() -> void:
@@ -858,10 +983,6 @@ func _start_game() -> void:
 	if _game_started:
 		return
 	_game_started = true
-	if _name_edit != null:
-		Net.set_player_name(_name_edit.text)
-		_name_edit.release_focus()
-	_start_screen.hide()
 	if _mobile_controls == null:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
@@ -870,6 +991,14 @@ func _end_game() -> void:
 	if _game_over:
 		return
 	_game_over = true
+	var lost := Game.lose_on_death()
+	if lost > 0:
+		var label := _game_over_screen.get_meta("description", null) as Label
+		if label != null:
+			label.text += "
+You dropped $%d." % lost
+	if _police != null:
+		_police.stand_down()
 	_game_over_screen.show()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	velocity = Vector3.ZERO

@@ -66,6 +66,67 @@ static func apply(npc: Node, index: int) -> void:
 		mannequin.set_surface_override_material(surface, material)
 
 
+## A police officer: navy long-sleeved shirt and trousers, black shoes, and a peaked
+## cap on the head bone; `female` gets her hair long. `index` picks the skin and hair.
+static func apply_police(npc: Node, index: int, female: bool) -> void:
+	apply(npc, index)
+	var mannequin := npc.get_node_or_null("Rig/Skeleton3D/Mannequin") as MeshInstance3D
+	if mannequin == null:
+		return
+	var material := mannequin.get_surface_override_material(0) as ShaderMaterial
+	material.set_shader_parameter("shirt_color", Color(0.13, 0.19, 0.36))
+	material.set_shader_parameter("stripes", 0.0)
+	material.set_shader_parameter("hem_height", 0.125)
+	material.set_shader_parameter("pants_color", Color(0.07, 0.09, 0.17))
+	material.set_shader_parameter("denim", 0.0)
+	material.set_shader_parameter("sleeve_end", 0.68)
+	material.set_shader_parameter("long_hair", 1.0 if female else 0.0)
+	material.set_shader_parameter("shoe_color", Color(0.04, 0.04, 0.05))
+	var skeleton := npc.get_node_or_null("Rig/Skeleton3D") as Skeleton3D
+	if skeleton == null or skeleton.find_bone("DEF-head") < 0 or skeleton.has_node("PoliceCap"):
+		return
+	var attachment := BoneAttachment3D.new()
+	attachment.name = "PoliceCap"
+	attachment.bone_name = "DEF-head"
+	skeleton.add_child(attachment)
+	var navy := StandardMaterial3D.new()
+	navy.albedo_color = Color(0.08, 0.11, 0.22)
+	navy.roughness = 0.7
+	var black := StandardMaterial3D.new()
+	black.albedo_color = Color(0.02, 0.02, 0.025)
+	black.roughness = 0.3
+	var gold := StandardMaterial3D.new()
+	gold.albedo_color = Color(0.95, 0.75, 0.25)
+	gold.metallic = 0.8
+	gold.roughness = 0.3
+	var crown := CylinderMesh.new()
+	crown.top_radius = 0.125
+	crown.bottom_radius = 0.105
+	crown.height = 0.075
+	crown.radial_segments = 16
+	crown.material = navy
+	var peak := CylinderMesh.new()
+	peak.top_radius = 0.09
+	peak.bottom_radius = 0.09
+	peak.height = 0.012
+	peak.radial_segments = 12
+	peak.material = black
+	var badge := BoxMesh.new()
+	badge.size = Vector3(0.035, 0.035, 0.01)
+	badge.material = gold
+	for part in [
+		[crown, Vector3(0.0, 0.205, -0.005), Vector3.ZERO, Vector3.ONE],
+		[peak, Vector3(0.0, 0.17, 0.085), Vector3(0.25, 0.0, 0.0), Vector3(1.0, 1.0, 0.6)],
+		[badge, Vector3(0.0, 0.21, 0.112), Vector3(-0.2, 0.0, 0.0), Vector3.ONE],
+	]:
+		var mesh := MeshInstance3D.new()
+		mesh.mesh = part[0]
+		mesh.position = part[1]
+		mesh.rotation = part[2]
+		mesh.scale = part[3]
+		attachment.add_child(mesh)
+
+
 static func _pick(options: Array, rng: RandomNumberGenerator) -> Color:
 	return options[rng.randi() % options.size()]
 

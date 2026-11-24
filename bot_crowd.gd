@@ -105,6 +105,56 @@ func pick_next(current: int, previous: int, rng: RandomNumberGenerator) -> int:
 	return options[rng.randi() % options.size()]
 
 
+## Shortest walk over the street graph from node `from` to node `to` (Dijkstra),
+## both ends included; empty if they aren't connected.
+func path_between(from: int, to: int) -> Array[int]:
+	var result: Array[int] = []
+	if from < 0 or to < 0 or from >= NODES.size() or to >= NODES.size():
+		return result
+	var distance := {from: 0.0}
+	var previous := {}
+	var open: Array[int] = [from]
+	var done := {}
+	while not open.is_empty():
+		var best := 0
+		for k in open.size():
+			if float(distance[open[k]]) < float(distance[open[best]]):
+				best = k
+		var node: int = open[best]
+		open.remove_at(best)
+		if node == to:
+			break
+		done[node] = true
+		for next in _adjacency[node]:
+			if done.has(next):
+				continue
+			var through := float(distance[node]) + NODES[node].distance_to(NODES[next])
+			if not distance.has(next) or through < float(distance[next]):
+				if not distance.has(next):
+					open.append(next)
+				distance[next] = through
+				previous[next] = node
+	if not distance.has(to):
+		return result
+	var at := to
+	while at != from:
+		result.push_front(at)
+		at = previous[at]
+	result.push_front(from)
+	return result
+
+
+## Graph nodes in a distance band around `around` (game xz), for picking where a police car comes from.
+func nodes_between(around: Vector3, near: float, far: float) -> Array[int]:
+	var result: Array[int] = []
+	var flat := Vector2(around.x, around.z)
+	for index in NODES.size():
+		var d := NODES[index].distance_to(flat)
+		if d >= near and d <= far:
+			result.append(index)
+	return result
+
+
 ## A random node well away from every player, so respawns don't happen in someone's face.
 func respawn_position(rng: RandomNumberGenerator) -> Vector3:
 	var players := _active_players()
