@@ -51,7 +51,7 @@
   phone) brings up the pause menu.
 - **Smash for cash, then shop.** Every dent, cracked or smashed shop window and blown-up car pays out in gold coins
   that pop out and fly into your pockets when you walk up to them. Spend them in the shop (start and game-over
-  screens): T-shirt and jeans colours, caps and sunglasses (a second character is on the way). Money and looks are saved on the
+  screens): T-shirt and jeans colours, caps, sunglasses, and Alice, a second character. Money and looks are saved on the
   device; die and you drop a quarter of it.
 - **Heat and the police.** Violence fills a heat meter that cools off slowly while you behave. When it tops out a
   patrol car comes in along the streets with lights and siren, and two officers, a man and a woman, get out and
@@ -73,6 +73,15 @@
 | ![Aisles inside the supermarket](screenshots/supermarket_inside.jpg) | ![Na Skalkách with parked cars](screenshots/street.jpg) |
 | ![Graffiti on the garage row under the towers](screenshots/garages.jpg) | ![The grassy hill by the poliklinika](screenshots/hill.jpg) |
 | ![Flower boxes, washing and curtains on the loggias](screenshots/loggias.jpg) | ![Car models built in Blender](blender/renders/vehicles/car_octavia_combi_front.png) |
+
+## Alice
+The second player character (`female_player.glb`) is built by `blender/scripts/build_female_player.py`
+(`blender -b --factory-startup -P blender/scripts/build_female_player.py`): a Skin-modifier skeleton subdivided
+into one smooth body and shaped (waist, hips, chest), a head with face details, a hair cap and a ponytail, all
+coloured by region rules (T-shirt, jeans, sneakers, skin) and baked by Cycles into one texture. Her joints sit
+exactly where Max's are (hips 0.86 m, shoulders 1.43 m at 0.22 m out, A-posed palms), so the same procedural rig
+in `player_body.gdshader` walks, runs and aims with her; the shop's recolouring and the cap and sunglasses fit
+her too (`HEADS` in `player_model_animator.gd`). Previews in `blender/renders/alice_*.png`.
 
 ## Menus
 `main_menu.tscn` (`main_menu.gd`) is the first scene: a picture of the chosen place (`assets/ui/place_*.webp`,

@@ -129,6 +129,7 @@ void fragment() {
 		// T-shirt: dark, above the waist; the print on it stays.
 		float top = smoothstep(waist_height - 0.04, waist_height + 0.02, rest.y) * (1.0 - smoothstep(neck_height - 0.03, neck_height + 0.01, rest.y));
 		float dark = 1.0 - smoothstep(0.1, 0.22, max(c.r, max(c.g, c.b)));
+		dark *= 1.0 - smoothstep(0.012, 0.025, c.r - c.b); // neutral black, not dark brown hair
 		vec3 shirt = shirt_tint.rgb * (0.5 + luma * 6.0);
 		c = mix(c, shirt, top * dark * shirt_tint.a);
 		// Jeans: bluer than red or green, below the waist (not the shoes).

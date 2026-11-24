@@ -36,7 +36,7 @@ const FEMALE_MODEL := "res://female_player.glb"
 ## front of the face and the back of the head, the head's half width, its top.
 const HEADS := {
 	"male": {"eyes": 1.737, "front": 0.124, "half_width": 0.1, "top": 1.89, "back": -0.115},
-	"female": {"eyes": 1.737, "front": 0.124, "half_width": 0.1, "top": 1.89, "back": -0.115},
+	"female": {"eyes": 1.676, "front": 0.09, "half_width": 0.086, "top": 1.8, "back": -0.11},
 }
 
 ## World point the gun aims at while raised; set every frame by the owner (camera ray for the
