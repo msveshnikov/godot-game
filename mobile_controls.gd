@@ -3,7 +3,8 @@ class_name MobileControls
 ## On-screen controls for phones and touch browsers.
 ## Left part of the screen: a floating stick; pull the thumb past the outer ring to run.
 ## Right part: drag to look. FIRE sits under the right thumb; hold it to keep firing and
-## slide the thumb off it to aim while shooting. JUMP and SWAP are the small ones beside it.
+## slide the thumb off it to aim while shooting. JUMP and WEAPON (next weapon, with the one in
+## hand drawn on it) are the small ones beside it.
 ## Buttons track their own touch index, so they work together with the stick (multi-touch).
 
 signal swap_pressed
@@ -18,13 +19,16 @@ const TEXT_COL := Color(1.0, 1.0, 1.0, 0.92)
 const BUTTONS := [
 	{"id": "fire", "off": Vector2(-118, -128), "r": 66.0, "label": "FIRE"},
 	{"id": "jump", "off": Vector2(-250, -70), "r": 38.0, "label": "JUMP"},
-	{"id": "swap", "off": Vector2(-70, -268), "r": 36.0, "label": "SWAP"},
+	{"id": "swap", "off": Vector2(-74, -276), "r": 42.0, "label": "WEAPON"},
 ]
 
 var movement_direction := Vector2.ZERO
 var run_pressed := false
 var jump_pressed := false
 var fire_held := false
+## The weapon in hand ("pistol", "bat", "bazooka", "none"), drawn on the WEAPON button.
+var weapon := "pistol"
+var loaded := true
 
 var _pad: Control
 var _font: Font
@@ -185,6 +189,10 @@ func _draw_pad() -> void:
 		var edge := Color(1, 1, 1, 0.9 if down else 0.55)
 		_pad.draw_circle(c, r, bg)
 		_pad.draw_arc(c, r, 0.0, TAU, 56, edge, 3.0 if fire else 2.0, true)
+		if b["id"] == "swap":
+			WeaponIcons.draw(_pad, weapon, c + Vector2(0, -9), 0.95, Color(1, 1, 1, 0.92), Color(0.9, 0.25, 0.15, 1.0 if loaded else 0.0))
+			_text(b["label"], c + Vector2(0, 19), 12, TEXT_COL)
+			continue
 		_text(b["label"], c, 24 if fire else 15, TEXT_COL)
 
 

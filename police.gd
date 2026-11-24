@@ -426,7 +426,7 @@ func _build_hud(layer: CanvasLayer) -> void:
 	if layer == null:
 		return
 	_hud = VBoxContainer.new()
-	_hud.position = Vector2(24.0, 128.0)
+	_hud.position = Vector2(24.0, 96.0)
 	_hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_hud.add_theme_constant_override("separation", 2)
 	layer.add_child(_hud)

@@ -77,8 +77,8 @@ var _fire_sound: AudioStreamPlayer
 var _footstep_sound: AudioStreamPlayer
 var _footstep_timer := 0.0
 var _mobile_controls: MobileControls
-var _health_label: Label
-var _weapon_label: Label
+var _health_bar: HealthBar
+var _weapon_bar: WeaponBar
 var _bat_sound: AudioStreamPlayer
 var _woosh_sound: AudioStreamPlayer
 var _game_over_screen: Control
@@ -214,6 +214,8 @@ func _cycle_weapon(step: int) -> void:
 
 
 func _is_touch_device() -> bool:
+	if OS.get_cmdline_user_args().has("--touch"): # tools: see the phone layout on a PC
+		return true
 	if OS.has_feature("mobile") or OS.has_feature("web_android") or OS.has_feature("web_ios"):
 		return true
 	return OS.has_feature("web") and DisplayServer.is_touchscreen_available()
@@ -233,6 +235,8 @@ func _process(delta: float) -> void:
 	_fit_game_screen(_pause_screen)
 	if _pause_button != null:
 		_pause_button.visible = is_playing()
+	if _weapon_bar != null:
+		_weapon_bar.visible = is_playing()
 	if _mobile_controls != null:
 		_mobile_controls.visible = is_playing()
 		if _mobile_controls.fire_held:
@@ -827,9 +831,10 @@ func _setup_game_ui() -> void:
 	_crosshair = Crosshair.new()
 	_crosshair.visible = false
 	hud.add_child(_crosshair)
-	_health_label = _make_hud_label("Health: %d / %d" % [MAX_HEALTH, MAX_HEALTH], 24.0, 58.0, 22)
-	_weapon_label = _make_hud_label("", 58.0, 90.0, 18)
-	_money_label = _make_hud_label("", 88.0, 124.0, 26)
+	_health_bar = HealthBar.new()
+	_health_bar.position = Vector2(20.0, 18.0)
+	hud.add_child(_health_bar)
+	_money_label = _make_hud_label("", 54.0, 90.0, 26)
 	_money_label.add_theme_color_override("font_color", Color(1.0, 0.82, 0.25))
 	_money_label.pivot_offset = Vector2(0.0, 18.0)
 	_on_money_changed(Game.money)
@@ -847,6 +852,20 @@ func _setup_game_ui() -> void:
 	_toast_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_toast_label.modulate.a = 0.0
 	hud.add_child(_toast_label)
+	# The weapon slots: along the bottom on a keyboard, along the top on a touch
+	# screen (the thumbs' controls fill the bottom corners there), tap to pick.
+	_weapon_bar = WeaponBar.new()
+	_weapon_bar.show_keys = _mobile_controls == null
+	_weapon_bar.bazooka_price = Game.BAZOOKA_PRICE
+	_weapon_bar.max_rockets = Game.MAX_ROCKETS
+	hud.add_child(_weapon_bar)
+	if _mobile_controls == null:
+		_weapon_bar.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM, Control.PRESET_MODE_KEEP_SIZE, 14)
+	else:
+		_weapon_bar.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP, Control.PRESET_MODE_KEEP_SIZE, 10)
+	_weapon_bar.picked.connect(func(kind: String) -> void:
+		if is_playing():
+			set_weapon(kind))
 	_update_weapon_ui()
 	_game_over_screen = _make_game_screen("GAME OVER", "The villagers got you.", [
 		["SHOP", _open_shop, false],
@@ -879,7 +898,7 @@ func _setup_game_ui() -> void:
 ## The controls, for the pause screen.
 func _controls_text() -> String:
 	if _mobile_controls != null:
-		return "Left thumb: walk, pull further to run  |  Right thumb: look\nFIRE: shoot or swing  |  SWAP: pistol, bat, bazooka, hands  |  JUMP"
+		return "Left thumb: walk, pull further to run  |  Right thumb: look\nFIRE: shoot or swing  |  WEAPON (or tap the slots up top): pistol, bat, hands, bazooka  |  JUMP"
 	return "WASD move  |  Shift run  |  Space jump  |  Mouse look\nQ / click: fire or swing  |  1 pistol  2 bat  3 hands  4 bazooka (or mouse wheel)
 Esc: pause"
 
@@ -1067,15 +1086,11 @@ static func _thousands(value: int) -> String:
 
 
 func _update_weapon_ui() -> void:
-	if _weapon_label == null:
-		return
-	var held: String = WEAPON_NAMES[weapon]
-	if weapon == "bazooka":
-		held += "  %d / %d rockets" % [Game.rockets, Game.MAX_ROCKETS]
-	var keys := "[1] pistol  [2] bat  [3] hands"
-	if Game.has_bazooka:
-		keys += "  [4] bazooka"
-	_weapon_label.text = "%s   %s" % [held, keys]
+	if _weapon_bar != null:
+		_weapon_bar.set_state(weapon, Game.has_bazooka, Game.rockets)
+	if _mobile_controls != null:
+		_mobile_controls.weapon = weapon
+		_mobile_controls.loaded = Game.rockets > 0
 
 
 func _on_arsenal_changed() -> void:
@@ -1086,13 +1101,8 @@ func _on_arsenal_changed() -> void:
 
 
 func _update_health_ui() -> void:
-	if _health_label == null:
-		return
-	_health_label.text = "Health: %d / %d" % [health, MAX_HEALTH]
-	_health_label.add_theme_color_override(
-		"font_color",
-		Color(1.0, 0.94, 0.75, 1.0) if health > 30 else Color(1.0, 0.35, 0.28, 1.0)
-	)
+	if _health_bar != null:
+		_health_bar.set_health(health, MAX_HEALTH)
 
 
 func _start_game() -> void:
