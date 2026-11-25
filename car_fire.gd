@@ -186,7 +186,7 @@ static func blast(tree: SceneTree, centre: Vector3, by: int) -> void:
 	for villager in tree.get_nodes_in_group("villagers"):
 		var body := villager as Node3D
 		if body.global_position.distance_to(centre) < VILLAGER_KILL_RADIUS and body.call("can_be_hit"):
-			body.call("receive_hit", "blast")
+			body.call("receive_hit", "blast", by)
 
 
 static func _particles(parent: Node3D, at: Vector3, amount: int, lifetime: float, material: Material, size_min: float, size_max: float) -> CPUParticles3D:

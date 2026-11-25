@@ -322,7 +322,7 @@ static func _hurt(tree: SceneTree, at: Vector3, by: int) -> void:
 	for villager in tree.get_nodes_in_group("villagers"):
 		var body := villager as Node3D
 		if not body.get("puppet") and body.global_position.distance_to(at) < KILL_RADIUS and body.call("can_be_hit"):
-			body.call("receive_hit", "blast")
+			body.call("receive_hit", "blast", by)
 
 
 ## A crater where it hit the ground: a scorched patch, a bowl of churned earth

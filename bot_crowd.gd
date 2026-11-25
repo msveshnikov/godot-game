@@ -291,7 +291,7 @@ func _on_message(from: int, data: Dictionary) -> void:
 		"hit":
 			var index := int(data.get("i", -1))
 			if Net.is_host() and index >= 0 and index < bots.size():
-				bots[index].call("receive_hit", str(data.get("k", "pistol")))
+				bots[index].call("receive_hit", str(data.get("k", "pistol")), from)
 
 
 func _on_host_changed() -> void:

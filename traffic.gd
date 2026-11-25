@@ -193,6 +193,10 @@ func car_mesh(index: int) -> Mesh:
 
 ## A bat blow at `point`, the bat moving along `dir` (both in the car's own space):
 ## the car dents, its windows craze, the driver honks and drives on. Not a wreck.
+func car_is_dented(index: int) -> bool:
+	return index >= 0 and index < _cars.size() and _cars[index]["battered"] != null
+
+
 func dent_car(index: int, point: Vector3, dir: Vector3, glass: bool) -> bool:
 	if index < 0 or index >= _cars.size() or _cars[index]["wreck"] != null:
 		return false

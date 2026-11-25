@@ -101,19 +101,19 @@ func broadcast_car(kind: String, index: int, s: float) -> void:
 
 ## The local player dented a car with the bat: where and which way (car space),
 ## and whether it was a window.
-func broadcast_dent(kind: String, index: int, point: Vector3, dir: Vector3, glass: bool) -> void:
-	Net.send({"t": "dn", "w": kind, "i": index, "p": _vec3(point), "d": _vec3(dir), "g": glass})
+func broadcast_dent(kind: String, index: int, point: Vector3, dir: Vector3, glass: bool, first: bool) -> void:
+	Net.send({"t": "dn", "w": kind, "i": index, "p": _vec3(point), "d": _vec3(dir), "g": glass, "first": first})
 
 
 ## The local player fired the bazooka: others see the rocket fly (harmless) until
 ## its blast arrives (broadcast_blast).
-func broadcast_rocket(origin: Vector3, direction: Vector3) -> void:
-	Net.send({"t": "rf", "o": _vec(origin), "d": _vec3(direction)})
+func broadcast_rocket(origin: Vector3, direction: Vector3, rocket_id: int) -> void:
+	Net.send({"t": "rf", "rocket": rocket_id, "o": _vec(origin), "d": _vec3(direction)})
 
 
 ## The local player's rocket blew up at `at` ("ground", "wall", "car", "body", "air").
-func broadcast_blast(at: Vector3, normal: Vector3, surface: String) -> void:
-	Net.send({"t": "rx", "p": _vec(at), "nm": _vec3(normal), "s": surface})
+func broadcast_blast(at: Vector3, normal: Vector3, surface: String, rocket_id: int) -> void:
+	Net.send({"t": "rx", "rocket": rocket_id, "p": _vec(at), "nm": _vec3(normal), "s": surface})
 
 
 ## The local player cracked or smashed a shop window at `point`.

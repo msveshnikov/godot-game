@@ -142,6 +142,7 @@ func _left_column() -> Control:
 	play.add_theme_font_size_override("font_size", 34)
 	column.add_child(play)
 	column.add_child(_menu_button("SHOP", func() -> void: Shop.open(_layer)))
+	column.add_child(_menu_button("LEADERBOARD", _show_leaderboard))
 	column.add_child(_menu_button("SETTINGS", func() -> void: SettingsPanel.open(_layer)))
 	column.add_child(_menu_button("HOW TO PLAY", _how_to_play))
 	if not (OS.has_feature("web") or OS.has_feature("mobile")):
@@ -373,6 +374,34 @@ func _how_to_play() -> void:
 		"[b]Bazooka.[/b] Buy it in the SHOP for $1000, then $100 a rocket, five at most. One rocket takes out every car around, blows the shop windows in, knocks holes in buildings (skyscrapers too) and leaves craters in the street.\n\n" + \
 		"[b]Mind the heat.[/b] Every act of violence fills the heat meter; it cools down if you behave. When it tops out, a patrol car comes with two officers, and they shoot back hard. Take both down to clear the heat and grab their $150, or run far enough to lose them. Die and you drop a quarter of your cash.\n\n" + \
 		"[b]Play together.[/b] Everyone who picks the same place is in the same world: you see each other, and you can shoot each other (a headshot kills).\n\n[b]Controls[/b]\n" + controls
+	_menu_text("HOW TO PLAY", text, true)
+
+
+func _show_leaderboard() -> void:
+	var body := _menu_text("LEADERBOARD", "Loading top 10…")
+	var refresh := func(_online: bool) -> void:
+		var waiting := Net.online and Net.ranking_available
+		body.text = "Loading top 10…" if waiting else "Leaderboard unavailable"
+		Net.request_leaderboard()
+	var show_rows := func(rows: Array) -> void:
+		var lines := PackedStringArray()
+		for index in rows.size():
+			var row: Dictionary = rows[index]
+			lines.append("%2d.   %s   —   %d" % [index + 1, row["name"], int(row["score"])])
+		body.text = "\n".join(lines) if not lines.is_empty() else "No scores yet"
+	Net.connection_changed.connect(refresh)
+	Net.leaderboard_received.connect(show_rows)
+	body.tree_exiting.connect(func() -> void:
+		Net.connection_changed.disconnect(refresh)
+		Net.leaderboard_received.disconnect(show_rows)
+	)
+	refresh.call(Net.online)
+	await get_tree().create_timer(4.0).timeout
+	if is_instance_valid(body) and body.text == "Loading top 10…":
+		body.text = "Leaderboard unavailable"
+
+
+func _menu_text(title: String, text: String, bbcode := false) -> RichTextLabel:
 	var overlay := ColorRect.new()
 	overlay.color = Color(0.02, 0.035, 0.05, 0.88)
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -390,9 +419,9 @@ func _how_to_play() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 12)
 	margin.add_child(column)
-	column.add_child(UiTheme.heading("HOW TO PLAY", 32))
+	column.add_child(UiTheme.heading(title, 32))
 	var body := RichTextLabel.new()
-	body.bbcode_enabled = true
+	body.bbcode_enabled = bbcode
 	body.text = text
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_theme_font_size_override("normal_font_size", 18)
@@ -400,7 +429,7 @@ func _how_to_play() -> void:
 	body.add_theme_color_override("default_color", UiTheme.TEXT)
 	column.add_child(body)
 	var back := Button.new()
-	back.text = "GOT IT"
+	back.text = "GOT IT" if bbcode else "BACK"
 	back.custom_minimum_size = Vector2(180.0, 52.0)
 	back.size_flags_horizontal = Control.SIZE_SHRINK_END
 	back.focus_mode = Control.FOCUS_NONE
@@ -410,6 +439,7 @@ func _how_to_play() -> void:
 	fit.call()
 	get_tree().process_frame.connect(fit)
 	overlay.tree_exiting.connect(func() -> void: get_tree().process_frame.disconnect(fit))
+	return body
 
 
 ## Loading screen over everything, then the game scene for the chosen place. The

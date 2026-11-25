@@ -18,6 +18,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { WebSocketServer } = require('ws');
+const { DatabaseSync } = require('node:sqlite');
 
 const PORT = Number(process.env.PORT) || 8091;
 const HOST = process.env.HOST || '127.0.0.1';
@@ -31,6 +32,27 @@ fs.mkdirSync(LOG_DIR, { recursive: true });
 const SALT_FILE = path.join(LOG_DIR, '.salt');
 if (!fs.existsSync(SALT_FILE)) fs.writeFileSync(SALT_FILE, crypto.randomBytes(16).toString('hex'));
 const SALT = fs.readFileSync(SALT_FILE, 'utf8').trim();
+
+const db = new DatabaseSync(path.join(LOG_DIR, 'leaderboard.sqlite'));
+db.exec('PRAGMA journal_mode = WAL');
+db.exec('CREATE TABLE IF NOT EXISTS leaderboard (id TEXT PRIMARY KEY, name TEXT NOT NULL, score INTEGER NOT NULL)');
+const addPoints = db.prepare(
+  'INSERT INTO leaderboard VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET name = excluded.name, score = score + excluded.score',
+);
+const renamePlayer = db.prepare('UPDATE leaderboard SET name = ? WHERE id = ? AND name != ?');
+const topTen = db.prepare('SELECT name, score FROM leaderboard ORDER BY score DESC, id LIMIT 10');
+
+function award(client, points) {
+  if (!client?.scoreId) return;
+  addPoints.run(client.scoreId, client.name || 'Player', points);
+}
+
+function readyForScore(cooldowns, key, interval) {
+  const now = Date.now();
+  if (now < (cooldowns.get(key) || 0)) return false;
+  cooldowns.set(key, now + interval);
+  return true;
+}
 
 const rooms = new Map(); // name -> { clients: Map<id, client>, host: id }
 let nextId = 1;
@@ -102,7 +124,7 @@ wss.on('connection', (ws, req) => {
   const roomName = (url.searchParams.get('room') || 'main').slice(0, 32);
   let room = rooms.get(roomName);
   if (!room) {
-    room = { clients: new Map(), host: 0 };
+    room = { clients: new Map(), host: 0, npcScores: new Map() };
     rooms.set(roomName, room);
   }
   if (room.clients.size >= MAX_PER_ROOM) {
@@ -128,6 +150,10 @@ wss.on('connection', (ws, req) => {
     version: (url.searchParams.get('v') || '').slice(0, 24),
     counts: Object.create(null), // message type -> how many this client sent
     bytes: 0,
+    scoreId: null,
+    nextTopRequest: 0,
+    scoreCooldowns: new Map(),
+    rockets: new Map(),
     kills: 0,
     deaths: 0,
     maxOnline: 0,
@@ -140,7 +166,7 @@ wss.on('connection', (ws, req) => {
       ` visitor ${client.visitor} (${room.clients.size} online, host ${room.host})`,
   );
 
-  send(ws, { t: 'welcome', id, host: room.host, peers: [...room.clients.keys()].filter((x) => x !== id) });
+  send(ws, { t: 'welcome', ranking: true, id, host: room.host, peers: [...room.clients.keys()].filter((x) => x !== id) });
   broadcast(room, { t: 'join', id }, id);
 
   ws.on('message', (data, isBinary) => {
@@ -163,14 +189,61 @@ wss.on('connection', (ws, req) => {
       if (name && name !== client.name) {
         console.log(`[${roomName}] #${id} ${client.name ? `renamed ${quoted(client.name)} -> ` : 'is '}${quoted(name)}`);
         client.name = name;
+        if (client.scoreId) renamePlayer.run(name, client.scoreId, name);
         if (!client.names.includes(name)) client.names.push(name);
       }
     }
+    // Ranking messages are private to the relay. The token is a per-installation
+    // credential and stays off the room broadcast and out of the session log.
+    if (msg.t === 'rank_join') {
+      if (!client.scoreId && typeof msg.token === 'string' && /^[0-9a-f]{64}$/.test(msg.token)) {
+        client.scoreId = crypto.createHash('sha256').update(msg.token).digest('hex');
+        if (client.name) renamePlayer.run(client.name, client.scoreId, client.name);
+      }
+      return;
+    }
+    if (msg.t === 'rank_top') {
+      const now = Date.now();
+      if (now >= client.nextTopRequest) {
+        client.nextTopRequest = now + 500;
+        send(ws, { t: 'rank_top', rows: topTen.all() });
+      }
+      return;
+    }
+    if (msg.t === 'rank_npc') {
+      if (id === room.host && Number.isInteger(msg.i) && msg.i >= 0 && msg.i < 512) {
+        const attacker = room.clients.get(msg.by);
+        if (attacker?.scoreId && readyForScore(room.npcScores, msg.i, 1000)) award(attacker, 100);
+      }
+      return;
+    }
+    if (msg.t === 'rank_glass') {
+      award(client, 10);
+      return;
+    }
+    if (client.scoreId && msg.t === 'dn' && msg.first === true &&
+        (msg.w === 'parked' || msg.w === 'traffic') && Number.isInteger(msg.i) && msg.i >= 0 && msg.i < 4096 &&
+        readyForScore(client.scoreCooldowns, msg.w + msg.i, 1000)) award(client, 10);
+    if (client.scoreId && msg.t === 'rf' && Number.isSafeInteger(msg.rocket) && msg.rocket > 0 &&
+        readyForScore(client.scoreCooldowns, 'rocket', 1000)) {
+      const now = Date.now();
+      for (const [rocket, expiry] of client.rockets) {
+        if (expiry <= now) client.rockets.delete(rocket);
+      }
+      if (!client.rockets.has(msg.rocket)) client.rockets.set(msg.rocket, now + 10000);
+    }
+    if (msg.t === 'rx' && (client.rockets.get(msg.rocket) || 0) > Date.now()) {
+      client.rockets.delete(msg.rocket);
+      award(client, 200);
+    }
+
     if (msg.t === 'kill') {
       // Sent by the victim: `by` is the killer's id.
       client.deaths++;
       const killer = room.clients.get(Number(msg.by));
       if (killer) killer.kills++;
+      if (killer?.scoreId && killer.id !== id && killer.scoreId !== client.scoreId &&
+          readyForScore(client.scoreCooldowns, 'death', 1000)) award(killer, 1000);
       console.log(`[${roomName}] ${killer ? quoted(killer.name) : '#' + msg.by} killed ${quoted(client.name)}${msg.z ? ' (' + msg.z + ')' : ''}`);
     }
     if (msg.t === 'b' && id !== room.host) return; // only the host drives the bots

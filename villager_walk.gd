@@ -309,7 +309,7 @@ func play_fire_sound() -> void:
 
 
 ## A bullet ("pistol") or a bat blow ("bat") kills a villager on the spot.
-func receive_hit(kind := "pistol") -> void:
+func receive_hit(kind := "pistol", attacker := 0) -> void:
 	if not can_be_hit():
 		return
 	if puppet:
@@ -319,6 +319,8 @@ func receive_hit(kind := "pistol") -> void:
 		_die()
 		return
 	_die()
+	if role == "villager" and attacker > 0 and Net.ranking_available and Net.is_host():
+		Net.send({"t": "rank_npc", "i": bot_index, "by": attacker})
 	_respawn_timer = respawn_delay
 
 

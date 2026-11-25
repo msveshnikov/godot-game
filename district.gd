@@ -1555,6 +1555,10 @@ func car_mesh(index: int) -> Mesh:
 ## car's own space): it dents, the windows craze, the alarm goes off. Burnt-out
 ## shells take no more. The first blow swaps the car out of its multimesh for a
 ## node of its own, which keeps every dent from then on.
+func car_is_dented(index: int) -> bool:
+	return _battered.has(index)
+
+
 func dent_car(index: int, point: Vector3, dir: Vector3, glass: bool) -> bool:
 	if index < 0 or index >= _car_spots.size() or _wrecked_spots.has(index):
 		return false

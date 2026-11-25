@@ -15,10 +15,12 @@ signal message_received(from: int, data: Dictionary)
 signal peer_left(id: int)
 signal host_changed
 signal connection_changed(is_online: bool)
+signal leaderboard_received(rows: Array)
 
 const DEFAULT_SERVER := "wss://severance.lol/village-ws"
 const RECONNECT_DELAY := 3.0
 const SETTINGS_PATH := "user://settings.cfg"
+const RANK_PATH := "user://leaderboard.cfg"
 ## Playable places: id, menu name, the district script that builds it.
 const LOCATIONS := [
 	{"id": "neratovice", "name": "Neratovice", "script": "res://district.gd"},
@@ -30,6 +32,7 @@ const LOCATIONS := [
 var my_id := 0
 var host_id := 0
 var online := false
+var ranking_available := false
 var peers: Array[int] = []
 var player_name := ""
 var location := "nyc" # new players start in Times Square
@@ -40,6 +43,8 @@ var _server := DEFAULT_SERVER
 var _room := ""
 var _retry_timer := 0.0
 var _socket_started := false
+var _rank_token := ""
+var rocket_serial := 0
 
 
 func _init() -> void:
@@ -66,6 +71,24 @@ func player_count() -> int:
 func send(data: Dictionary) -> void:
 	if online:
 		_socket.send_text(JSON.stringify(data))
+
+
+func request_leaderboard() -> void:
+	if online and ranking_available:
+		send({"t": "rank_top"})
+
+
+func _join_ranking() -> void:
+	if _rank_token.is_empty():
+		var config := ConfigFile.new()
+		config.load(RANK_PATH)
+		_rank_token = str(config.get_value("player", "token", ""))
+		if _rank_token.length() != 64:
+			_rank_token = Crypto.new().generate_random_bytes(32).hex_encode()
+			config.set_value("player", "token", _rank_token)
+			if config.save(RANK_PATH) != OK:
+				push_warning("Could not save leaderboard identity")
+	send({"t": "rank_join", "token": _rank_token, "n": player_name})
 
 
 func set_player_name(value: String) -> void:
@@ -218,15 +241,23 @@ func _handle_packet(text: String) -> void:
 	var data: Dictionary = parsed
 	match str(data.get("t", "")):
 		"welcome":
+			if data.has("from"):
+				return
 			my_id = int(data["id"])
 			host_id = int(data["host"])
 			peers.clear()
 			for peer in data.get("peers", []):
 				peers.append(int(peer))
 			online = true
+			ranking_available = data.get("ranking", false) == true
+			if ranking_available:
+				_join_ranking()
 			print("Multiplayer: online as #%d, host #%d, %d other player(s)" % [my_id, host_id, peers.size()])
 			connection_changed.emit(true)
 			host_changed.emit()
+		"rank_top":
+			if not data.has("from") and data.get("rows") is Array:
+				leaderboard_received.emit(data["rows"])
 		"join":
 			var joined := int(data["id"])
 			if not peers.has(joined):

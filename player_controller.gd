@@ -382,10 +382,12 @@ func _fire_rocket() -> void:
 	var target: Vector3 = hit.get("position", from + forward * Rocket.RANGE)
 	var direction := muzzle.direction_to(target) if muzzle.distance_to(target) > 1.5 else forward
 	var rocket := Rocket.launch(get_parent(), muzzle, direction, Net.my_id, true, [get_rid()])
-	rocket.exploded.connect(_on_rocket_exploded)
+	Net.rocket_serial += 1
+	var rocket_id := Net.rocket_serial
+	rocket.exploded.connect(_on_rocket_exploded.bind(rocket_id))
 	var net_world := get_parent().get_node_or_null("NetWorld")
 	if net_world != null:
-		net_world.call("broadcast_rocket", muzzle, direction)
+		net_world.call("broadcast_rocket", muzzle, direction, rocket_id)
 	model.call("fire_effects")
 	shake(0.25)
 	_crosshair.kick()
@@ -396,7 +398,7 @@ func _fire_rocket() -> void:
 
 ## Our rocket hit something: the blast here and on every screen, every car near
 ## it goes up, shop windows round it blow out, and it all pays (and draws heat).
-func _on_rocket_exploded(at: Vector3, normal: Vector3, surface: String, collider: Object) -> void:
+func _on_rocket_exploded(at: Vector3, normal: Vector3, surface: String, collider: Object, rocket_id: int) -> void:
 	var scene := get_parent()
 	var net_world := scene.get_node_or_null("NetWorld")
 	if collider != null and is_instance_valid(collider):
@@ -407,7 +409,7 @@ func _on_rocket_exploded(at: Vector3, normal: Vector3, surface: String, collider
 			surface = "car"
 	Rocket.explode(scene, at, normal, surface, Net.my_id)
 	if net_world != null:
-		net_world.call("broadcast_blast", at, normal, surface)
+		net_world.call("broadcast_blast", at, normal, surface, rocket_id)
 	_police.add_heat(HEAT_ROCKET)
 	if surface == "wall":
 		_reward(at + normal * 1.5, CASH_WALL, 5.0)
@@ -431,6 +433,8 @@ func _on_rocket_exploded(at: Vector3, normal: Vector3, surface: String, collider
 			if net_world != null:
 				net_world.call("broadcast_window", point)
 				net_world.call("broadcast_window", point)
+			if Net.ranking_available:
+				Net.send({"t": "rank_glass"})
 			_reward(point, CASH_SMASH, HEAT_SMASH)
 
 
@@ -469,10 +473,11 @@ func _bat_hit() -> void:
 			continue
 		if to_body.length() > 0.4 and forward.dot(to_body.normalized()) < 0.45:
 			continue
-		body.call("receive_hit", "bat")
 		if body.is_in_group("villagers"):
+			body.call("receive_hit", "bat", Net.my_id)
 			_police.add_heat(HEAT_KILL)
 		else:
+			body.call("receive_hit", "bat")
 			ShotFx.blood(get_tree().current_scene, body.global_position + Vector3.UP * 1.2, forward)
 		hit_any = true
 	var net_world := get_tree().current_scene.get_node_or_null("NetWorld")
@@ -540,9 +545,10 @@ func _bat_hit_world(forward: Vector3) -> bool:
 				point = on_body["point"]
 				glass = on_body["glass"]
 				push = (-(on_body["normal"] as Vector3) * 0.7 + (xf.basis.inverse() * swing) * 0.3).normalized()
+			var first_dent: bool = not owner.call("car_is_dented", index)
 			if owner.call("dent_car", index, point, push, glass):
 				if net_world != null:
-					net_world.call("broadcast_dent", "traffic" if owner.name == "Traffic" else "parked", index, point, push, glass)
+					net_world.call("broadcast_dent", "traffic" if owner.name == "Traffic" else "parked", index, point, push, glass, first_dent)
 				var key := "%d:%d" % [owner.get_instance_id(), index]
 				var paid := int(_dents_paid.get(key, 0))
 				if paid < DENTS_PAID_PER_CAR:
@@ -566,6 +572,8 @@ func _smash_window(hit: Dictionary, net_world: Node) -> void:
 		if stage == 1:
 			_reward(point, CASH_CRACK, HEAT_CRACK)
 		else:
+			if Net.ranking_available:
+				Net.send({"t": "rank_glass"})
 			_reward(point, CASH_SMASH, HEAT_SMASH)
 
 
@@ -596,7 +604,7 @@ func _fire_shot() -> void:
 	if target != null and target.is_in_group("villagers"):
 		if target.call("can_be_hit"):
 			_police.add_heat(HEAT_KILL)
-		target.call("receive_hit", "pistol")
+		target.call("receive_hit", "pistol", Net.my_id)
 		flesh = true
 	elif target != null and target.is_in_group("police"):
 		var wound := pistol_damage((target as Node3D).global_position, end, muzzle.direction_to(end))
