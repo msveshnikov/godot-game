@@ -1,11 +1,10 @@
 extends Node3D
-## Armed villagers roaming the estate along its roads and footpaths, plus the
-## unarmed civilians and children at the playground and in the supermarket.
+## Armed villagers on district routes, plus unarmed civilians in local zones.
 ##
-## Exactly one client (Net.is_host(): the server-chosen host, or anyone playing
-## offline) simulates them with real physics and streams their state; everyone
-## else shows them as puppets. Shots are broadcast so every client sees the
-## pellets, and each client only applies damage to its own player.
+## The host simulates the armed villagers and streams their state to other clients.
+## Waterfront villagers are simulated locally while an older client hosts.
+## Shots are broadcast so every client sees the pellets, and each client only
+## applies damage to its own player.
 
 const BOT_SCENE: PackedScene = preload("res://villager_bot.tscn")
 const FOAM_PELLET_SCENE: PackedScene = preload("res://foam_pellet.tscn")
@@ -26,6 +25,9 @@ var NO_SPAWN: Array = []
 var bots: Array = []
 var civilians: Array = []
 var _adjacency: Array = []
+var _waterfront_route := PackedVector2Array()
+var _waterfront_spawns := PackedInt32Array()
+var _puppet_count := 0
 var _send_timer := 0.0
 var _corpses: Array[Node3D] = []
 
@@ -37,6 +39,9 @@ func _ready() -> void:
 	NODES.assign(graph.get("nodes", [Vector2.ZERO]))
 	var edges: Array = graph.get("edges", [])
 	NO_SPAWN = graph.get("no_spawn", [])
+	var waterfront: Dictionary = graph.get("waterfront", {})
+	_waterfront_route = waterfront.get("route", PackedVector2Array())
+	_waterfront_spawns = waterfront.get("spawns", PackedInt32Array())
 	_adjacency.resize(NODES.size())
 	for index in NODES.size():
 		_adjacency[index] = []
@@ -48,16 +53,11 @@ func _ready() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 2611
 	var spawn_nodes := range(NODES.size()).filter(func(n): return not NO_SPAWN.has(n))
-	for index in BOT_COUNT:
-		var bot := BOT_SCENE.instantiate() as CharacterBody3D
-		bot.name = "Villager%d" % index
-		bot.set("bot_index", index)
-		bot.set("crowd", self)
-		bot.set("walk_speed", rng.randf_range(1.6, 2.5))
+	for _index in BOT_COUNT:
+		var speed := rng.randf_range(1.6, 2.5)
 		var node: int = spawn_nodes[rng.randi() % spawn_nodes.size()]
-		bot.position = node_position(node) + Vector3(rng.randf_range(-1, 1), 0.1, rng.randf_range(-1, 1))
-		add_child(bot)
-		bots.append(bot)
+		var spawn := node_position(node) + Vector3(rng.randf_range(-1, 1), 0.1, rng.randf_range(-1, 1))
+		_add_villager(spawn, speed)
 
 	for spec in graph.get("civilians", []):
 		var person := _make_civilian(Vector2(spec[1], spec[2]), rng, spec[0])
@@ -67,15 +67,25 @@ func _ready() -> void:
 		add_child(person)
 		civilians.append(person)
 
-	for spawn in graph.get("street_pedestrians", []):
-		var person := _make_civilian(spawn, rng, "civilian")
-		person.set("walk_streets", true)
-		add_child(person)
-		civilians.append(person)
+	# Append these after the original villagers so their network indices stay stable.
+	for node in _waterfront_spawns:
+		_add_villager(node_position(node, true) + Vector3.UP * 0.1, rng.randf_range(1.7, 2.1), true)
 
 	Net.message_received.connect(_on_message)
 	Net.host_changed.connect(_on_host_changed)
 	_on_host_changed()
+
+
+func _add_villager(spawn: Vector3, speed: float, waterfront := false) -> void:
+	var bot := BOT_SCENE.instantiate() as CharacterBody3D
+	bot.name = "Villager%d" % bots.size()
+	bot.set("bot_index", bots.size())
+	bot.set("crowd", self)
+	bot.set("walk_speed", speed)
+	bot.set("waterfront", waterfront)
+	bot.position = spawn
+	add_child(bot)
+	bots.append(bot)
 
 
 func _make_civilian(spawn: Vector2, rng: RandomNumberGenerator, role: String) -> CharacterBody3D:
@@ -90,16 +100,18 @@ func _make_civilian(spawn: Vector2, rng: RandomNumberGenerator, role: String) ->
 	return person
 
 
-func node_position(node: int) -> Vector3:
-	return Vector3(NODES[node].x, 0.0, NODES[node].y)
+func node_position(node: int, waterfront := false) -> Vector3:
+	var point := _waterfront_route[node] if waterfront else NODES[node]
+	return Vector3(point.x, 0.0, point.y)
 
 
-func nearest_node(position_3d: Vector3) -> int:
+func nearest_node(position_3d: Vector3, waterfront := false) -> int:
 	var best := 0
 	var best_distance := INF
 	var flat := Vector2(position_3d.x, position_3d.z)
-	for index in NODES.size():
-		var distance := flat.distance_squared_to(NODES[index])
+	var route = _waterfront_route if waterfront else NODES
+	for index in route.size():
+		var distance := flat.distance_squared_to(route[index])
 		if distance < best_distance:
 			best_distance = distance
 			best = index
@@ -107,7 +119,9 @@ func nearest_node(position_3d: Vector3) -> int:
 
 
 ## Next node to walk to: any neighbour except the one we came from, unless it's a dead end.
-func pick_next(current: int, previous: int, rng: RandomNumberGenerator) -> int:
+func pick_next(current: int, previous: int, rng: RandomNumberGenerator, waterfront := false) -> int:
+	if waterfront:
+		return (current + 1) % _waterfront_route.size()
 	var options: Array = _adjacency[current].duplicate()
 	if options.size() > 1:
 		options.erase(previous)
@@ -165,22 +179,24 @@ func nodes_between(around: Vector3, near: float, far: float) -> Array[int]:
 
 
 ## A random node well away from every player, so respawns don't happen in someone's face.
-func respawn_position(rng: RandomNumberGenerator) -> Vector3:
+func respawn_position(rng: RandomNumberGenerator, waterfront := false) -> Vector3:
 	var players := _active_players()
 	var candidates: Array[int] = []
-	for index in NODES.size():
-		if NO_SPAWN.has(index):
+	var spawn_nodes = _waterfront_spawns if waterfront else range(NODES.size())
+	for index in spawn_nodes:
+		if not waterfront and NO_SPAWN.has(index):
 			continue
 		var far := true
+		var position := node_position(index, waterfront)
 		for player in players:
-			if (player as Node3D).global_position.distance_to(node_position(index)) < SAFE_RESPAWN_DISTANCE:
+			if (player as Node3D).global_position.distance_to(position) < SAFE_RESPAWN_DISTANCE:
 				far = false
 				break
 		if far:
 			candidates.append(index)
 	if candidates.is_empty():
-		candidates.append(rng.randi_range(0, NODES.size() - 1))
-	return node_position(candidates[rng.randi() % candidates.size()]) + Vector3(0, 0.1, 0)
+		candidates.append(spawn_nodes[rng.randi_range(0, spawn_nodes.size() - 1)])
+	return node_position(candidates[rng.randi() % candidates.size()], waterfront) + Vector3.UP * 0.1
 
 
 ## Playing players holding a weapon (pistol or bat): people run from these.
@@ -263,7 +279,9 @@ func _on_message(from: int, data: Dictionary) -> void:
 			if from != Net.host_id or Net.is_host():
 				return
 			var states: Array = data.get("s", [])
-			for index in mini(states.size(), bots.size()):
+			var count := mini(states.size(), bots.size())
+			_set_puppet_count(maxi(count, BOT_COUNT))
+			for index in count:
 				bots[index].call("apply_net_state", states[index])
 		"bs":
 			var index := int(data.get("i", -1))
@@ -277,9 +295,15 @@ func _on_message(from: int, data: Dictionary) -> void:
 
 
 func _on_host_changed() -> void:
-	var puppet := not Net.is_host()
-	for bot in bots:
-		bot.call("set_puppet", puppet)
+	# Older hosts stream only the original villagers. Simulate the extra ones
+	# locally until a host sends their states.
+	_set_puppet_count(0 if Net.is_host() else BOT_COUNT)
+
+
+func _set_puppet_count(count: int) -> void:
+	for index in range(mini(_puppet_count, count), maxi(_puppet_count, count)):
+		bots[index].call("set_puppet", index < count)
+	_puppet_count = count
 
 
 static func _vec(v: Vector3) -> Array:

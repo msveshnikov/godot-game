@@ -6,8 +6,8 @@ extends "res://addons/cogito/CogitoNPC/cogito_npc.gd"
 ##              the body stays lying where it fell (every client leaves its own
 ##              copy) and the villager is born again elsewhere, dressed anew.
 ##              Runs away from armed players.
-##   civilian - an unarmed grown-up who walks the streets, wanders a small zone
-##              or stands still; can't be hurt, but runs from armed players too.
+##   civilian - an unarmed grown-up who wanders a small zone or stands still;
+##              can't be hurt, but runs from armed players too.
 ##   child    - like a civilian, smaller and quicker on its feet.
 ##   police   - an officer sent by police.gd: uniform and cap, a pistol it really
 ##              fires; police_officer.gd drives it. Local to the player it hunts.
@@ -39,8 +39,8 @@ var puppet := false
 var alive := true
 ## Times this villager was born again; the host streams it so every client dresses it alike.
 var lives := 0
-## Street pedestrians follow the district graph instead of a local zone.
-var walk_streets := false
+## Waterfront villagers follow the promenade loop.
+var waterfront := false
 ## Civilians: game-space XZ area they wander in; `stay` keeps them standing where they are.
 var zone := Rect2()
 var stay := false
@@ -135,7 +135,7 @@ func _physics_process(delta: float) -> void:
 	_update_flee(delta)
 	if _flee_timer > 0.0:
 		_flee(delta)
-	elif role == "villager" or walk_streets:
+	elif role == "villager":
 		_wander(delta)
 	else:
 		_wander_zone(delta)
@@ -155,12 +155,12 @@ func _wander(delta: float) -> void:
 		return
 
 	if _target_node < 0:
-		_target_node = crowd.nearest_node(global_position)
-	var direction: Vector3 = crowd.node_position(_target_node) - global_position
+		_target_node = crowd.nearest_node(global_position, waterfront)
+	var direction: Vector3 = crowd.node_position(_target_node, waterfront) - global_position
 	direction.y = 0.0
 
 	if direction.length() < 0.8:
-		var next: int = crowd.pick_next(_target_node, _previous_node, _rng)
+		var next: int = crowd.pick_next(_target_node, _previous_node, _rng, waterfront)
 		_previous_node = _target_node
 		_target_node = next
 		_stuck_timer = 0.0
@@ -174,7 +174,7 @@ func _wander(delta: float) -> void:
 		_stuck_timer += delta
 		if _stuck_timer > STUCK_TIME:
 			_stuck_timer = 0.0
-			var back: int = _previous_node if _previous_node >= 0 else crowd.nearest_node(global_position)
+			var back: int = _previous_node if _previous_node >= 0 else crowd.nearest_node(global_position, waterfront)
 			_previous_node = _target_node
 			_target_node = back
 	else:
@@ -393,7 +393,7 @@ func _spread_blood(corpse: Node3D, body: Node3D, ground_y: float) -> void:
 
 
 func _respawn() -> void:
-	global_position = crowd.respawn_position(_rng)
+	global_position = crowd.respawn_position(_rng, waterfront)
 	velocity = Vector3.ZERO
 	_target_node = -1
 	_previous_node = -1
@@ -460,6 +460,7 @@ func set_puppet(value: bool) -> void:
 	puppet = value
 	if puppet:
 		_net_has_state = false
+		_hit_grace = 0.0
 		return
 	# Taking over the simulation: carry on from wherever the puppet stands.
 	velocity = Vector3.ZERO

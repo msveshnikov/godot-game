@@ -10,7 +10,7 @@ extends Node3D
 ## (`exploded`), and the shooter's side works out the cars and windows caught in
 ## it. Everyone else gets a harmless copy that only flies (net_world.gd) until
 ## the shooter's blast arrives. `explode` plays the blast the same everywhere and
-## hurts only what each client owns: its own player and police, villagers on the host.
+## hurts only what each client simulates: its own player, police and local villagers.
 
 signal exploded(at: Vector3, normal: Vector3, surface: String, collider: Object)
 
@@ -307,7 +307,7 @@ static func _shake(tree: SceneTree, at: Vector3) -> void:
 		player.call("shake", clampf(1.0 - distance / 60.0, 0.0, 1.0))
 
 
-## Each client hurts its own player and police; the host the villagers too.
+## Each client hurts its own player, police and locally simulated villagers.
 static func _hurt(tree: SceneTree, at: Vector3, by: int) -> void:
 	var player := tree.get_first_node_in_group("player") as Node3D
 	if player != null:
@@ -319,12 +319,9 @@ static func _hurt(tree: SceneTree, at: Vector3, by: int) -> void:
 		var cop := officer as Node3D
 		if cop.global_position.distance_to(at) < KILL_RADIUS and cop.call("can_be_hit"):
 			cop.call("receive_hit", "blast")
-	var net := tree.root.get_node_or_null("Net")
-	if net != null and not net.call("is_host"):
-		return
 	for villager in tree.get_nodes_in_group("villagers"):
 		var body := villager as Node3D
-		if body.global_position.distance_to(at) < KILL_RADIUS and body.call("can_be_hit"):
+		if not body.get("puppet") and body.global_position.distance_to(at) < KILL_RADIUS and body.call("can_be_hit"):
 			body.call("receive_hit", "blast")
 
 

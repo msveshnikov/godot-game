@@ -262,26 +262,27 @@ func bot_graph() -> Dictionary:
 		["civilian", 20.0, 110.0, 6.0, false], ["civilian", 24.0, 150.0, 5.0, true], ["civilian", 30.0, 195.0, 5.0, false],
 		["child", 22.0, 120.0, 4.0, false], ["civilian", 12.0, 100.0, 3.0, true], ["civilian", 38.0, 230.0, 3.0, true],
 	]
-	var street_pedestrians: Array[Vector2] = []
-	# Start walkers between the existing groups on the two plazas.
-	for line in plaza:
-		for i in line.size() - 1:
-			street_pedestrians.append(line[i].lerp(line[i + 1], 0.5))
-	# One mid-block sidewalk per cross street, from 48th through 42nd.
-	var cross_street_sides := [[0, 1], [1, 3], [1, 1], [0, 3], [1, 3], [0, 1], [0, 3]]
-	for si in cross_street_sides.size():
-		var ai: int = cross_street_sides[si][0]
-		var side: int = cross_street_sides[si][1]
-		var left: Vector2 = nodes[corners[Vector2i(ai, si)][side]]
-		var right: Vector2 = nodes[corners[Vector2i(ai + 1, si)][side - 1]]
-		street_pedestrians.append(left.lerp(right, 0.5))
-	# Alternate between the inland and waterfront sides of 8th and 6th Avenue.
-	for slot in [
-		[0, 0, 2], [0, 1, 3], [0, 2, 0], [0, 4, 3], [0, 5, 2], [0, 7, 1],
-		[2, 0, 3], [2, 1, 2], [2, 3, 3], [2, 4, 2], [2, 6, 3], [2, 7, 0],
-	]:
-		street_pedestrians.append(nodes[corners[Vector2i(slot[0], slot[1])][slot[2]]])
-	return {"nodes": nodes, "edges": edges, "no_spawn": [], "civilians": civilians, "street_pedestrians": street_pedestrians}
+	return {"nodes": nodes, "edges": edges, "no_spawn": [], "civilians": civilians, "waterfront": _waterfront_walk()}
+
+
+func _waterfront_walk() -> Dictionary:
+	# Walk between the rail and the line of lamps and benches.
+	var outline := _island_outline(2.2)
+	var route := PackedVector2Array()
+	var spawns := PackedInt32Array()
+	var side := 0
+	for index in outline.size():
+		var start := outline[index]
+		var end := outline[(index + 1) % outline.size()]
+		route.append(start)
+		if start.distance_to(end) <= EDGE_CORNER:
+			continue
+		var count := 7 if side % 2 == 0 else 6
+		for slot in count:
+			spawns.append(route.size())
+			route.append(start.lerp(end, (slot + 0.5) / count))
+		side += 1
+	return {"route": route, "spawns": spawns}
 
 
 func _street_half(number: int) -> float:
