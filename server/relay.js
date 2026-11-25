@@ -7,8 +7,16 @@
 // in the background stops sending).
 //
 //   PORT=8091 HOST=127.0.0.1 node relay.js
-//   clients connect to ws://HOST:PORT/?room=<name>
+//   clients connect to ws://HOST:PORT/?room=<name>&os=<platform>&v=<version>
+//
+// Usage log: readable lines go to stdout (journalctl -u village-relay), and every
+// finished session is appended as one JSON line to logs/sessions.jsonl (see
+// stats.js). Countries come from nginx GeoIP2 headers; IPs are never stored, only
+// a salted hash to count unique players.
 
+const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 const { WebSocketServer } = require('ws');
 
 const PORT = Number(process.env.PORT) || 8091;
@@ -16,6 +24,13 @@ const HOST = process.env.HOST || '127.0.0.1';
 const MAX_PER_ROOM = 16;
 const HOST_STALE_MS = 2500;
 const FRESH_MS = 1500;
+
+const LOG_DIR = process.env.LOG_DIR || path.join(__dirname, 'logs');
+const SESSIONS_FILE = path.join(LOG_DIR, 'sessions.jsonl');
+fs.mkdirSync(LOG_DIR, { recursive: true });
+const SALT_FILE = path.join(LOG_DIR, '.salt');
+if (!fs.existsSync(SALT_FILE)) fs.writeFileSync(SALT_FILE, crypto.randomBytes(16).toString('hex'));
+const SALT = fs.readFileSync(SALT_FILE, 'utf8').trim();
 
 const rooms = new Map(); // name -> { clients: Map<id, client>, host: id }
 let nextId = 1;
@@ -31,6 +46,42 @@ function broadcast(room, obj, exceptId) {
   for (const [id, client] of room.clients) {
     if (id !== exceptId && client.ws.readyState === client.ws.OPEN) client.ws.send(text);
   }
+}
+
+function header(req, name) {
+  const value = req.headers[name];
+  return (Array.isArray(value) ? value[0] : value || '').trim();
+}
+
+// Short stable id for an address, so unique players can be counted without keeping IPs.
+function visitorHash(ip) {
+  return crypto.createHash('sha256').update(SALT + ip).digest('hex').slice(0, 10);
+}
+
+function clientPlatform(url, ua) {
+  const os = (url.searchParams.get('os') || '').slice(0, 16);
+  if (os) return os;
+  if (/Android/i.test(ua)) return 'Web/Android';
+  if (/iPhone|iPad/i.test(ua)) return 'Web/iOS';
+  if (/Mozilla/i.test(ua)) return 'Web';
+  return '?';
+}
+
+function duration(ms) {
+  const s = Math.round(ms / 1000);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  return h ? `${h}h${String(m).padStart(2, '0')}m` : m ? `${m}m${String(s % 60).padStart(2, '0')}s` : `${s}s`;
+}
+
+function quoted(name) {
+  return name ? `"${name}"` : `#?`;
+}
+
+function logSession(entry) {
+  fs.appendFile(SESSIONS_FILE, JSON.stringify(entry) + '\n', (err) => {
+    if (err) console.error(`sessions log: ${err.message}`);
+  });
 }
 
 function electHost(room) {
@@ -60,10 +111,34 @@ wss.on('connection', (ws, req) => {
   }
 
   const id = nextId++;
-  const client = { id, ws, lastSeen: Date.now(), alive: true };
+  const ip = header(req, 'x-real-ip') || req.socket.remoteAddress || '';
+  const ua = header(req, 'user-agent');
+  const client = {
+    id,
+    ws,
+    lastSeen: Date.now(),
+    alive: true,
+    start: Date.now(),
+    name: '',
+    names: [],
+    country: header(req, 'x-country-code') || '??',
+    countryName: header(req, 'x-country-name'),
+    visitor: visitorHash(ip),
+    os: clientPlatform(url, ua),
+    version: (url.searchParams.get('v') || '').slice(0, 24),
+    counts: Object.create(null), // message type -> how many this client sent
+    bytes: 0,
+    kills: 0,
+    deaths: 0,
+    maxOnline: 0,
+  };
   room.clients.set(id, client);
   if (!room.clients.has(room.host)) room.host = id;
-  console.log(`[${roomName}] +${id} (${room.clients.size} online, host ${room.host})`);
+  for (const c of room.clients.values()) c.maxOnline = Math.max(c.maxOnline, room.clients.size);
+  console.log(
+    `[${roomName}] +${id} ${client.country} ${client.os}${client.version ? ' ' + client.version : ''}` +
+      ` visitor ${client.visitor} (${room.clients.size} online, host ${room.host})`,
+  );
 
   send(ws, { t: 'welcome', id, host: room.host, peers: [...room.clients.keys()].filter((x) => x !== id) });
   broadcast(room, { t: 'join', id }, id);
@@ -78,6 +153,26 @@ wss.on('connection', (ws, req) => {
       return;
     }
     if (!msg || typeof msg !== 'object' || Array.isArray(msg) || typeof msg.t !== 'string') return;
+    const type = msg.t.slice(0, 8);
+    if (type in client.counts || Object.keys(client.counts).length < 32) client.counts[type] = (client.counts[type] || 0) + 1;
+    client.bytes += data.length;
+    // Smash Atlas puts the name in every "p" as `n`; Sea Battle sends it once in "hello" as `name`.
+    const rawName = typeof msg.n === 'string' ? msg.n : msg.t === 'hello' && typeof msg.name === 'string' ? msg.name : '';
+    if (rawName && rawName !== client.name) {
+      const name = rawName.slice(0, 16).replace(/[\x00-\x1f"]/g, '');
+      if (name && name !== client.name) {
+        console.log(`[${roomName}] #${id} ${client.name ? `renamed ${quoted(client.name)} -> ` : 'is '}${quoted(name)}`);
+        client.name = name;
+        if (!client.names.includes(name)) client.names.push(name);
+      }
+    }
+    if (msg.t === 'kill') {
+      // Sent by the victim: `by` is the killer's id.
+      client.deaths++;
+      const killer = room.clients.get(Number(msg.by));
+      if (killer) killer.kills++;
+      console.log(`[${roomName}] ${killer ? quoted(killer.name) : '#' + msg.by} killed ${quoted(client.name)}${msg.z ? ' (' + msg.z + ')' : ''}`);
+    }
     if (msg.t === 'b' && id !== room.host) return; // only the host drives the bots
     msg.from = id;
     broadcast(room, msg, id);
@@ -87,9 +182,38 @@ wss.on('connection', (ws, req) => {
     client.alive = true;
   });
 
-  ws.on('close', () => {
+  ws.on('close', (code) => {
     room.clients.delete(id);
-    console.log(`[${roomName}] -${id} (${room.clients.size} online)`);
+    const ms = Date.now() - client.start;
+    const counts = Object.entries(client.counts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([t, n]) => `${t}:${n}`)
+      .join(' ');
+    console.log(
+      `[${roomName}] -${id} ${quoted(client.name)} ${client.country} after ${duration(ms)}` +
+        `${client.kills || client.deaths ? `, ${client.kills} kills ${client.deaths} deaths` : ''}` +
+        ` (${room.clients.size} online) msgs ${counts || 'none'}`,
+    );
+    logSession({
+      start: new Date(client.start).toISOString(),
+      end: new Date().toISOString(),
+      seconds: Math.round(ms / 1000),
+      room: roomName,
+      id,
+      name: client.name,
+      names: client.names,
+      country: client.country,
+      countryName: client.countryName,
+      visitor: client.visitor,
+      os: client.os,
+      version: client.version,
+      maxOnline: client.maxOnline,
+      kills: client.kills,
+      deaths: client.deaths,
+      msgs: client.counts,
+      bytes: client.bytes,
+      code,
+    });
     if (room.clients.size === 0) {
       rooms.delete(roomName);
       return;

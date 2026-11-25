@@ -22,3 +22,6 @@ max.apk.idsig
 /screenshots/bazooka/
 /screenshots/looks/
 /screenshots/hud/
+
+# Relay usage log when run locally
+/server/logs/

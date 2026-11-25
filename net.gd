@@ -164,6 +164,7 @@ func _query(key: String) -> String:
 
 ## Relay URL for the current room: Neratovice keeps the plain room ("main" by default),
 ## other locations add their id, e.g. "omsk1" or "friends-omsk1".
+## The platform and game version ride along for the relay's usage log.
 func _room_url() -> String:
 	var room := _room
 	if location != LOCATIONS[0]["id"]:
@@ -171,9 +172,11 @@ func _room_url() -> String:
 	var server := _server
 	if server.count("/") == 2: # "ws://host:port" -> "ws://host:port/", or the query isn't a valid URL
 		server += "/"
-	if room.is_empty():
-		return server
-	return server + ("&" if "?" in server else "?") + "room=" + room.uri_encode()
+	var query := "os=%s&v=%s" % [OS.get_name().uri_encode(),
+			str(ProjectSettings.get_setting("application/config/version", "")).uri_encode()]
+	if not room.is_empty():
+		query = "room=" + room.uri_encode() + "&" + query
+	return server + ("&" if "?" in server else "?") + query
 
 
 func _open_socket() -> void:
