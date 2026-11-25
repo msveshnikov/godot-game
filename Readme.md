@@ -13,13 +13,13 @@
 
 <p align="center">
   <a href="https://maxims.top/village/"><b>▶ Play in the browser</b></a> ·
-  <a href="https://github.com/msveshnikov/godot-game/releases/latest/download/SmashAtlas.exe">Windows .exe</a> ·
-  <a href="https://github.com/msveshnikov/godot-game/releases/latest/download/SmashAtlas.apk">Android .apk</a> ·
-  <a href="https://github.com/msveshnikov/godot-game/releases/latest">All releases</a>
+  <a href="https://github.com/msveshnikov/smash-atlas/releases/latest/download/SmashAtlas.exe">Windows .exe</a> ·
+  <a href="https://github.com/msveshnikov/smash-atlas/releases/latest/download/SmashAtlas.apk">Android .apk</a> ·
+  <a href="https://github.com/msveshnikov/smash-atlas/releases/latest">All releases</a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/msveshnikov/godot-game/releases/latest"><img alt="release" src="https://img.shields.io/github/v/release/msveshnikov/godot-game?label=release&color=d8a03c"></a>
+  <a href="https://github.com/msveshnikov/smash-atlas/releases/latest"><img alt="release" src="https://img.shields.io/github/v/release/msveshnikov/smash-atlas?label=release&color=d8a03c"></a>
   <img alt="Godot 4.7" src="https://img.shields.io/badge/Godot-4.7-478cbf?logo=godotengine&logoColor=white">
   <img alt="Blender 5.2" src="https://img.shields.io/badge/Blender-5.2-e87d0d?logo=blender&logoColor=white">
   <img alt="multiplayer" src="https://img.shields.io/badge/multiplayer-WebSocket-6aa640">
