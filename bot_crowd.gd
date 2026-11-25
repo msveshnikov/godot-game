@@ -26,7 +26,6 @@ var NO_SPAWN: Array = []
 var bots: Array = []
 var civilians: Array = []
 var _adjacency: Array = []
-var _civilian_specs: Array = []
 var _send_timer := 0.0
 var _corpses: Array[Node3D] = []
 
@@ -38,7 +37,6 @@ func _ready() -> void:
 	NODES.assign(graph.get("nodes", [Vector2.ZERO]))
 	var edges: Array = graph.get("edges", [])
 	NO_SPAWN = graph.get("no_spawn", [])
-	_civilian_specs = graph.get("civilians", [])
 	_adjacency.resize(NODES.size())
 	for index in NODES.size():
 		_adjacency[index] = []
@@ -61,24 +59,35 @@ func _ready() -> void:
 		add_child(bot)
 		bots.append(bot)
 
-	for index in _civilian_specs.size():
-		var spec: Array = _civilian_specs[index]
-		var person := BOT_SCENE.instantiate() as CharacterBody3D
-		person.name = "%s%d" % [str(spec[0]).capitalize(), index]
-		person.set("role", spec[0])
-		person.set("bot_index", CIVILIAN_SEED_BASE + index)
-		person.set("crowd", self)
-		person.set("walk_speed", rng.randf_range(1.0, 1.6))
+	for spec in graph.get("civilians", []):
+		var person := _make_civilian(Vector2(spec[1], spec[2]), rng, spec[0])
 		var half: float = spec[3]
 		person.set("zone", Rect2(float(spec[1]) - half, float(spec[2]) - half, half * 2.0, half * 2.0))
 		person.set("stay", spec[4])
-		person.position = Vector3(spec[1], 0.1, spec[2])
+		add_child(person)
+		civilians.append(person)
+
+	for spawn in graph.get("street_pedestrians", []):
+		var person := _make_civilian(spawn, rng, "civilian")
+		person.set("walk_streets", true)
 		add_child(person)
 		civilians.append(person)
 
 	Net.message_received.connect(_on_message)
 	Net.host_changed.connect(_on_host_changed)
 	_on_host_changed()
+
+
+func _make_civilian(spawn: Vector2, rng: RandomNumberGenerator, role: String) -> CharacterBody3D:
+	var person := BOT_SCENE.instantiate() as CharacterBody3D
+	var index := civilians.size()
+	person.name = "%s%d" % [role.capitalize(), index]
+	person.set("role", role)
+	person.set("bot_index", CIVILIAN_SEED_BASE + index)
+	person.set("crowd", self)
+	person.set("walk_speed", rng.randf_range(1.0, 1.6))
+	person.position = Vector3(spawn.x, 0.1, spawn.y)
+	return person
 
 
 func node_position(node: int) -> Vector3:

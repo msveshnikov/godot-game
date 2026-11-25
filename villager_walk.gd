@@ -6,8 +6,8 @@ extends "res://addons/cogito/CogitoNPC/cogito_npc.gd"
 ##              the body stays lying where it fell (every client leaves its own
 ##              copy) and the villager is born again elsewhere, dressed anew.
 ##              Runs away from armed players.
-##   civilian - an unarmed grown-up who wanders a small zone (playground, shop) or
-##              stands still; can't be hurt, but runs from armed players too.
+##   civilian - an unarmed grown-up who walks the streets, wanders a small zone
+##              or stands still; can't be hurt, but runs from armed players too.
 ##   child    - like a civilian, smaller and quicker on its feet.
 ##   police   - an officer sent by police.gd: uniform and cap, a pistol it really
 ##              fires; police_officer.gd drives it. Local to the player it hunts.
@@ -39,6 +39,8 @@ var puppet := false
 var alive := true
 ## Times this villager was born again; the host streams it so every client dresses it alike.
 var lives := 0
+## Street pedestrians follow the district graph instead of a local zone.
+var walk_streets := false
 ## Civilians: game-space XZ area they wander in; `stay` keeps them standing where they are.
 var zone := Rect2()
 var stay := false
@@ -133,7 +135,7 @@ func _physics_process(delta: float) -> void:
 	_update_flee(delta)
 	if _flee_timer > 0.0:
 		_flee(delta)
-	elif role == "villager":
+	elif role == "villager" or walk_streets:
 		_wander(delta)
 	else:
 		_wander_zone(delta)
