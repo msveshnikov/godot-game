@@ -3,7 +3,8 @@ shader_type spatial;
 // world space so pieces line up:
 //   COLOR.rgb  base colour (sRGB)
 //   COLOR.a    surface: 0.0 sidewalk flags, 0.1 plaza pavers with steel discs,
-//              0.2 asphalt, 0.3 hexagonal pavers, 0.4 granite, 0.5 road paint
+//              0.2 asphalt, 0.3 hexagonal pavers, 0.4 granite, 0.5 road paint,
+//              0.6 granite setts, 0.7 lawn
 
 varying vec3 world_pos;
 varying vec3 v_tint;
@@ -84,6 +85,14 @@ void fragment() {
 	} else if (kind == 4) {
 		col *= 0.92 + hash(floor(p / 0.9)) * 0.12;
 		rough = 0.7;
+	} else if (kind == 6) {
+		vec2 q = p / vec2(0.62, 0.36);
+		q.x += mod(floor(q.y), 2.0) * 0.5;
+		col *= 0.84 + hash(floor(q)) * 0.23;
+		float joint = max(line_mask(q.x + 0.5, 0.045, fw.x / 0.62), line_mask(q.y + 0.5, 0.05, fw.y / 0.36));
+		col = mix(col, col * 0.58, joint * far_fade);
+	} else if (kind == 7) {
+		col *= 0.74 + noise(p * 0.55) * 0.22 + hash(floor(p * 18.0)) * 0.15;
 	} else {
 		col *= 0.92 + noise(p * 9.0) * 0.1;
 		rough = 0.7;

@@ -12,6 +12,8 @@ const PLACES := {
 	"neratovice": "Neratovice, Czechia: an autumn panel-housing estate with loggias, garages, a playground and a walk-in supermarket.",
 	"omsk1": "Omsk 1, Siberia: five-storey khrushchyovkas under new red roofs, yards with playgrounds, kindergartens and a school.",
 	"omsk2": "Omsk 2, Siberia: a 100 m nine-storey slab, rows of brick garages, a gas station and the old wooden private sector.",
+	"paris": "Paris: Boulevard Montmartre, the Grévin museum, the old covered passages and the café terraces of the Grands Boulevards.",
+	"dublin": "Dublin: the granite paving and shopfronts of Grafton Street, Bewley’s café, Harry Street and St Stephen’s Green.",
 }
 
 var _background: TextureRect
@@ -79,7 +81,10 @@ func _ready() -> void:
 	add_child(hum)
 
 	Game.money_changed.connect(func(value: int) -> void: _money.text = "$ %d" % value)
-	_select(Net.location, true)
+	Net.location_changed.connect(_show_location)
+	Net.location_access_changed.connect(_refresh_access)
+	_show_location(true)
+	_refresh_access()
 
 
 func _process(_delta: float) -> void:
@@ -232,7 +237,7 @@ func _place_card(id: String, title: String) -> Button:
 	var card := Button.new()
 	card.toggle_mode = true
 	card.focus_mode = Control.FOCUS_NONE
-	card.custom_minimum_size = Vector2(262.0, 120.0)
+	card.custom_minimum_size = Vector2(262.0, 94.0)
 	card.clip_contents = true
 	for state in ["normal", "hover", "pressed", "hover_pressed"]:
 		var box := StyleBoxFlat.new()
@@ -242,6 +247,7 @@ func _place_card(id: String, title: String) -> Button:
 		box.set_border_width_all(4 if state.contains("pressed") else 2)
 		card.add_theme_stylebox_override(state, box)
 	var picture := TextureRect.new()
+	picture.name = "Picture"
 	picture.texture = load("res://assets/ui/place_%s.webp" % id)
 	picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
@@ -270,6 +276,19 @@ func _place_card(id: String, title: String) -> Button:
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.add_theme_font_size_override("font_size", 19)
 	band.add_child(label)
+	var locked := Label.new()
+	locked.name = "Locked"
+	locked.text = "10,000 pts"
+	locked.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	locked.offset_left = -95
+	locked.offset_top = 7
+	locked.offset_right = -12
+	locked.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	locked.add_theme_color_override("font_color", UiTheme.GOLD)
+	locked.add_theme_color_override("font_outline_color", Color(0.04, 0.04, 0.04))
+	locked.add_theme_constant_override("outline_size", 8)
+	locked.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(locked)
 	card.pressed.connect(_select.bind(id))
 	_cards[id] = card
 	return card
@@ -318,13 +337,31 @@ func _shade() -> void:
 
 # --------------------------------------------------------------- actions ----
 
-## Pick a place: its card lit, its picture fading in behind, its room joined.
-func _select(id: String, instant := false) -> void:
+func _refresh_access() -> void:
+	for id in _cards:
+		var allowed := Net.can_visit(id)
+		var card: Button = _cards[id]
+		card.get_node("Locked").visible = not allowed
+		card.get_node("Picture").modulate = Color.WHITE if allowed else Color(0.57, 0.57, 0.57)
+	Net.restore_location()
+
+
+func _select(id: String) -> void:
+	_save_name()
+	if not Net.set_location(id):
+		(_cards[id] as Button).set_pressed_no_signal(false)
+		_about.text = "%s Unlocks at 10,000 leaderboard points." % PLACES[id]
+	elif id == Net.location:
+		(_cards[id] as Button).set_pressed_no_signal(true)
+		_about.text = PLACES[id]
+
+
+## Light the selected card and fade in the picture of the current room.
+func _show_location(instant := false) -> void:
+	var id := Net.location
 	for key in _cards:
 		(_cards[key] as Button).set_pressed_no_signal(key == id)
 	_about.text = PLACES.get(id, "")
-	if id != Net.location:
-		Net.set_location(id)
 	var texture := load("res://assets/ui/place_%s.webp" % id) as Texture2D
 	if instant:
 		_background.texture = texture
@@ -450,6 +487,9 @@ func _play() -> void:
 		return
 	_starting = true
 	_save_name()
+	if not Net.set_location(Net.location):
+		_starting = false
+		return
 	var loading := LoadingScreen.show_for(get_tree(), Net.location_name(), load("res://assets/ui/place_%s.webp" % Net.location) as Texture2D)
 	ResourceLoader.load_threaded_request(GAME_SCENE)
 	while true:

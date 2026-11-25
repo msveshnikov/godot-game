@@ -25,6 +25,9 @@ const HOST = process.env.HOST || '127.0.0.1';
 const MAX_PER_ROOM = 16;
 const HOST_STALE_MS = 2500;
 const FRESH_MS = 1500;
+const LOCATION_POINTS = 10000;
+const TESTER_NAME = 'макс';
+const PROTECTED_ROOM = /(?:^|-)(?:paris|dublin)$/;
 
 const LOG_DIR = process.env.LOG_DIR || path.join(__dirname, 'logs');
 const SESSIONS_FILE = path.join(LOG_DIR, 'sessions.jsonl');
@@ -41,10 +44,22 @@ const addPoints = db.prepare(
 );
 const renamePlayer = db.prepare('UPDATE leaderboard SET name = ? WHERE id = ? AND name != ?');
 const topTen = db.prepare('SELECT name, score FROM leaderboard ORDER BY score DESC, id LIMIT 10');
+const playerScore = db.prepare('SELECT score FROM leaderboard WHERE id = ?');
+
+function scoreOf(client) {
+  return playerScore.get(client.scoreId)?.score || 0;
+}
 
 function award(client, points) {
   if (!client?.scoreId) return;
   addPoints.run(client.scoreId, client.name || 'Player', points);
+  if (!client.locationsUnlocked) {
+    const score = scoreOf(client);
+    if (score >= LOCATION_POINTS) {
+      client.locationsUnlocked = true;
+      send(client.ws, { t: 'rank_access', score });
+    }
+  }
 }
 
 function readyForScore(cooldowns, key, interval) {
@@ -122,15 +137,8 @@ function electHost(room) {
 wss.on('connection', (ws, req) => {
   const url = new URL(req.url || '/', 'http://relay');
   const roomName = (url.searchParams.get('room') || 'main').slice(0, 32);
-  let room = rooms.get(roomName);
-  if (!room) {
-    room = { clients: new Map(), host: 0, npcScores: new Map() };
-    rooms.set(roomName, room);
-  }
-  if (room.clients.size >= MAX_PER_ROOM) {
-    ws.close(1013, 'room full');
-    return;
-  }
+  const protectedRoom = PROTECTED_ROOM.test(roomName);
+  let room = null;
 
   const id = nextId++;
   const ip = header(req, 'x-real-ip') || req.socket.remoteAddress || '';
@@ -151,6 +159,7 @@ wss.on('connection', (ws, req) => {
     counts: Object.create(null), // message type -> how many this client sent
     bytes: 0,
     scoreId: null,
+    locationsUnlocked: false,
     nextTopRequest: 0,
     scoreCooldowns: new Map(),
     rockets: new Map(),
@@ -158,18 +167,33 @@ wss.on('connection', (ws, req) => {
     deaths: 0,
     maxOnline: 0,
   };
-  room.clients.set(id, client);
-  if (!room.clients.has(room.host)) room.host = id;
-  for (const c of room.clients.values()) c.maxOnline = Math.max(c.maxOnline, room.clients.size);
-  console.log(
-    `[${roomName}] +${id} ${client.country} ${client.os}${client.version ? ' ' + client.version : ''}` +
-      ` visitor ${client.visitor} (${room.clients.size} online, host ${room.host})`,
-  );
+  const joinTimeout = protectedRoom ? setTimeout(() => ws.close(1008, 'ranking required'), 5000) : null;
 
-  send(ws, { t: 'welcome', ranking: true, id, host: room.host, peers: [...room.clients.keys()].filter((x) => x !== id) });
-  broadcast(room, { t: 'join', id }, id);
+  function joinRoom() {
+    const target = rooms.get(roomName) || { clients: new Map(), host: 0, npcScores: new Map() };
+    if (target.clients.size >= MAX_PER_ROOM) {
+      ws.close(1013, 'room full');
+      return false;
+    }
+    clearTimeout(joinTimeout);
+    room = target;
+    rooms.set(roomName, room);
+    room.clients.set(id, client);
+    if (!room.clients.has(room.host)) room.host = id;
+    for (const c of room.clients.values()) c.maxOnline = Math.max(c.maxOnline, room.clients.size);
+    console.log(
+      `[${roomName}] +${id} ${client.country} ${client.os}${client.version ? ' ' + client.version : ''}` +
+        ` visitor ${client.visitor} (${room.clients.size} online, host ${room.host})`,
+    );
+    send(ws, { t: 'welcome', ranking: true, id, host: room.host, peers: [...room.clients.keys()].filter((x) => x !== id) });
+    broadcast(room, { t: 'join', id }, id);
+    return true;
+  }
+
+  if (!protectedRoom && !joinRoom()) return;
 
   ws.on('message', (data, isBinary) => {
+    if (ws.readyState !== ws.OPEN) return;
     client.lastSeen = Date.now();
     if (isBinary) return;
     let msg;
@@ -179,11 +203,32 @@ wss.on('connection', (ws, req) => {
       return;
     }
     if (!msg || typeof msg !== 'object' || Array.isArray(msg) || typeof msg.t !== 'string') return;
+    if (!room && msg.t !== 'rank_join') return;
+    if (msg.t === 'rank_join') {
+      if (typeof msg.token !== 'string' || !/^[0-9a-f]{64}$/.test(msg.token)) return;
+      const scoreId = crypto.createHash('sha256').update(msg.token).digest('hex');
+      if (client.scoreId && client.scoreId !== scoreId) return;
+      client.scoreId = scoreId;
+      const score = scoreOf(client);
+      client.locationsUnlocked = score >= LOCATION_POINTS;
+      if (protectedRoom && !client.locationsUnlocked && msg.n !== TESTER_NAME) {
+        send(ws, { t: 'location_locked' });
+        ws.close(1008, '10,000 points required');
+        return;
+      }
+      if (!room && !joinRoom()) return;
+      send(ws, { t: 'rank_access', score });
+    }
     const type = msg.t.slice(0, 8);
     if (type in client.counts || Object.keys(client.counts).length < 32) client.counts[type] = (client.counts[type] || 0) + 1;
     client.bytes += data.length;
     // Smash Atlas puts the name in every "p" as `n`; Sea Battle sends it once in "hello" as `name`.
     const rawName = typeof msg.n === 'string' ? msg.n : msg.t === 'hello' && typeof msg.name === 'string' ? msg.name : '';
+    if (protectedRoom && !client.locationsUnlocked && rawName && rawName !== TESTER_NAME) {
+      send(ws, { t: 'location_locked' });
+      ws.close(1008, '10,000 points required');
+      return;
+    }
     if (rawName && rawName !== client.name) {
       const name = rawName.slice(0, 16).replace(/[\x00-\x1f"]/g, '');
       if (name && name !== client.name) {
@@ -196,10 +241,7 @@ wss.on('connection', (ws, req) => {
     // Ranking messages are private to the relay. The token is a per-installation
     // credential and stays off the room broadcast and out of the session log.
     if (msg.t === 'rank_join') {
-      if (!client.scoreId && typeof msg.token === 'string' && /^[0-9a-f]{64}$/.test(msg.token)) {
-        client.scoreId = crypto.createHash('sha256').update(msg.token).digest('hex');
-        if (client.name) renamePlayer.run(client.name, client.scoreId, client.name);
-      }
+      if (client.name) renamePlayer.run(client.name, client.scoreId, client.name);
       return;
     }
     if (msg.t === 'rank_top') {
@@ -256,6 +298,8 @@ wss.on('connection', (ws, req) => {
   });
 
   ws.on('close', (code) => {
+    clearTimeout(joinTimeout);
+    if (!room) return;
     room.clients.delete(id);
     const ms = Date.now() - client.start;
     const counts = Object.entries(client.counts)

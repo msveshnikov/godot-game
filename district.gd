@@ -1400,6 +1400,14 @@ func _build_tree_meshes() -> void:
 				var light := Color.from_hsv(0.16, 0.5, 0.62) # yellowing willow
 				_part(parts, "trunk", Vector3(1.4, 1.5, 1.4) * s, base + Vector3(0, 2.2 * s, 0), Color(0.45, 0.38, 0.3))
 				_part(parts, "sphere", Vector3(4.2, 4.4, 4.2) * s, base + Vector3(0, 6.6 * s, 0), light)
+			"street_tree":
+				var leaves := Color(0.25, 0.40, 0.17).lerp(Color(0.47, 0.48, 0.22), _rng.randf())
+				_part(parts, "trunk", Vector3(0.85, 1.8, 0.85) * s, base + Vector3(0, 2.65 * s, 0), Color(0.40, 0.35, 0.28))
+				for branch in 5:
+					var angle := branch * TAU / 5.0 + _rng.randf_range(-0.25, 0.25)
+					var offset := Vector3(cos(angle) * 1.65, _rng.randf_range(5.3, 7.5), sin(angle) * 1.65)
+					_part(parts, "sphere", Vector3(1.55, 1.85, 1.45) * s, base + offset * s, leaves.lightened(_rng.randf_range(-0.05, 0.08)))
+				_part(parts, "sphere", Vector3(1.83, 2.0, 1.78) * s, base + Vector3(0, 8.0 * s, 0), leaves)
 			_:
 				var green := _autumn_colour()
 				_part(parts, "trunk", Vector3.ONE * s, base + Vector3(0, 1.5 * s, 0), Color(0.33, 0.23, 0.15))

@@ -16,17 +16,23 @@ signal peer_left(id: int)
 signal host_changed
 signal connection_changed(is_online: bool)
 signal leaderboard_received(rows: Array)
+signal location_access_changed
+signal location_changed
 
 const DEFAULT_SERVER := "wss://severance.lol/village-ws"
 const RECONNECT_DELAY := 3.0
 const SETTINGS_PATH := "user://settings.cfg"
 const RANK_PATH := "user://leaderboard.cfg"
+const LOCATION_POINTS := 10000
+const TESTER_NAME := "макс"
 ## Playable places: id, menu name, the district script that builds it.
 const LOCATIONS := [
 	{"id": "neratovice", "name": "Neratovice", "script": "res://district.gd"},
 	{"id": "omsk1", "name": "Omsk 1", "script": "res://district_omsk1.gd"},
 	{"id": "omsk2", "name": "Omsk 2", "script": "res://district_omsk2.gd"},
 	{"id": "nyc", "name": "Times Square", "script": "res://district_nyc.gd"},
+	{"id": "paris", "name": "Paris · Montmartre", "script": "res://district_paris.gd", "locked": true},
+	{"id": "dublin", "name": "Dublin · Grafton St", "script": "res://district_dublin.gd", "locked": true},
 ]
 
 var my_id := 0
@@ -44,6 +50,9 @@ var _room := ""
 var _retry_timer := 0.0
 var _socket_started := false
 var _rank_token := ""
+var _rank_score := 0
+var _rank_sent := false
+var _requested_location := ""
 var rocket_serial := 0
 
 
@@ -52,6 +61,9 @@ func _init() -> void:
 	# picks its district, world.gd) before this autoload's _ready runs.
 	_load_settings()
 	_resolve_server()
+	if not can_visit(location):
+		_requested_location = location
+		location = "nyc"
 	_url = _room_url()
 
 
@@ -88,17 +100,37 @@ func _join_ranking() -> void:
 			config.set_value("player", "token", _rank_token)
 			if config.save(RANK_PATH) != OK:
 				push_warning("Could not save leaderboard identity")
-	send({"t": "rank_join", "token": _rank_token, "n": player_name})
+	_socket.send_text(JSON.stringify({"t": "rank_join", "token": _rank_token, "n": player_name}))
 
 
 func set_player_name(value: String) -> void:
-	player_name = value.strip_edges().left(16)
-	if player_name.is_empty():
-		player_name = "Player %d" % randi_range(100, 999)
+	value = value.strip_edges().left(16)
+	if value.is_empty():
+		value = "Player %d" % randi_range(100, 999)
+	if player_name == value:
+		return
+	player_name = value
 	var config := ConfigFile.new()
 	config.load(SETTINGS_PATH)
 	config.set_value("player", "name", player_name)
 	config.save(SETTINGS_PATH)
+	if not can_visit(location):
+		set_location("nyc")
+	elif _rank_sent and _socket.get_ready_state() == WebSocketPeer.STATE_OPEN:
+		_join_ranking()
+	location_access_changed.emit()
+
+
+func can_visit(id: String) -> bool:
+	for entry in LOCATIONS:
+		if entry["id"] == id:
+			return not entry.get("locked", false) or player_name == TESTER_NAME or _rank_score >= LOCATION_POINTS
+	return false
+
+
+func restore_location() -> void:
+	if not _requested_location.is_empty() and can_visit(_requested_location):
+		set_location(_requested_location)
 
 
 ## Menu name of the current location.
@@ -111,17 +143,21 @@ func location_name() -> String:
 
 ## The district script that builds the current location.
 func location_script() -> String:
+	var id := location if can_visit(location) else "nyc"
 	for entry in LOCATIONS:
-		if entry["id"] == location:
+		if entry["id"] == id:
 			return entry["script"]
 	return LOCATIONS[0]["script"]
 
 
 ## Switch to another location: remember it and move to that location's room.
 ## The caller reloads the scene so the new district gets built.
-func set_location(id: String) -> void:
-	if not _is_location(id) or id == location:
-		return
+func set_location(id: String) -> bool:
+	if not can_visit(id):
+		return false
+	_requested_location = ""
+	if id == location:
+		return true
 	location = id
 	var config := ConfigFile.new()
 	config.load(SETTINGS_PATH)
@@ -137,6 +173,8 @@ func set_location(id: String) -> void:
 		connection_changed.emit(false)
 		host_changed.emit()
 	_open_socket()
+	location_changed.emit()
+	return true
 
 
 func _is_location(id: String) -> bool:
@@ -191,6 +229,7 @@ func _query(key: String) -> String:
 func _room_url() -> String:
 	var room := _room
 	if location != LOCATIONS[0]["id"]:
+		room = room.left(31 - location.length())
 		room = (room + "-" if not room.is_empty() else "") + location
 	var server := _server
 	if server.count("/") == 2: # "ws://host:port" -> "ws://host:port/", or the query isn't a valid URL
@@ -204,6 +243,7 @@ func _room_url() -> String:
 
 func _open_socket() -> void:
 	_socket = WebSocketPeer.new()
+	_rank_sent = false
 	var error := _socket.connect_to_url(_url)
 	_socket_started = error == OK
 	if not _socket_started:
@@ -221,8 +261,14 @@ func _process(delta: float) -> void:
 	_socket.poll()
 	match _socket.get_ready_state():
 		WebSocketPeer.STATE_OPEN:
+			if not _rank_sent:
+				_rank_sent = true
+				_join_ranking()
+			var current_socket := _socket
 			while _socket.get_available_packet_count() > 0:
 				_handle_packet(_socket.get_packet().get_string_from_utf8())
+				if current_socket != _socket:
+					break
 		WebSocketPeer.STATE_CLOSED:
 			_socket_started = false
 			_retry_timer = RECONNECT_DELAY
@@ -250,14 +296,23 @@ func _handle_packet(text: String) -> void:
 				peers.append(int(peer))
 			online = true
 			ranking_available = data.get("ranking", false) == true
-			if ranking_available:
-				_join_ranking()
 			print("Multiplayer: online as #%d, host #%d, %d other player(s)" % [my_id, host_id, peers.size()])
 			connection_changed.emit(true)
 			host_changed.emit()
 		"rank_top":
 			if not data.has("from") and data.get("rows") is Array:
 				leaderboard_received.emit(data["rows"])
+		"rank_access":
+			if not data.has("from"):
+				var was_open := _rank_score >= LOCATION_POINTS
+				_rank_score = int(data.get("score", 0))
+				if was_open != (_rank_score >= LOCATION_POINTS):
+					location_access_changed.emit()
+		"location_locked":
+			if not data.has("from"):
+				_rank_score = 0
+				set_location("nyc")
+				location_access_changed.emit()
 		"join":
 			var joined := int(data["id"])
 			if not peers.has(joined):

@@ -5,7 +5,8 @@ shader_type spatial;
 //   UV2  = (style + seed in the fraction, height of this wall's top)
 //   COLOR = wall tint (sRGB); alpha < 0.5 means no shop front at street level
 // Styles: 0 brick with punched windows, 1 limestone, 2 glass curtain wall,
-// 3 ribbon windows, 4 modern grid, 5 dark glass tower, 6 blank party wall.
+// 3 ribbon windows, 4 modern grid, 5 dark glass tower, 6 blank party wall,
+// 7 sea wall, 8 Paris limestone, 9 Dublin brick.
 
 // Smashed shop windows (nyc_builder.gd smash_window): one texel per window, at the
 // window's middle, 1 m per texel from damage_origin. r: 0.5 cracked, 1 smashed;
@@ -48,6 +49,7 @@ void fragment() {
 	vec2 m = UV;
 	vec2 fw = max(fwidth(m), vec2(0.002));
 	float seed = v_seed;
+	int style = int(v_style);
 	vec3 wall = v_tint;
 	vec3 col = wall;
 	float rough = 0.85;
@@ -58,6 +60,10 @@ void fragment() {
 	float floor_h = 3.3 + seed * 0.6;
 	float bay = 1.9 + fract(seed * 7.3) * 1.0;
 	float storey_base = (v_shops > 0.5) ? 4.8 : 0.0;
+	if (style == 8 || style == 9) {
+		floor_h = 2.95 + seed * 0.45;
+		bay = style == 8 ? 2.12 + fract(seed * 7.3) * 0.45 : 1.65 + fract(seed * 7.3) * 0.5;
+	}
 	vec2 cell = vec2(m.x / bay, (m.y - storey_base) / floor_h);
 	vec2 id = floor(cell);
 	vec2 f = fract(cell) * vec2(bay, floor_h);
@@ -71,11 +77,9 @@ void fragment() {
 
 	// Far away, fade the window pattern into its average so it doesn't shimmer.
 	float detail = 1.0 - smoothstep(0.35, 0.9, max(fw.x / bay, fw.y / floor_h) * 6.0);
-	int style = int(v_style);
-
-	if (style == 0 || style == 1) {
+	if (style == 0 || style == 1 || style == 8 || style == 9) {
 		// Masonry with punched windows, a sill and a lintel.
-		if (style == 0) {
+		if (style == 0 || style == 9) {
 			// Brick courses.
 			float course = fract(m.y / 0.075);
 			float joint = fract(m.x / 0.21 + floor(m.y / 0.075) * 0.5);
@@ -90,10 +94,23 @@ void fragment() {
 		float win = box(f, vec2(bay * 0.24, 0.85), vec2(bay * 0.76, 2.55), fw);
 		float sill = box(f, vec2(bay * 0.2, 0.72), vec2(bay * 0.8, 0.85), fw);
 		float lintel = box(f, vec2(bay * 0.2, 2.55), vec2(bay * 0.8, 2.78), fw);
+		if (style == 8 || style == 9) {
+			float moulding = box(f, vec2(bay * 0.17, 0.64), vec2(bay * 0.83, 2.76), fw);
+			col = mix(col, style == 8 ? wall * 1.28 + 0.04 : wall * 1.5 + 0.1, moulding * 0.85 * detail);
+			if (style == 8) {
+				float course = box(f, vec2(-1.0, 0.05), vec2(bay + 1.0, 0.23), fw);
+				col = mix(col, wall * 1.35 + 0.03, course * detail);
+			}
+		}
 		col = mix(col, wall * 1.25 + 0.06, max(sill, lintel) * detail);
 		// Two sashes.
 		float mull = box(f, vec2(bay * 0.5 - 0.04, 0.85), vec2(bay * 0.5 + 0.04, 2.55), fw) + box(f, vec2(bay * 0.24, 1.66), vec2(bay * 0.76, 1.72), fw);
 		vec3 w = mix(glass, vec3(0.85, 0.84, 0.8), min(mull, 1.0) * detail);
+		if (style == 9) {
+			float sash = box(f, vec2(bay * 0.24, 1.21), vec2(bay * 0.76, 1.25), fw)
+				+ box(f, vec2(bay * 0.24, 2.11), vec2(bay * 0.76, 2.15), fw);
+			w = mix(w, vec3(0.76, 0.75, 0.65), min(sash, 1.0) * detail);
+		}
 		col = mix(col, w, win * mix(0.55, 1.0, detail));
 		if (detail < 1.0) col = mix(mix(wall, glass, 0.32), col, detail);
 	} else if (style == 2 || style == 5) {
@@ -146,6 +163,10 @@ void fragment() {
 		vec3 frame = mix(vec3(0.08, 0.08, 0.09), vec3(0.75, 0.73, 0.68), step(0.6, sid));
 		vec3 sign_col = vec3(0.6 + 0.4 * sin(sid * 40.0), 0.3 + 0.5 * sin(sid * 23.0 + 1.0), 0.25 + 0.6 * sin(sid * 11.0 + 2.0));
 		sign_col = clamp(sign_col, 0.04, 1.0);
+		if (style == 8 || style == 9) {
+			frame = mix(vec3(0.065, 0.035, 0.027), vec3(0.3, 0.28, 0.23), step(0.59, sid));
+			sign_col = mix(vec3(0.07, 0.08, 0.061), vec3(0.27, 0.066, 0.042), step(0.66, sid));
+		}
 		float window = box(vec2(x, m.y), vec2(0.2, 0.45), vec2(unit - 0.2, 3.5), fw);
 		float door = box(vec2(x, m.y), vec2(unit * 0.62, 0.0), vec2(unit * 0.62 + 1.6, 2.6), fw);
 		float sign_band = box(vec2(x, m.y), vec2(0.15, 3.65), vec2(unit - 0.15, 4.55), fw);
@@ -155,6 +176,10 @@ void fragment() {
 		inside += vec3(0.25, 0.18, 0.1) * (1.0 - smoothstep(0.5, 1.8, m.y)) * step(0.4, sid);
 		vec3 shop = frame;
 		shop = mix(shop, inside, window);
+		if (style == 8 || style == 9) {
+			float mullions = box(vec2(fract(x / 1.25), m.y), vec2(0.46, 0.48), vec2(0.54, 3.45), fw);
+			shop = mix(shop, frame, mullions * window);
+		}
 		shop = mix(shop, vec3(0.05, 0.05, 0.06), door * 0.8);
 		float pane = max(window, door);
 		if (damage_on && pane > 0.001) {

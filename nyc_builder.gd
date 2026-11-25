@@ -17,8 +17,8 @@ const PAVEMENT_SHADER := preload("res://pavement.gdshader")
 const SCREEN_SHADER := preload("res://screen.gdshader")
 const ADS := preload("res://nyc_ads.gd")
 
-enum Surface { SIDEWALK, PLAZA, ASPHALT, HEX, GRANITE, PAINT }
-enum Style { BRICK, STONE, GLASS, RIBBON, GRID, DARK_GLASS, BLANK, SEAWALL }
+enum Surface { SIDEWALK, PLAZA, ASPHALT, HEX, GRANITE, PAINT, SETTS, GRASS }
+enum Style { BRICK, STONE, GLASS, RIBBON, GRID, DARK_GLASS, BLANK, SEAWALL, PARIS_STONE, DUBLIN_BRICK }
 
 ## Merged meshes here cover 96 m cells (the estates use 48 m): the island has far
 ## more kinds of detail, so bigger cells keep the draw calls down.

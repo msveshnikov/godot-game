@@ -8,6 +8,19 @@ const SPOTS := {
 	"neratovice": [["estate", Vector3(-16.0, 2.4, -22.0), Vector3(14.0, 7.0, 22.0)]],
 	"omsk2": [["slab", Vector3(-34.0, 2.4, -30.0), Vector3(8.0, 9.0, 6.0)]],
 	"omsk1": [["yard", Vector3(0.0, 1.7, -20.0), Vector3(30.0, 5.0, 60.0)], ["aerial", Vector3(-300.0, 200.0, 300.0), Vector3(0.0, 0.0, 0.0)]],
+	"paris": [
+		["boulevard", Vector3(-47.5, 2.7, -9.3), Vector3(59.0, 10.0, 14.1)],
+		["grevin", Vector3(4.8, 2.1, 1.8), Vector3(11.3, 5.6, -13.2)],
+		["varietes", Vector3(-0.5, 2.1, 5.0), Vector3(1.0, 5.3, 21.0)],
+		["passage", Vector3(-15.9, 2.0, 10.9), Vector3(-21.4, 2.8, 39.0)],
+		["aerial", Vector3(-249.0, 164.0, -287.0), Vector3(0.0, 2.0, 0.0)],
+	],
+	"dublin": [
+		["grafton", Vector3(-17.0, 2.4, 43.0), Vector3(4.0, 7.0, -31.0)],
+		["bewleys", Vector3(3.1, 2.4, -6.4), Vector3(-7.6, 4.2, 2.1)],
+		["gaiety", Vector3(-105.7, 2.6, 169.4), Vector3(-103.5, 5.3, 158.0)],
+		["aerial", Vector3(213.0, 172.0, -280.0), Vector3(0.0, 2.0, 0.0)],
+	],
 	"nyc": [
 		["tkts_south", Vector3(-21.0, 6.6, -144.0), Vector3(14.0, 6.0, 230.0)],
 		["bowtie_north", Vector3(-12.0, 1.7, -70.0), Vector3(14.0, 16.0, 200.0)],
@@ -42,6 +55,7 @@ func _initialize() -> void:
 	DisplayServer.window_set_size(window_size)
 	_scene = (load("res://node_2d.tscn") as PackedScene).instantiate()
 	root.add_child(_scene)
+	current_scene = _scene
 	_run.call_deferred()
 
 

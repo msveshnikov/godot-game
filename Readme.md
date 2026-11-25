@@ -35,9 +35,8 @@
   streets and stop at the lights.
 - **A real place, 1:1.** About 200 m of a Czech panel-housing estate, rebuilt in metres from the satellite map and
   Street View: five-storey blocks with loggias, sixteen-storey towers, garages, a playground, a supermarket, a hill.
-- **Four places to play.** Pick one in the main menu: Times Square, the Czech estate, or one of two Siberian estates
-  in Omsk (Omsk 1: five-storey khrushchyovkas under new red roofs; Omsk 2: nine-storey panel blocks, garages
-  and the old private sector), each rebuilt from the satellite map and Street View ~200 m round.
+- **Six places to play.** Pick Times Square, Neratovice or either Omsk estate in the main menu. With 10,000
+  leaderboard points, you can also visit Boulevard Montmartre in Paris or Grafton Street in Dublin.
 - **Pistol, baseball bat, empty hands.** A small CS-style crosshair, hitscan shots with a real gunshot sound,
   tracers and bullet holes. Players can shoot each other: a headshot kills, body hits take 15-34 depending on
   how close to the heart, a bat blow 30. Shoot a car and it blows up, then burns for minutes in a column of
@@ -138,7 +137,27 @@ The default place for new players (`?loc=nyc` / `-- --loc=nyc`), built by `distr
 - **The square.** LED screens on every facade that looks onto the square, wrapped round the corners and stacked in tiers (`screen.gdshader`); the ads are painted once at load time into an atlas (`nyc_ads.gd`): about every other screen shows NOVA (the AGI robot you print yourself, with its Blender renders), MaxSoft, Claude or Anthropic, the rest made-up brands. One Times Square is covered in screens almost to the top, with the news ticker round it and the ball on its mast over the lit year. The dark plaza pavers with steel discs, granite benches, café tables, hot dog carts, the TKTS booth under 24 glowing red steps you can climb, George M. Cohan and Father Duffy with his Celtic cross, the NYPD station in blue neon and the recruiting booth with its neon flag.
 - **The streets.** Real roadway widths and one-way directions: 7th Avenue south, 8th and 6th north with green bike lanes, even streets east, odd ones west, 42nd both ways with red bus lanes. Granite kerbs, high-visibility crosswalks, traffic lights on every corner with green street-name signs, lamps, hydrants, trash cans, mailboxes, newsstands, Con Ed steam stacks venting, sidewalk sheds, subway entrances with green globes, Broadway theatres with marquees and vertical blade signs, and The Torch going up on 8th Avenue under a tower crane. Yellow cabs (`car_taxi` in `build_vehicles.py`) are half the traffic; the cars follow the signal cycle (`traffic.gd`, the same wall clock on every client) and keep clear of each other where lanes cross.
 
-Map data © OpenStreetMap contributors (ODbL).
+### Boulevard Montmartre and Grafton Street
+
+Both districts have a roughly 250 m playable radius and a waterfront promenade, like the Times Square island.
+Street centerlines and building footprints use metre coordinates from OpenStreetMap. The procedural buildings
+use tagged heights and floor counts where available, with estimated heights, widths, and facade detail elsewhere.
+Google Maps and Street View were visual references for street layout, materials, signs and landmark exteriors.
+
+- **Paris** (`?loc=paris`) starts near Musée Grévin and Théâtre des Variétés. It includes rue Vivienne,
+  rue du Faubourg Montmartre, the beginning of boulevard Poissonnière, café terraces, Morris columns,
+  Grands Boulevards métro entrances, and walkable portions of Passages Jouffroy and des Panoramas.
+  [Google Maps](https://www.google.com/maps/search/?api=1&query=Mus%C3%A9e+Gr%C3%A9vin+Paris)
+  · [Street View](https://www.google.com/maps/@?api=1&map_action=pano&pano=ohH5edyRZTLShDAQAJhbLg&heading=340)
+- **Dublin** (`?loc=dublin`) follows granite-paved Grafton Street between Suffolk Street and St Stephen’s Green,
+  with Bewley’s, Harry Street and Phil Lynott, Brown Thomas, King Street South and the Gaiety Theatre.
+  [Google Maps](https://www.google.com/maps/search/?api=1&query=Bewley%27s+Grafton+Street+Dublin)
+  · [Street View](https://www.google.com/maps/@?api=1&map_action=pano&pano=Eq-HcjYw9RWKyJcC4ADaQQ&heading=263)
+
+The district cards and relay use the same 10,000-point threshold from the persistent leaderboard.
+The exact lower-case Cyrillic test nickname `макс` unlocks both districts immediately.
+
+Map data © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) (ODbL).
 
 Every place has its own multiplayer room (Neratovice keeps the old one), so players meet only the people in the same place.
 
@@ -175,6 +194,11 @@ Everyone who opens the game (web link or the Android APK) lands in the same worl
 Exports ship only what the game can load (`export_files` in `export_presets.cfg`, plus every script and `audio/`, `assets/`), not the whole Cogito demo. After adding a scene, model or sound, regenerate the list: `godot --headless --path . -s tools/update_export_files.gd`.
 
 Rebuild the Times Square data: fetch the Overpass dump with `tools/nyc/overpass_query.txt` (`curl --data-urlencode "data@tools/nyc/overpass_query.txt" https://overpass-api.de/api/interpreter -o raw.json`), then `python -I tools/nyc/osm_to_json.py raw.json assets/nyc/times_square.json`.
+
+Rebuild the Paris and Dublin data with `tools/europe/osm_to_json.py` (Python with Shapely 2.1).
+Pass the city id, the corresponding OpenStreetMap JSON export and the destination in `assets/europe/`.
+The API bounding boxes are `2.3387,48.86945,2.34635,48.87438` for Paris and
+`-6.26435,53.33920,-6.25585,53.34408` for Dublin, in west/south/east/north order.
 
 Screenshot tour (any place; also prints fps and draw calls, `--check` runs the crowd and traffic for 30 s and reports anyone stuck in a building): `godot --path . -s tools/tour.gd -- --loc=nyc --server=ws://127.0.0.1:1 [--only=0,3] [--ui] [--check]` → `screenshots/tour/`.
 

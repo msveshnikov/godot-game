@@ -187,7 +187,7 @@ func _fire_at(who: Node3D, distance: float) -> void:
 
 
 ## Hit by the player: `damage` from pistol_damage() (100 for a headshot), the bat, or a blast.
-func receive_hit(kind := "pistol") -> void:
+func receive_hit(kind := "pistol", _attacker := 0) -> void:
 	take_damage({"bat": 45.0, "blast": MAX_HP}.get(kind, 30.0))
 
 
