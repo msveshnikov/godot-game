@@ -35,8 +35,11 @@ func _snap(name: String) -> void:
 func _close_overlays() -> void:
 	var layer: CanvasLayer = _menu.get("_layer")
 	for child in layer.get_children():
-		child.queue_free()
-	await _wait(2)
+		if child.has_method("close"):
+			child.call("close")
+		else:
+			child.queue_free()
+	await _wait(4)
 
 
 func _run() -> void:

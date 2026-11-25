@@ -62,7 +62,7 @@ func _run() -> void:
 	await _wait(30)
 	await _snap("03_shop_bought")
 	if shop != null:
-		shop.queue_free()
+		shop.call("close")
 	player.call("_start_game")
 	await _wait(10)
 	var cam := Camera3D.new()

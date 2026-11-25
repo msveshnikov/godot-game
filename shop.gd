@@ -21,6 +21,8 @@ var _turntable: Node3D
 var _model: Node3D
 var _try_on := {}
 var _sound: AudioStreamPlayer
+var _viewport: SubViewport
+var _closing := false
 
 
 ## Open the shop on top of `layer`; `closed` runs when it is shut.
@@ -102,7 +104,7 @@ func _ready() -> void:
 	back.custom_minimum_size = Vector2(160.0, 52.0)
 	back.focus_mode = Control.FOCUS_NONE
 	back.add_theme_font_size_override("font_size", 20)
-	back.pressed.connect(queue_free)
+	back.pressed.connect(close)
 	bottom.add_child(back)
 
 	_game.connect("money_changed", _on_money)
@@ -113,7 +115,23 @@ func _ready() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
 		get_viewport().set_input_as_handled()
-		queue_free()
+		close()
+
+
+## Shut the shop. The preview's little world stops drawing first and is freed only
+## once the renderer has finished the frames that still used it.
+func close() -> void:
+	if _closing:
+		return
+	_closing = true
+	hide()
+	set_process(false)
+	set_process_unhandled_input(false)
+	if _viewport != null:
+		_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	await RenderingServer.frame_post_draw
+	await RenderingServer.frame_post_draw
+	queue_free()
 
 
 func _process(delta: float) -> void:
@@ -142,7 +160,14 @@ func _build_preview() -> Control:
 	var viewport := SubViewport.new()
 	viewport.own_world_3d = true
 	viewport.transparent_bg = true
-	viewport.msaa_3d = Viewport.MSAA_2X
+	# Anti-aliasing only as the graphics quality allows, and never on phones: an MSAA
+	# render target being made and dropped with the shop crashed the Mali Vulkan driver
+	# (SIGSEGV in VkThread on a Redmi, opening or leaving the shop).
+	var settings := get_node_or_null("/root/Settings")
+	viewport.msaa_3d = Viewport.MSAA_DISABLED
+	if settings != null and not OS.has_feature("mobile"):
+		viewport.msaa_3d = settings.QUALITY[settings.quality]["msaa"]
+	_viewport = viewport
 	frame.add_child(viewport)
 	var environment := Environment.new()
 	environment.background_mode = Environment.BG_CLEAR_COLOR
