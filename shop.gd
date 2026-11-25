@@ -198,8 +198,12 @@ func _build_preview() -> Control:
 
 func _refresh() -> void:
 	_on_money(int(_game.get("money")))
+	# Out of the list now, freed at the end of the frame: _refresh runs from a
+	# button's `pressed`, and freeing that button while it is still emitting crashed
+	# Android (SIGSEGV in VkThread buying rockets).
 	for child in _items.get_children():
-		child.free()
+		_items.remove_child(child)
+		child.queue_free()
 	_add_weapons()
 	var look: Dictionary = (_game.get("look") as Dictionary).duplicate()
 	for slot in _const("SLOTS"):
@@ -294,7 +298,7 @@ func _on_bazooka() -> void:
 		_note.text = "Bazooka bought! It comes empty: buy rockets, %d at most." % int(_const("MAX_ROCKETS"))
 	else:
 		_note.text = "The bazooka costs $%d: smash some more." % int(_const("BAZOOKA_PRICE"))
-	_refresh()
+	_refresh.call_deferred()
 
 
 func _on_rockets(count: int) -> void:
@@ -308,7 +312,7 @@ func _on_rockets(count: int) -> void:
 			_note.text = "+%d rocket%s." % [bought, "" if bought == 1 else "s"]
 		else:
 			_note.text = "A rocket costs $%d." % int(_const("ROCKET_PRICE"))
-	_refresh()
+	_refresh.call_deferred()
 
 
 func _item_button(slot: String, entry: Dictionary, worn: bool) -> Button:
@@ -361,7 +365,7 @@ func _on_item(slot: String, id: String) -> void:
 	else:
 		_try_on[slot] = id
 		_note.text = "Trying it on: $%d more to buy it." % (price - int(_game.get("money")))
-	_refresh()
+	_refresh.call_deferred()
 
 
 func _const(name: String) -> Variant:
