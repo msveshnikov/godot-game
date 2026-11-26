@@ -84,6 +84,7 @@ var _woosh_sound: AudioStreamPlayer
 var _game_over_screen: Control
 var _pause_screen: Control
 var _pause_button: Button
+var _shop: Shop
 var _paused := false
 var _crosshair: Crosshair
 var _damage_flash: ColorRect
@@ -1015,7 +1016,26 @@ func _make_game_screen(title_text: String, message: String, buttons: Array) -> C
 
 
 func _open_shop() -> void:
-	Shop.open(hud)
+	if is_instance_valid(_shop) and _shop.visible:
+		return
+	_shop = Shop.open(hud, Callable(), self if _paused and not _game_over else null)
+
+
+func whiskey_restores() -> int:
+	if not _game_started or not _paused or _game_over or health <= 0:
+		return 0
+	return clampi(MAX_HEALTH - health, 0, Game.WHISKEY_HEAL)
+
+
+## Buy and drink in one action. A failed purchase changes neither health nor cash.
+func buy_whiskey() -> int:
+	var healed := whiskey_restores()
+	if healed == 0 or Game.money < Game.WHISKEY_PRICE:
+		return 0
+	health += healed
+	_update_health_ui()
+	Game.add_money(-Game.WHISKEY_PRICE)
+	return healed
 
 
 func _open_settings() -> void:
@@ -1034,9 +1054,13 @@ func _pause() -> void:
 		_mobile_controls.call("release_all")
 
 
-## Android's back button: pause, or back into the game from the pause menu.
+## Android's back button closes the shop before leaving the pause menu.
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_WM_GO_BACK_REQUEST and _game_started and not _game_over:
+	if what != NOTIFICATION_WM_GO_BACK_REQUEST:
+		return
+	if is_instance_valid(_shop) and _shop.visible:
+		_shop.close()
+	elif _game_started and not _game_over:
 		if _paused:
 			_resume()
 		else:

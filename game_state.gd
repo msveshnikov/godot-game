@@ -14,6 +14,8 @@ const SAVE_PATH := "user://progress.cfg"
 ## Share of the money lost when the player dies.
 const DEATH_LOSS := 0.25
 const FEMALE_MODEL := "res://female_player.glb"
+const WHISKEY_PRICE := 100
+const WHISKEY_HEAL := 100
 ## The bazooka: bought once, then every rocket is paid for; at most MAX_ROCKETS carried.
 const BAZOOKA_PRICE := 1000
 const ROCKET_PRICE := 100

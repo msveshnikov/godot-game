@@ -1,10 +1,8 @@
 class_name Shop
 extends ColorRect
-## The shop, opened from the start and game-over screens: spend the money smashed
-## up in the world (game_state.gd) on the bazooka and its rockets and on the
-## character's looks. The character turns
-## slowly on the left; every item is a button on the right: bought ones are put on
-## at once, ones you can't afford yet are tried on so you can see them.
+## The shop sells weapons and outfits from the main menu, pause and game-over
+## screens. During a run it also sells a drink to restore health.
+## The turntable previews outfits, including items the player cannot afford yet.
 
 const MODEL_SCENE: PackedScene = preload("res://main_player.glb")
 const MODEL_ANIMATOR = preload("res://player_model_animator.gd")
@@ -13,6 +11,8 @@ const PURCHASE_SOUND: AudioStream = preload("res://audio/purchase.wav")
 const GOLD := Color(1.0, 0.82, 0.25)
 
 var _game: Node
+var _player: CharacterBody3D
+var _whiskey: Button
 var _panel: PanelContainer
 var _money: Label
 var _note: Label
@@ -26,8 +26,9 @@ var _closing := false
 
 
 ## Open the shop on top of `layer`; `closed` runs when it is shut.
-static func open(layer: CanvasLayer, closed := Callable()) -> Shop:
+static func open(layer: CanvasLayer, closed := Callable(), player: CharacterBody3D = null) -> Shop:
 	var shop := Shop.new()
+	shop._player = player
 	layer.add_child(shop)
 	if closed.is_valid():
 		shop.tree_exited.connect(closed)
@@ -81,6 +82,12 @@ func _ready() -> void:
 	_money.add_theme_font_size_override("font_size", 28)
 	_money.add_theme_color_override("font_color", GOLD)
 	head.add_child(_money)
+	if _player != null:
+		_whiskey = _plain_button("", false, false)
+		_whiskey.name = "DrinkWhiskey"
+		_whiskey.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		_whiskey.pressed.connect(_on_whiskey)
+		right.add_child(_whiskey)
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -315,6 +322,13 @@ func _on_rockets(count: int) -> void:
 	_refresh.call_deferred()
 
 
+func _on_whiskey() -> void:
+	var healed: int = _player.call("buy_whiskey")
+	if healed > 0:
+		_sound.play()
+		_note.text = "Restored %d HP." % healed
+
+
 func _item_button(slot: String, entry: Dictionary, worn: bool) -> Button:
 	var id: String = entry["id"]
 	var button := Button.new()
@@ -374,3 +388,10 @@ func _const(name: String) -> Variant:
 
 func _on_money(value: int) -> void:
 	_money.text = "$ %d" % value
+	if _whiskey == null:
+		return
+	var price := int(_const("WHISKEY_PRICE"))
+	var healed: int = _player.call("whiskey_restores")
+	var detail := "Restores %d HP" % healed if healed > 0 else "Full health"
+	_whiskey.text = "Drink whiskey  ·  $%d\n%s" % [price, detail]
+	_whiskey.disabled = healed == 0 or value < price

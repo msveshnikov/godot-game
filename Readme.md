@@ -51,9 +51,9 @@
   your cash, who else is online there, and a card for each place. In the game, Esc (or the pause button on a
   phone) brings up the pause menu.
 - **Smash for cash, then shop.** Every dent, cracked or smashed shop window and blown-up car pays out in gold coins
-  that pop out and fly into your pockets when you walk up to them. Spend them in the shop (start and game-over
-  screens): T-shirt and jeans colours, caps, sunglasses, and Alice, a second character. Money and looks are saved on the
-  device; die and you drop a quarter of it.
+  that pop out and fly into your pockets when you walk up to them. Spend them on outfits or on Alice, a second
+  character. Money and looks are saved on the device. You drop a quarter of your cash when you die.
+  From the pause menu's shop, drink whiskey for $100 to restore up to 100 HP.
 - **Heat and the police.** Violence fills a heat meter that cools off slowly while you behave. When it tops out a
   patrol car comes in along the streets with lights and siren, and two officers, a man and a woman, get out and
   shoot back for real. Put both down to clear the heat (they drop $150), or outrun them to halve it.
