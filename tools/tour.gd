@@ -6,7 +6,11 @@ extends SceneTree
 
 const SPOTS := {
 	"neratovice": [["estate", Vector3(-16.0, 2.4, -22.0), Vector3(14.0, 7.0, 22.0)]],
-	"omsk2": [["slab", Vector3(-34.0, 2.4, -30.0), Vector3(8.0, 9.0, 6.0)]],
+	"omsk2": [
+		["slab", Vector3(-34.0, 2.4, -30.0), Vector3(8.0, 9.0, 6.0)],
+		["cheredovaya23", Vector3(218.0, 2.5, -245.0), Vector3(193.0, 7.0, -278.0)],
+		["north_aerial", Vector3(347.0, 158.0, -114.0), Vector3(143.0, 3.0, -269.0)],
+	],
 	"omsk1": [["yard", Vector3(0.0, 1.7, -20.0), Vector3(30.0, 5.0, 60.0)], ["aerial", Vector3(-300.0, 200.0, 300.0), Vector3(0.0, 0.0, 0.0)]],
 	"paris": [
 		["boulevard", Vector3(-47.5, 2.7, -9.3), Vector3(59.0, 10.0, 14.1)],

@@ -11,7 +11,7 @@ const PLACES := {
 	"nyc": "Times Square, New York: the theatre district cut out of Manhattan and set adrift as an island. LED screens on every wall, yellow cabs, the TKTS red steps.",
 	"neratovice": "Neratovice, Czechia: an autumn panel-housing estate with loggias, garages, a playground and a walk-in supermarket.",
 	"omsk1": "Omsk 1, Siberia: five-storey khrushchyovkas under new red roofs, yards with playgrounds, kindergartens and a school.",
-	"omsk2": "Omsk 2, Siberia: a 100 m nine-storey slab, rows of brick garages, a gas station and the old wooden private sector.",
+	"omsk2": "Omsk 2, Siberia: panel blocks, brick garages and wooden houses, with connected streets as far as 10th Cheredovaya Street and No. 23.",
 	"paris": "Paris: Boulevard Montmartre, the Grévin museum, the old covered passages and the café terraces of the Grands Boulevards.",
 	"dublin": "Dublin: the granite paving and shopfronts of Grafton Street, Bewley’s café, Harry Street and St Stephen’s Green.",
 }

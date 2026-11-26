@@ -304,10 +304,10 @@ func _zebra(at: Vector2, yaw: float, road_width: float) -> void:
 ## `balcony_side` long face (+1 = +t), entrances with concrete canopies on the other,
 ## and a red pitched roof (the new ones) or the old flat one with a parapet.
 func _khrushchyovka(block_name: String, c: Vector2, length: float, yaw: float, balcony_side := 1.0,
-		wall := KHRUSH_WALL, pitched := true, floors := 5) -> Array:
+		wall := KHRUSH_WALL, pitched := true, floors := 5, depth := KHRUSH_DEPTH) -> Array:
 	var f := _frame(c, yaw)
 	var hs := length * 0.5
-	var ht := KHRUSH_DEPTH * 0.5
+	var ht := depth * 0.5
 	var top := PLINTH + floors * FLOOR
 	var tint := wall * _rng.randf_range(0.95, 1.04)
 	_owall(block_name, f, -hs, -ht, hs, ht, 0.0, top, tint)

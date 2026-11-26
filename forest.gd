@@ -3,6 +3,9 @@ extends Node3D
 const TREE_COUNT := 650
 const MIN_TREE_SPACING := 4.5
 
+var bounds := Rect2(-255.0, -255.0, 510.0, 510.0)
+var clearings: Array[Rect2] = [Rect2(-215.0, -215.0, 430.0, 430.0)]
+
 
 func _ready() -> void:
 	var rng := RandomNumberGenerator.new()
@@ -16,13 +19,13 @@ func _ready() -> void:
 
 	while positions.size() < TREE_COUNT and attempts < TREE_COUNT * 40:
 		attempts += 1
-		var x := rng.randf_range(-255.0, 255.0)
-		var z := rng.randf_range(-255.0, 255.0)
-		# Keep the district (district.gd, ~200 m round the home block) clear.
-		if absf(x) < 215.0 and absf(z) < 215.0:
+		var candidate := Vector2(
+			rng.randf_range(bounds.position.x, bounds.end.x),
+			rng.randf_range(bounds.position.y, bounds.end.y)
+		)
+		if clearings.any(func(clearing: Rect2) -> bool: return clearing.has_point(candidate)):
 			continue
 
-		var candidate := Vector2(x, z)
 		var too_close := false
 		for existing_position in positions:
 			if candidate.distance_squared_to(existing_position) < MIN_TREE_SPACING * MIN_TREE_SPACING:

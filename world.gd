@@ -25,3 +25,5 @@ func _enter_tree() -> void:
 	var current := district.get_script() as Script
 	if current == null or current.resource_path != path:
 		district.set_script(load(path))
+	if district.has_method("prepare_ground"):
+		district.call("prepare_ground")
