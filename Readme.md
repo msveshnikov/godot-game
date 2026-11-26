@@ -158,8 +158,9 @@ Each district has 52 armed adult NPCs. The extra patrols start on the main stree
   with Bewley’s, Harry Street and Phil Lynott, Brown Thomas, King Street South and the Gaiety Theatre.
   Follow Anne Street South to St Ann’s Church or continue to the Fusiliers’ Arch at the park entrance.
   The classic Stephen’s Green Shopping Centre has three ironwork balconies above the shopfronts and a tall
-  glass dome. A compact Luas-inspired shuttle carries seated passengers beside the park and can be wrecked
-  by a direct bazooka hit. [Historic facade reference](https://www.mortarandmore.com/news/2024/01/st-stephens-green-shopping-centre)
+  glass dome. Luas-inspired shuttles carry seated passengers beside the park and along both Dawson Street
+  tracks. A direct bazooka hit can wreck each tram separately. Cars follow loops and yield at track crossings.
+  [Historic facade reference](https://www.mortarandmore.com/news/2024/01/st-stephens-green-shopping-centre)
   · [Luas fleet reference](https://www.tii.ie/en/public-transport/luas/trams-and-depots/)
   [Google Maps](https://www.google.com/maps/search/?api=1&query=Bewley%27s+Grafton+Street+Dublin)
   · [Street View](https://www.google.com/maps/@?api=1&map_action=pano&pano=Eq-HcjYw9RWKyJcC4ADaQQ&heading=263)

@@ -11,9 +11,9 @@ const REMOTE_PLAYER_SCRIPT = preload("res://remote_player.gd")
 const SEND_INTERVAL := 1.0 / 15.0
 const REMOTE_TIMEOUT_MSEC := 10000
 const FEED_TIME := 6.0
-## Older Paris builds have different moving cars at the same local indices.
-## Keep their damage events separate while sharing the rest of the room.
+## Separate loop-car events from older builds with different routes.
 const PARIS_TRAFFIC_INDEX_BASE := 1000
+const DUBLIN_TRAFFIC_INDEX_BASE := 1500
 
 var _remotes := {} # peer id -> remote player body
 var _rockets := {} # peer id -> their rockets in flight (harmless copies), oldest first
@@ -109,7 +109,11 @@ func broadcast_dent(kind: String, index: int, point: Vector3, dir: Vector3, glas
 
 
 func _car_index_base(kind: String) -> int:
-	return PARIS_TRAFFIC_INDEX_BASE if kind == "traffic" and Net.location == "paris" else 0
+	if kind == "traffic":
+		match Net.location:
+			"paris": return PARIS_TRAFFIC_INDEX_BASE
+			"dublin": return DUBLIN_TRAFFIC_INDEX_BASE
+	return 0
 
 
 ## The local player fired the bazooka: others see the rocket fly (harmless) until
@@ -233,8 +237,8 @@ func _on_message(from: int, data: Dictionary) -> void:
 					rocket.fizzle()
 					break
 			var surface := str(data.get("s", "air"))
-			if surface == "tram" and float(data.get("tp", -1.0)) >= 0.0:
-				var tram := get_tree().current_scene.get_node_or_null("Diorama/District/Tram") as DublinTram
+			if DublinTram.ROUTES.has(surface) and float(data.get("tp", -1.0)) >= 0.0:
+				var tram := get_tree().current_scene.get_node_or_null("Diorama/District/" + str(DublinTram.ROUTES[surface])) as DublinTram
 				if tram != null:
 					tram.wreck_by_rocket(float(data["tp"]))
 			Rocket.explode(get_parent(), Vector3(bp[0], bp[1], bp[2]), Vector3(bn[0], bn[1], bn[2]), surface, from)

@@ -615,24 +615,14 @@ func _build_traffic() -> void:
 	traffic.set("models", models)
 	traffic.set("colors", CAR_COLORS.map(func(p): return p[0]))
 	traffic.set("lanes", _traffic_lanes())
-	traffic.set("smooth_loops", _is_paris())
+	traffic.set("smooth_loops", true)
+	traffic.set("rail_crossings", _traffic_rail_crossings())
 	add_child(traffic)
 
 
 func _traffic_lanes() -> Array:
-	var lanes := []
-	for item in _data["lanes"]:
-		var points := _points(item[0])
-		var sides := [0.0] if item[1] == 0.0 else [-1.0, 1.0]
-		for side in sides:
-			var path: Array[Vector2] = []
-			var metres := 0.0
-			for i in points.size():
-				var dir := (points[mini(i + 1, points.size() - 1)] - points[maxi(0, i - 1)]).normalized()
-				path.append(points[i] + Vector2(-dir.y, dir.x) * float(item[1]) * side)
-				if i > 0:
-					metres += points[i].distance_to(points[i - 1])
-			if side != 0.0 and (side > 0) != _is_paris():
-				path.reverse()
-			lanes.append([path, clampi(roundi(metres / 83.0), 1, 4)])
-	return lanes
+	return []
+
+
+func _traffic_rail_crossings() -> Dictionary:
+	return {}

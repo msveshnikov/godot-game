@@ -6,6 +6,12 @@ const DARK_WOOD := Color(0.25, 0.11, 0.071)
 const CAFE_RED := Color(0.56, 0.095, 0.13)
 const ENAMEL := Color(0.13, 0.32, 0.34)
 const IVORY := Color(0.93, 0.87, 0.74)
+const PARK_TURN_RADIUS := 2.05
+const PARK_ROAD := [
+	Vector2(-45.8, 206.65), Vector2(-41.08, 203.09), Vector2(-35.56, 200.94),
+	Vector2(-30.5, 200.35), Vector2(-25.26, 200.75), Vector2(-20.1, 202.1),
+	Vector2(23.0, 219.45), Vector2(34.0, 223.87),
+]
 const TILE := [Color(0.79, 0.47, 0.22), Color(0.40, 0.18, 0.13), Color(0.13, 0.37, 0.37), Color(0.87, 0.78, 0.52)]
 
 
@@ -42,37 +48,108 @@ func _parked_rows() -> Array:
 	]
 
 
-func _build_tram() -> void:
-	# The continuous eastern rail at St Stephen's Green, from the terminal curve
-	# beside the shopping centre to the last mapped length before the wall.
+func _traffic_lanes() -> Array:
+	# The west loop uses the short paved link between South William and Wicklow.
+	var west := [
+		Vector2(-126.8, -149.7), Vector2(-68.36, -143.85), Vector2(-62.83, -141.94),
+		Vector2(-37.14, -128.2), Vector2(-34.21, -125.95), Vector2(-34.46, -120.95),
+		Vector2(-86.05, -21.39), Vector2(-133.56, 60.41), Vector2(-140.13, 68.11),
+		Vector2(-144.91, 77.93), Vector2(-150.34, 82.5), Vector2(-155.1, 81.1),
+		Vector2(-169.8, 73.9), Vector2(-197.5, 59.2), Vector2(-202.8, 58.2),
+		Vector2(-206.50, 59.2), Vector2(-191.2, 23.0), Vector2(-177.8, -5.2),
+		Vector2(-166.1, -34.9), Vector2(-164.4, -41.2), Vector2(-144.8, -87.6),
+		Vector2(-133.2, -117.0),
+	]
+	# Dawson, Molesworth Street and the small service lane below it.
+	var east := [
+		Vector2(119.35, 68.9), Vector2(123.6, 46.0), Vector2(129.0, 43.8),
+		Vector2(155.5, 49.23), Vector2(182.5, 54.7), Vector2(198.9, 58.5),
+		Vector2(191.5, 84.0), Vector2(175.5, 80.5), Vector2(134.0, 71.6),
+		Vector2(129.1, 69.9),
+	]
+	var nassau := _out_and_back([Vector2(162.5, -135.36), Vector2(174.53, -130.84),
+		Vector2(200.0, -120.0)], 2.75, 2.55)
+	return [[west, 6], [east, 3], [_out_and_back(PARK_ROAD, PARK_TURN_RADIUS, 1.72), 3], [nassau, 2]]
+
+
+func _traffic_rail_crossings() -> Dictionary:
+	return {1: [Vector2(128.7, 44.05), Vector2(125.0, 69.45)]}
+
+
+## One side of the road in each direction, connected by turn bays at each end.
+func _out_and_back(road: Array, radius: float, lane_offset: float) -> Array:
+	var path: Array[Vector2] = []
+	for index in road.size():
+		var at: Vector2 = road[index]
+		var along := ((road[mini(index + 1, road.size() - 1)] as Vector2) - (road[maxi(index - 1, 0)] as Vector2)).normalized()
+		if index == 0 or index == road.size() - 1:
+			var ahead := -along if index == 0 else along
+			for step in 9:
+				var angle := PI * step / 8.0
+				path.append(at + (ahead * sin(angle) - ahead.orthogonal() * cos(angle)) * radius)
+		else:
+			path.append(at - along.orthogonal() * lane_offset)
+	for index in range(road.size() - 2, 0, -1):
+		var along := ((road[index + 1] as Vector2) - (road[index - 1] as Vector2)).normalized()
+		path.append(road[index] + along.orthogonal() * lane_offset)
+	return path
+
+
+func _park_turning_bays() -> void:
+	for at: Vector2 in [PARK_ROAD[0], PARK_ROAD[-1]]:
+		var pad := PackedVector2Array()
+		for sector in 28:
+			pad.append(at + Vector2.from_angle(TAU * sector / 28.0) * 4.23)
+		_gpoly(pad, 0.035, Color(0.40, 0.39, 0.38), Surface.ASPHALT)
+
+
+func _build_trams() -> void:
+	_build_shuttle("tram", [Vector2(-50.53, 228.50), Vector2(16.13, 224.66), Vector2(40.66, 235.44)], 6.4)
+	# The two Dawson Street rails are oppositely oriented. The shuttles start
+	# from opposite ends and stay on their own track through the Nassau bend.
+	_build_shuttle("tram_dawson_west", [
+		Vector2(96.62, 218.52), Vector2(105.77, 169.43), Vector2(151.09, -99.86), Vector2(60.17, -231.26)], -7.5)
+	_build_shuttle("tram_dawson_east", [Vector2(63.35, -230.38), Vector2(100.37, 216.86)], -7.5)
+
+
+func _build_shuttle(surface: String, joins: Array[Vector2], mast_side: float) -> void:
 	var track := PackedVector2Array()
-	for start in [Vector2(-50.53, 228.50), Vector2(16.13, 224.66)]:
+	for index in range(1, joins.size()):
+		var section := PackedVector2Array()
 		for raw in _data["rail"]:
 			var line := _points(raw)
-			if line[0].distance_squared_to(start) < 0.04 and line[-1].x > start.x + 10.0:
-				track.append_array(line if track.is_empty() else line.slice(1))
+			if line[0].distance_squared_to(joins[index - 1]) < 0.04 and line[-1].distance_squared_to(joins[index]) < 0.04:
+				section = line
 				break
-	if track.size() > 2:
-		_tram_wire(track)
-		var tram := DublinTram.new()
-		tram.name = "Tram"
-		tram.rail = track
-		add_child(tram)
+		if section.is_empty():
+			push_warning("Missing Dublin rail section for " + surface)
+			return
+		track.append_array(section if track.is_empty() else section.slice(1))
+	_tram_wire(track, mast_side)
+	var tram := DublinTram.new()
+	tram.name = DublinTram.ROUTES[surface]
+	tram.rocket_surface = surface
+	tram.rail = track
+	add_child(tram)
 
 
-func _tram_wire(track: PackedVector2Array) -> void:
+func _tram_wire(track: PackedVector2Array, mast_side: float) -> void:
+	var next_mast := 24.0
 	for i in range(1, track.size()):
 		var f := _edge_frame(track[i - 1], track[i])
-		var half := track[i - 1].distance_to(track[i]) * 0.5 + 0.02
+		var length := track[i - 1].distance_to(track[i])
+		var half := length * 0.5 + 0.02
 		_obox(f, -half, -0.015, half, 0.015, 4.26, 4.287, CAST_IRON.lightened(0.17))
-	for i in range(5, track.size(), 5):
-		var f := _edge_frame(track[i - 1], track[i])
-		var at := _fp(f, 0, 6.4)
-		if not _fits_street(at, 0.55):
-			continue
-		_cyl("solid", _w(at.x, at.y), 0.07, 4.95, CAST_IRON, 10)
-		_obox(f, -0.035, 0.0, 0.035, 6.43, 4.70, 4.77, CAST_IRON)
-		_obox(f, -0.016, -0.016, 0.016, 0.016, 4.265, 4.73, CAST_IRON)
+		while next_mast <= length:
+			var centre := track[i - 1].lerp(track[i], next_mast / length)
+			var mast := _frame(centre, rad_to_deg((f[1] as Vector2).angle()))
+			var at := _fp(mast, 0, mast_side)
+			if _fits_street(at, 0.55):
+				_cyl("solid", _w(at.x, at.y), 0.07, 4.95, CAST_IRON, 10)
+				_obox(mast, -0.035, minf(0.0, mast_side), 0.035, maxf(0.0, mast_side), 4.70, 4.77, CAST_IRON)
+				_obox(mast, -0.016, -0.016, 0.016, 0.016, 4.265, 4.73, CAST_IRON)
+			next_mast += 34.0
+		next_mast -= length
 
 
 func _build_landmarks() -> void:
@@ -88,7 +165,10 @@ func _build_landmarks() -> void:
 		_statue(_point(raw[0]), str(raw[1]))
 	_grafton_furniture()
 	_flower_stall()
-	_build_tram()
+	_build_trams()
+	_park_turning_bays()
+	_gstrip(Vector2(124.0, 69.1), Vector2(135.1, 71.85), 3.55, 0.036,
+		Color(0.40, 0.39, 0.38), Surface.ASPHALT)
 
 
 func _bewleys() -> void:

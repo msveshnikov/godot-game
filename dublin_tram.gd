@@ -5,9 +5,11 @@ extends Node3D
 const SECTION_OFFSET := 3.69
 const SECTION_LENGTH := 7.10
 const END_CLEARANCE := 8.30
-const TRIP_SECONDS := 24.0
+const MIN_TRIP_SECONDS := 24.0
+const AVERAGE_SPEED := 5.4
 const DWELL_SECONDS := 3.0
 const WRECK_SECONDS := 45.0
+const ROUTES := {"tram": "Tram", "tram_dawson_west": "TramDawsonWest", "tram_dawson_east": "TramDawsonEast"}
 const BURGUNDY := Color(0.63, 0.075, 0.13)
 const GOLD := Color(0.96, 0.70, 0.20)
 const SILVER := Color(0.78, 0.81, 0.83)
@@ -18,7 +20,9 @@ const GLASS := Color(0.42, 0.62, 0.68)
 const OUTFIT = preload("res://villager_outfit.gd")
 
 var rail: PackedVector2Array
+var rocket_surface := "tram"
 var _track := Curve2D.new()
+var _trip_seconds := MIN_TRIP_SECONDS
 var _distance := 0.0
 var _sections: Array[AnimatableBody3D] = []
 var _shells: Array[MeshInstance3D] = []
@@ -40,6 +44,8 @@ func _ready() -> void:
 	_track.bake_interval = 0.35
 	for point in rail:
 		_track.add_point(point)
+	_trip_seconds = maxf(MIN_TRIP_SECONDS, (_track.get_baked_length() - END_CLEARANCE * 2.0) / AVERAGE_SPEED)
+	add_to_group("street_trams")
 	var cube := BoxMesh.new()
 	_cube = cube.get_mesh_arrays()
 	var sphere := SphereMesh.new()
@@ -91,10 +97,10 @@ func _physics_process(_delta: float) -> void:
 ## Absolute time keeps the intact shuttle in the same part of the route for each
 ## player. At the ends both velocity and acceleration ease into the pause.
 func _service_at(clock: float) -> Vector2:
-	var leg := TRIP_SECONDS + DWELL_SECONDS
+	var leg := _trip_seconds + DWELL_SECONDS
 	var phase := fposmod(clock, leg * 2.0)
 	var returning := phase >= leg
-	var t := clampf((fposmod(phase, leg) - DWELL_SECONDS) / TRIP_SECONDS, 0.0, 1.0)
+	var t := clampf((fposmod(phase, leg) - DWELL_SECONDS) / _trip_seconds, 0.0, 1.0)
 	var eased := t * t * t * (t * (t * 6.0 - 15.0) + 10.0)
 	var at := lerpf(END_CLEARANCE, _track.get_baked_length() - END_CLEARANCE, 1.0 - eased if returning else eased)
 	return Vector2(at, 1.0 if returning else 0.0)
@@ -120,6 +126,12 @@ func _rail_pose(at: float, chord: float, sign: float) -> Transform3D:
 
 func progress() -> float:
 	return _distance
+
+
+func crossing_offset(at: Vector2) -> float:
+	if _track.get_closest_point(at).distance_squared_to(at) > 25.0:
+		return -1.0
+	return _track.get_closest_offset(at)
 
 
 ## The player and relay call this only for a direct rocket hit. The collider

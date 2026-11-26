@@ -1,6 +1,7 @@
 extends Node3D
 ## Cars drive along district lanes. Straight estate lanes wrap unseen in the forest.
-## In Paris the lanes form continuous loops. Cars brake for people and other cars.
+## In Paris and Dublin the lanes form continuous loops. Drivers brake for
+## people, other cars and trams at marked crossings.
 ## Local to each client: traffic is scenery, not gameplay state, except that a car
 ## shot by a player blows up (car_fire.gd) on everyone's screen at the same spot of
 ## its lane; it stands there burning, the cars behind queue up, and once the wreck
@@ -10,12 +11,16 @@ const ENGINE_SOUND := "res://audio/car_engine.wav"
 const LOOK_AHEAD := 22.0
 const STOP_GAP := 6.5
 const LANE_HALF_WIDTH := 1.9
+# Leave time to clear both rails, including the rear of the car at the turn.
+const TRAM_YIELD_DISTANCE := 42.0
 
 ## Lanes: [start (game xz), end (game xz), cars on it], or [[points (game xz)...], cars on it]
 ## for a lane that turns a corner. With smooth_loops, omit the repeated closing point.
 var lanes: Array = []
 ## Closed lanes can use baked curves, with rounded turns and speed limits.
 var smooth_loops := false
+## Optional yield points, lane index -> rail crossing positions (game xz).
+var rail_crossings: Dictionary = {}
 ## Car models: [mesh, collision size Vector3, paint material to replace], optionally followed
 ## by a fixed paint colour (a taxi is always yellow; null = random) and extra parts
 ## [[mesh, Transform3D, material], ...] such as a roof sign.
@@ -46,7 +51,7 @@ func _ready() -> void:
 		if smooth_loops:
 			var curve := _bake_loop(points)
 			length = curve.get_baked_length()
-			_paths.append({"curve": curve, "length": length})
+			_paths.append({"curve": curve, "length": length, "rail_yields": _rail_yields(curve, rail_crossings.get(lane_index, []))})
 		else:
 			var ends: Array[float] = [0.0]
 			for index in range(1, points.size()):
@@ -137,6 +142,16 @@ func _physics_process(delta: float) -> void:
 				var state := light_state(int(stop[1]))
 				if state == 2 or (state == 1 and to_line > 9.0):
 					gap = minf(gap, to_line - float(car["half"]) - 0.5)
+		for crossing in path.get("rail_yields", []):
+			var to_rail := fposmod(float(crossing[0]) - float(car["s"]), length)
+			# Let cars that have already reached the crossing finish clearing it.
+			if to_rail < 6.0 or to_rail > LOOK_AHEAD + 4.0:
+				continue
+			for service in crossing[1]:
+				var tram: DublinTram = service[0]
+				if absf(tram.progress() - float(service[1])) < TRAM_YIELD_DISTANCE:
+					gap = minf(gap, to_rail - float(car["half"]) - 0.5)
+					break
 		var target: float = car["cruise"]
 		if gap < LOOK_AHEAD:
 			target = clampf((gap - STOP_GAP) / (LOOK_AHEAD - STOP_GAP), 0.0, 1.0) * float(car["cruise"])
@@ -154,6 +169,19 @@ func _physics_process(delta: float) -> void:
 		(car["body"] as Node3D).global_transform = Transform3D(Basis.looking_at(-dir, Vector3.UP), pos)
 		var sound := car["sound"] as AudioStreamPlayer3D
 		sound.pitch_scale = 0.75 + float(car["speed"]) / 16.0
+
+
+func _rail_yields(curve: Curve2D, points: Array) -> Array:
+	var yields := []
+	for at: Vector2 in points:
+		var services := []
+		for tram: DublinTram in get_tree().get_nodes_in_group("street_trams"):
+			var offset := tram.crossing_offset(at)
+			if offset >= 0.0:
+				services.append([tram, offset])
+		if not services.is_empty():
+			yields.append([curve.get_closest_offset(at), services])
+	return yields
 
 
 ## 0 green, 1 yellow, 2 red for traffic along game Z (axis 0) or X (axis 1).

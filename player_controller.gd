@@ -429,7 +429,7 @@ func _on_rocket_exploded(at: Vector3, normal: Vector3, surface: String, collider
 	if collider != null and is_instance_valid(collider):
 		var cars := (collider as Node).get_parent()
 		if cars is DublinTram:
-			surface = "tram"
+			surface = cars.rocket_surface
 			if cars.wreck_by_rocket():
 				tram_progress = cars.progress()
 		elif _shot_target(collider) != null:
