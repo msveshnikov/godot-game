@@ -44,6 +44,8 @@
   the windows craze and crumble and the alarm goes off; in Times Square the shop windows crack, then smash out
   with glass all over the pavement, and it all stays that way. Villagers flee as soon as they see you armed; the dead stay lying
   in a pool of blood while new ones are born elsewhere.
+- **Mobile vibration.** Bazooka recoil and nearby car and rocket explosions trigger vibration on supported phones.
+  The pulse fades with distance, and a stronger explosion can replace a pulse already playing.
 - **A proper main menu.** The chosen place full-screen behind the logo; PLAY, SHOP, SETTINGS (graphics quality,
   render scale, shadows, fullscreen, volume, city ambience, look sensitivity, invert Y), HOW TO PLAY; your name,
   your cash, who else is online there, and a card for each place. In the game, Esc (or the pause button on a

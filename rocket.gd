@@ -305,6 +305,7 @@ static func _shake(tree: SceneTree, at: Vector3) -> void:
 	if player != null and player.has_method("shake"):
 		var distance := player.global_position.distance_to(at)
 		player.call("shake", clampf(1.0 - distance / 60.0, 0.0, 1.0))
+		player.call("vibrate_near_blast", at, 42.0, 255)
 
 
 ## Each client hurts its own player, police and locally simulated villagers.

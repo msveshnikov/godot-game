@@ -93,6 +93,8 @@ var _money_label: Label
 var _toast_label: Label
 var _police: Police
 var _shake := 0.0
+var _vibration_ends_at := 0
+var _vibration_amplitude := 0.0
 ## Bat blows paid so far per car ("<cars node id>:<index>"), so one car can't be farmed forever.
 var _dents_paid := {}
 
@@ -362,6 +364,26 @@ func shake(amount: float) -> void:
 	_shake = maxf(_shake, amount)
 
 
+func vibrate_near_blast(at: Vector3, radius: float, max_duration_ms: int) -> void:
+	var strength := 1.0 - global_position.distance_to(at) / radius
+	if strength > 0.0:
+		_vibrate_device(roundi(lerpf(24.0, float(max_duration_ms), strength)), lerpf(0.22, 1.0, strength))
+
+
+func _vibrate_device(duration_ms: int, amplitude: float) -> void:
+	if not is_playing() or not _is_touch_device():
+		return
+	var now := Time.get_ticks_msec()
+	var ends_at := now + duration_ms
+	# A nearby blast can replace recoil. Weaker blasts in the same chain should
+	# not interrupt or repeatedly restart a stronger pulse already playing.
+	if now < _vibration_ends_at and (amplitude <= _vibration_amplitude or ends_at <= _vibration_ends_at):
+		return
+	_vibration_ends_at = ends_at
+	_vibration_amplitude = amplitude
+	Input.vibrate_handheld(duration_ms, amplitude)
+
+
 func _fire_rocket() -> void:
 	if not is_playing() or weapon != "bazooka" or not _can_fire:
 		return
@@ -390,6 +412,7 @@ func _fire_rocket() -> void:
 		net_world.call("broadcast_rocket", muzzle, direction, rocket_id)
 	model.call("fire_effects")
 	shake(0.25)
+	_vibrate_device(58, 0.48)
 	_crosshair.kick()
 	camera_pivot.rotation.x = clampf(camera_pivot.rotation.x + ROCKET_KICK, deg_to_rad(-60.0), deg_to_rad(35.0))
 	await get_tree().create_timer(ROCKET_RELOAD).timeout

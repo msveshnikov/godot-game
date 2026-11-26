@@ -171,6 +171,7 @@ static func explode(parent: Node3D, at: Transform3D, size: Vector3, mesh: Mesh) 
 static func blast(tree: SceneTree, centre: Vector3, by: int) -> void:
 	var player := tree.get_first_node_in_group("player") as Node3D
 	if player != null:
+		player.call("vibrate_near_blast", centre, 32.0, 190)
 		var distance := player.global_position.distance_to(centre)
 		if distance < BLAST_RADIUS:
 			var t := clampf((distance - LETHAL_RADIUS) / (BLAST_RADIUS - LETHAL_RADIUS), 0.0, 1.0)
