@@ -1,5 +1,5 @@
-extends "res://district_europe.gd"
-## Grands Boulevards around the Grévin, with the two covered passages.
+extends "res://district_montmartre.gd"
+## Grands Boulevards around the Grévin and the streets leading up to Montmartre.
 
 const WINE := Color(0.47, 0.10, 0.095)
 const GILT := Color(0.91, 0.70, 0.33)
@@ -16,7 +16,7 @@ func _is_paris() -> bool:
 
 
 func intro_text() -> String:
-	return "Boulevard Montmartre, Paris. Walk from the Grévin and Théâtre des Variétés to the covered Passages Jouffroy and des Panoramas. Map data © OpenStreetMap contributors."
+	return "Explore the Grands Boulevards, then follow Rue du Faubourg Montmartre north for the Moulin Rouge and the hilltop Sacré-Cœur. Map data © OpenStreetMap contributors."
 
 
 func _patrol_spots() -> Array[Vector2]:
@@ -33,6 +33,8 @@ func _patrol_spots() -> Array[Vector2]:
 		Vector2(-116, 132), Vector2(-145, 123), Vector2(-35, 145), Vector2(9, 155),
 		Vector2(51, 63), Vector2(43, 100), Vector2(39, 132), Vector2(28, 158),
 		Vector2(86, 104), Vector2(121, 117),
+		Vector2(27, -270), Vector2(-124, -319), Vector2(-94, -319),
+		Vector2(-48, -319), Vector2(4, -318), Vector2(56, -331), Vector2(100, -326),
 	]
 
 
@@ -77,7 +79,7 @@ func _traffic_lanes() -> Array:
 		Vector2(46.96, 154.13), Vector2(49.87, 134.34), Vector2(59.5, 91.4),
 		Vector2(70.4, 40.6), Vector2(73.4, 27.2),
 	]
-	return [[boulevard, 7], [north, 6], [south, 6]]
+	return [[boulevard, 7], [north, 6], [south, 6], [_clichy_traffic_loop(), 4]]
 
 
 func _build_landmarks() -> void:
@@ -95,6 +97,7 @@ func _build_landmarks() -> void:
 	for p in [Vector2(24.4, -7.6), Vector2(-55.1, -7.0), Vector2(-125.4, -39.8), Vector2(91.0, 31.6)]:
 		if _fits_street(p, 0.8):
 			_poster_column(p)
+	_build_montmartre()
 
 
 func _grevin() -> void:

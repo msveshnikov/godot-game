@@ -20,6 +20,9 @@ const SPOTS := {
 		["aerial", Vector3(-249.0, 164.0, -287.0), Vector3(0.0, 2.0, 0.0)],
 		["brebant", Vector3(70.1, 2.0, 20.6), Vector3(95.0, 4.2, 1.6)],
 		["wall", Vector3(212.0, 2.2, 58.0), Vector3(244.0, 2.0, 66.0)],
+		["moulin_rouge", Vector3(-98.0, 2.8, -298.5), Vector3(-111.0, 9.2, -324.0)],
+		["square_louise_michel", Vector3(57.0, 3.1, -330.0), Vector3(56.0, 28.0, -420.0)],
+		["sacre_coeur", Vector3(69.0, 17.3, -396.0), Vector3(56.0, 34.0, -429.0)],
 	],
 	"dublin": [
 		["grafton", Vector3(-17.0, 2.4, 43.0), Vector3(4.0, 7.0, -31.0)],
@@ -56,16 +59,27 @@ var _out := "res://screenshots/tour"
 
 
 func _initialize() -> void:
+	_start.call_deferred()
+
+
+func _start() -> void:
 	var window_size := Vector2i(1600, 900)
+	var location := "nyc"
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--size="): # e.g. --size=1600x720 for a 20:9 phone in landscape
 			var wh := arg.trim_prefix("--size=").split("x")
 			window_size = Vector2i(int(wh[0]), int(wh[1]))
+		elif arg.begins_with("--loc="):
+			location = arg.trim_prefix("--loc=")
+	var net := root.get_node("Net")
+	# This offline capture script can tour leaderboard-gated districts.
+	net.set("_rank_score", net.get_script().get_script_constant_map()["LOCATION_POINTS"])
+	net.set("location", location)
 	DisplayServer.window_set_size(window_size)
 	_scene = (load("res://node_2d.tscn") as PackedScene).instantiate()
 	root.add_child(_scene)
 	current_scene = _scene
-	_run.call_deferred()
+	_run()
 
 
 func _run() -> void:
@@ -135,6 +149,9 @@ func _check_crowd() -> void:
 		await physics_frame
 	var district := _scene.get_node("Diorama/District")
 	var data: Dictionary = district.get("_data")
+	var perimeter := PackedVector2Array()
+	if district.has_method("_boundary_outline"):
+		perimeter = district.call("_boundary_outline")
 	var polys := []
 	for building in data.get("buildings", []):
 		var points := PackedVector2Array()
@@ -153,7 +170,10 @@ func _check_crowd() -> void:
 				print("INSIDE BUILDING: ", person.name, " ", pos)
 				bad += 1
 				break
-		if absf(pos.x) > 300 or pos.z < -252 or pos.z > 354 or pos.y < -1.0:
+		var inside := absf(pos.x) <= 300 and pos.z >= -252 and pos.z <= 354
+		if not perimeter.is_empty():
+			inside = Geometry2D.is_point_in_polygon(flat, perimeter)
+		if not inside or pos.y < -1.0:
 			print("OFF ISLAND: ", person.name, " ", pos)
 			bad += 1
 	var still := 0

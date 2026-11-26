@@ -141,8 +141,16 @@ func _circle(radius: float) -> PackedVector2Array:
 	return points
 
 
+func _boundary_outline() -> PackedVector2Array:
+	return _circle(WALL_RADIUS)
+
+
+func _inside_street_limits(at: Vector2) -> bool:
+	return at.length() <= RIM - 2.0
+
+
 func _build_boundary() -> void:
-	var outline := _circle(WALL_RADIUS)
+	var outline := _boundary_outline()
 	_grect(-840, -840, 840, 840, -0.03, Color(0.33, 0.36, 0.31), Surface.ASPHALT)
 	_gpoly(outline, 0.005, Color(0.58, 0.56, 0.53), Surface.ASPHALT)
 	_gpoly(_circle(RIM), 0.008, Color(0.58, 0.56, 0.53) if _is_paris() else Color(0.56, 0.55, 0.53), Surface.ASPHALT)
@@ -167,7 +175,10 @@ func _build_boundary() -> void:
 			_city_bench(f, 1.25)
 		# A skyline behind the wall keeps the streets visually connected to the city.
 		if i % 2 == 0:
-			var face := _frame((_fp(f, 0.0, 0.0) as Vector2).normalized() * (275 + i % 9), rad_to_deg((b - a).angle()))
+			var along := (b - a).normalized()
+			var middle := (a + b) * 0.5
+			var skyline := middle + Vector2(along.y, -along.x) * (27 + i % 9)
+			var face := _frame(skyline, rad_to_deg(along.angle()))
 			var h := 12.5 + (i * 17 % 14)
 			var rear := PackedVector2Array([_fp(face, -12.5, -7.0), _fp(face, 12.5, -7.0),
 				_fp(face, 12.5, 8.0), _fp(face, -12.5, 8.0)])
@@ -240,7 +251,7 @@ func _register_ground(outline: PackedVector2Array, holes: Array) -> void:
 
 
 func _fits_street(at: Vector2, margin: float) -> bool:
-	if at.length() > RIM - 2.0:
+	if not _inside_street_limits(at):
 		return false
 	for direction in [Vector2.ZERO, Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
 		var p: Vector2 = at + direction * margin

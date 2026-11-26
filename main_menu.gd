@@ -12,7 +12,7 @@ const PLACES := {
 	"neratovice": "Neratovice, Czechia: an autumn panel-housing estate with loggias, garages, a playground and a walk-in supermarket.",
 	"omsk1": "Omsk 1, Siberia: five-storey khrushchyovkas under new red roofs, yards with playgrounds, kindergartens and a school.",
 	"omsk2": "Omsk 2, Siberia: panel blocks, brick garages and wooden houses, with connected streets as far as 10th Cheredovaya Street and No. 23.",
-	"paris": "Paris: Boulevard Montmartre, the Grévin museum, the old covered passages and the café terraces of the Grands Boulevards.",
+	"paris": "Paris: the Grévin and covered passages, the Moulin Rouge windmill and the domes of Sacré-Cœur above Montmartre.",
 	"dublin": "Dublin: the granite paving and shopfronts of Grafton Street, Bewley’s café, Harry Street and St Stephen’s Green.",
 }
 

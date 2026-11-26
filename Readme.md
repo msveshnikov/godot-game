@@ -139,19 +139,24 @@ The default place for new players (`?loc=nyc` / `-- --loc=nyc`), built by `distr
 - **The square.** LED screens on every facade that looks onto the square, wrapped round the corners and stacked in tiers (`screen.gdshader`); the ads are painted once at load time into an atlas (`nyc_ads.gd`): about every other screen shows NOVA (the AGI robot you print yourself, with its Blender renders), MaxSoft, Claude or Anthropic, the rest made-up brands. One Times Square is covered in screens almost to the top, with the news ticker round it and the ball on its mast over the lit year. The dark plaza pavers with steel discs, granite benches, café tables, hot dog carts, the TKTS booth under 24 glowing red steps you can climb, George M. Cohan and Father Duffy with his Celtic cross, the NYPD station in blue neon and the recruiting booth with its neon flag.
 - **The streets.** Real roadway widths and one-way directions: 7th Avenue south, 8th and 6th north with green bike lanes, even streets east, odd ones west, 42nd both ways with red bus lanes. Granite kerbs, high-visibility crosswalks, traffic lights on every corner with green street-name signs, lamps, hydrants, trash cans, mailboxes, newsstands, Con Ed steam stacks venting, sidewalk sheds, subway entrances with green globes, Broadway theatres with marquees and vertical blade signs, and The Torch going up on 8th Avenue under a tower crane. Yellow cabs (`car_taxi` in `build_vehicles.py`) are half the traffic; the cars follow the signal cycle (`traffic.gd`, the same wall clock on every client) and keep clear of each other where lanes cross.
 
-### Boulevard Montmartre and Grafton Street
+### Montmartre, the Grands Boulevards and Grafton Street
 
-Both districts have a roughly 250 m playable radius. Masonry walls close off the edge, with city buildings beyond.
-Street centerlines and building footprints use metre coordinates from OpenStreetMap. The procedural buildings
+The Grands Boulevards and Grafton Street have a roughly 250 m playable radius. Paris extends north to Montmartre.
+Masonry walls close off the edge, with city buildings beyond.
+Street centerlines and building footprints in the original districts use metre coordinates from OpenStreetMap. The procedural buildings
 use tagged heights and floor counts where available, with estimated heights, widths, and facade detail elsewhere.
 Google Maps and Street View were visual references for street layout, materials, signs and landmark exteriors.
-Each district has 52 armed adult NPCs. The extra patrols start on the main streets and in surrounding side lanes.
+Armed adult NPCs patrol the main streets and surrounding side lanes.
 
 - **Paris** (`?loc=paris`) starts near Musée Grévin and Théâtre des Variétés. It includes rue Vivienne,
   rue du Faubourg Montmartre, the beginning of boulevard Poissonnière, café terraces, Morris columns,
   Grands Boulevards métro entrances, and walkable portions of Passages Jouffroy and des Panoramas.
-  Roughly half the crowd carries baguettes in paper sleeves. Traffic loops through the district,
-  with a U-turn on boulevard Poissonnière before the wall.
+  Follow rue du Faubourg Montmartre north to the Boulevard de Clichy, the Moulin Rouge with its turning red sails,
+  and the terraced climb through Square Louise Michel to the Sacré-Cœur basilica. The northern route compresses
+  the distances between the landmarks for play. Roughly half the crowd carries baguettes in paper sleeves.
+  Traffic loops on the Grands Boulevards and Boulevard de Clichy.
+  [Montmartre reference](https://parisjetaime.com/eng/article/village-paris-a922)
+  · [Moulin Rouge](https://www.moulinrouge.fr/en/homepage/)
   [Google Maps](https://www.google.com/maps/search/?api=1&query=Mus%C3%A9e+Gr%C3%A9vin+Paris)
   · [Street View](https://www.google.com/maps/@?api=1&map_action=pano&pano=ohH5edyRZTLShDAQAJhbLg&heading=340)
 - **Dublin** (`?loc=dublin`) follows granite-paved Grafton Street between Suffolk Street and St Stephen’s Green,
