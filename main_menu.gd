@@ -1,12 +1,13 @@
 extends Control
 ## The main menu, the first thing the game shows: the chosen place full-screen
 ## behind the logo, PLAY / SHOP / SETTINGS / HOW TO PLAY (and QUIT on desktop),
-## the player's name and cash, and a card for each place with how many people
-## are playing there right now. PLAY puts up a loading screen and builds the
+## the top ten players, the player's name and cash, and a card for each place.
+## PLAY puts up a loading screen and builds the
 ## game scene (node_2d.tscn) for the chosen place.
 
 const GAME_SCENE := "res://node_2d.tscn"
 const AMBIENCE := "res://audio/city_hum.wav"
+const PODIUM_COLORS := [UiTheme.GOLD, Color(0.82, 0.87, 0.93), Color(0.91, 0.65, 0.43)]
 const PLACES := {
 	"nyc": "Times Square, New York: the theatre district cut out of Manhattan and set adrift as an island. LED screens on every wall, yellow cabs, the TKTS red steps.",
 	"neratovice": "Neratovice, Czechia: an autumn panel-housing estate with loggias, garages, a playground and a walk-in supermarket.",
@@ -23,6 +24,9 @@ var _money: Label
 var _online: Label
 var _about: Label
 var _cards := {}
+var _leaderboard_rows: VBoxContainer
+var _leaderboard_status: Label
+var _leaderboard_timeout: Timer
 var _layer: CanvasLayer
 var _starting := false
 
@@ -41,21 +45,20 @@ func _ready() -> void:
 	_shade()
 
 	var margin := MarginContainer.new()
-	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	for side in ["left", "right"]:
-		margin.add_theme_constant_override("margin_" + side, 44)
+		margin.add_theme_constant_override("margin_" + side, 32)
 	margin.add_theme_constant_override("margin_top", 26)
 	margin.add_theme_constant_override("margin_bottom", 22)
 	add_child(margin)
 	var columns := HBoxContainer.new()
-	columns.add_theme_constant_override("separation", 30)
+	columns.add_theme_constant_override("separation", 24)
 	margin.add_child(columns)
 	columns.add_child(_left_column())
-	var spacer := Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	columns.add_child(spacer)
+	columns.add_child(_leaderboard_column())
 	columns.add_child(_right_column())
+	resized.connect(_fit_menu.bind(margin))
+	margin.minimum_size_changed.connect(_fit_menu.bind(margin))
+	_fit_menu(margin)
 
 	var version := Label.new()
 	version.text = "v%s  ·  maxims.top/village" % ProjectSettings.get_setting("application/config/version", "2026.11")
@@ -83,6 +86,17 @@ func _ready() -> void:
 	Game.money_changed.connect(func(value: int) -> void: _money.text = "$ %d" % value)
 	Net.location_changed.connect(_show_location)
 	Net.location_access_changed.connect(_refresh_access)
+	_leaderboard_timeout = Timer.new()
+	_leaderboard_timeout.one_shot = true
+	_leaderboard_timeout.wait_time = 4.0
+	_leaderboard_timeout.timeout.connect(_leaderboard_unavailable)
+	add_child(_leaderboard_timeout)
+	Net.connection_changed.connect(_refresh_leaderboard)
+	Net.leaderboard_received.connect(_show_leaderboard_rows)
+	if Net.online:
+		_refresh_leaderboard(true)
+	else:
+		_leaderboard_timeout.start()
 	_show_location(true)
 	_refresh_access()
 
@@ -116,9 +130,16 @@ func _unhandled_input(event: InputEvent) -> void:
 
 # ---------------------------------------------------------------- layout ----
 
+func _fit_menu(margin: MarginContainer) -> void:
+	var minimum := margin.get_combined_minimum_size()
+	var fit := minf(1.0, minf(size.x / minimum.x, size.y / minimum.y))
+	if fit > 0.0:
+		margin.scale = Vector2.ONE * fit
+		margin.size = size / fit
+
+
 func _left_column() -> Control:
 	var column := VBoxContainer.new()
-	column.custom_minimum_size = Vector2(360.0, 0.0)
 	column.add_theme_constant_override("separation", 12)
 	var logo := Label.new()
 	logo.text = "SMASH\nATLAS"
@@ -147,7 +168,6 @@ func _left_column() -> Control:
 	play.add_theme_font_size_override("font_size", 34)
 	column.add_child(play)
 	column.add_child(_menu_button("SHOP", func() -> void: Shop.open(_layer)))
-	column.add_child(_menu_button("LEADERBOARD", _show_leaderboard))
 	column.add_child(_menu_button("SETTINGS", func() -> void: SettingsPanel.open(_layer)))
 	column.add_child(_menu_button("HOW TO PLAY", _how_to_play))
 	if not (OS.has_feature("web") or OS.has_feature("mobile")):
@@ -168,6 +188,57 @@ func _menu_button(text: String, action: Callable, height := 52.0) -> Button:
 	button.add_theme_font_size_override("font_size", 22)
 	button.pressed.connect(action)
 	return button
+
+
+func _leaderboard_column() -> Control:
+	var column := VBoxContainer.new()
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var panel := PanelContainer.new()
+	panel.name = "Leaderboard"
+	panel.custom_minimum_size.x = 300.0
+	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	column.add_child(panel)
+	var content := VBoxContainer.new()
+	content.add_theme_constant_override("separation", 6)
+	panel.add_child(content)
+	content.add_child(UiTheme.heading("TOP 10 PLAYERS", 24))
+	_leaderboard_status = UiTheme.heading("Loading leaderboard…", 16)
+	_leaderboard_status.add_theme_color_override("font_color", UiTheme.DIM)
+	content.add_child(_leaderboard_status)
+	_leaderboard_rows = VBoxContainer.new()
+	_leaderboard_rows.add_theme_constant_override("separation", 3)
+	content.add_child(_leaderboard_rows)
+	return column
+
+
+func _leaderboard_row(rank: String, player: String, points: String, accent: Color, fill: Color, font_size: int) -> Control:
+	var row := PanelContainer.new()
+	var band := StyleBoxFlat.new()
+	band.bg_color = fill
+	band.set_corner_radius_all(5)
+	band.content_margin_left = 8.0
+	band.content_margin_right = 8.0
+	band.content_margin_top = 3.0
+	band.content_margin_bottom = 3.0
+	row.add_theme_stylebox_override("panel", band)
+	var cells := HBoxContainer.new()
+	cells.add_theme_constant_override("separation", 8)
+	row.add_child(cells)
+	var position_label := UiTheme.heading(rank, font_size)
+	position_label.custom_minimum_size.x = 26.0
+	position_label.add_theme_color_override("font_color", accent)
+	cells.add_child(position_label)
+	var player_label := Label.new()
+	player_label.text = player
+	player_label.add_theme_font_size_override("font_size", font_size)
+	player_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	player_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	cells.add_child(player_label)
+	var points_label := UiTheme.heading(points, font_size)
+	points_label.add_theme_color_override("font_color", accent)
+	cells.add_child(points_label)
+	return row
 
 
 func _right_column() -> Control:
@@ -411,34 +482,43 @@ func _how_to_play() -> void:
 		"[b]Bazooka.[/b] Buy it in the SHOP for $1000, then $100 a rocket, five at most. One rocket takes out every car around, blows the shop windows in, knocks holes in buildings (skyscrapers too) and leaves craters in the street.\n\n" + \
 		"[b]Mind the heat.[/b] Every act of violence fills the heat meter; it cools down if you behave. When it tops out, a patrol car comes with two officers, and they shoot back hard. Take both down to clear the heat and grab their $150, or run far enough to lose them. Die and you drop a quarter of your cash.\n\n" + \
 		"[b]Play together.[/b] Everyone who picks the same place is in the same world: you see each other, and you can shoot each other (a headshot kills).\n\n[b]Controls[/b]\n" + controls
-	_menu_text("HOW TO PLAY", text, true)
+	_menu_text("HOW TO PLAY", text)
 
 
-func _show_leaderboard() -> void:
-	var body := _menu_text("LEADERBOARD", "Loading top 10…")
-	var refresh := func(_online: bool) -> void:
-		var waiting := Net.online and Net.ranking_available
-		body.text = "Loading top 10…" if waiting else "Leaderboard unavailable"
-		Net.request_leaderboard()
-	var show_rows := func(rows: Array) -> void:
-		var lines := PackedStringArray()
-		for index in rows.size():
-			var row: Dictionary = rows[index]
-			lines.append("%2d.   %s   —   %d" % [index + 1, row["name"], int(row["score"])])
-		body.text = "\n".join(lines) if not lines.is_empty() else "No scores yet"
-	Net.connection_changed.connect(refresh)
-	Net.leaderboard_received.connect(show_rows)
-	body.tree_exiting.connect(func() -> void:
-		Net.connection_changed.disconnect(refresh)
-		Net.leaderboard_received.disconnect(show_rows)
-	)
-	refresh.call(Net.online)
-	await get_tree().create_timer(4.0).timeout
-	if is_instance_valid(body) and body.text == "Loading top 10…":
-		body.text = "Leaderboard unavailable"
+func _refresh_leaderboard(is_online: bool) -> void:
+	if not is_online or not Net.ranking_available:
+		_leaderboard_timeout.stop()
+		_leaderboard_unavailable()
+		return
+	if _leaderboard_status.visible:
+		_leaderboard_status.text = "Loading leaderboard…"
+		_leaderboard_timeout.start()
+	Net.request_leaderboard()
 
 
-func _menu_text(title: String, text: String, bbcode := false) -> RichTextLabel:
+func _leaderboard_unavailable() -> void:
+	if _leaderboard_status.visible:
+		_leaderboard_status.text = "Leaderboard unavailable"
+
+
+func _show_leaderboard_rows(rows: Array) -> void:
+	_leaderboard_timeout.stop()
+	for child in _leaderboard_rows.get_children():
+		_leaderboard_rows.remove_child(child)
+		child.queue_free()
+	_leaderboard_status.visible = rows.is_empty()
+	if rows.is_empty():
+		_leaderboard_status.text = "No scores yet"
+		return
+	_leaderboard_rows.add_child(_leaderboard_row("#", "PLAYER", "POINTS", UiTheme.DIM, Color.TRANSPARENT, 14))
+	for index in mini(rows.size(), 10):
+		var row: Dictionary = rows[index]
+		var accent: Color = PODIUM_COLORS[index] if index < PODIUM_COLORS.size() else UiTheme.DIM
+		var fill := Color(UiTheme.GOLD, 0.11) if index == 0 else Color(1.0, 1.0, 1.0, 0.035 if index % 2 else 0.065)
+		_leaderboard_rows.add_child(_leaderboard_row(str(index + 1), row["name"], str(int(row["score"])), accent, fill, 18))
+
+
+func _menu_text(title: String, text: String) -> void:
 	var overlay := ColorRect.new()
 	overlay.color = Color(0.02, 0.035, 0.05, 0.88)
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -458,7 +538,7 @@ func _menu_text(title: String, text: String, bbcode := false) -> RichTextLabel:
 	margin.add_child(column)
 	column.add_child(UiTheme.heading(title, 32))
 	var body := RichTextLabel.new()
-	body.bbcode_enabled = bbcode
+	body.bbcode_enabled = true
 	body.text = text
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_theme_font_size_override("normal_font_size", 18)
@@ -466,7 +546,7 @@ func _menu_text(title: String, text: String, bbcode := false) -> RichTextLabel:
 	body.add_theme_color_override("default_color", UiTheme.TEXT)
 	column.add_child(body)
 	var back := Button.new()
-	back.text = "GOT IT" if bbcode else "BACK"
+	back.text = "GOT IT"
 	back.custom_minimum_size = Vector2(180.0, 52.0)
 	back.size_flags_horizontal = Control.SIZE_SHRINK_END
 	back.focus_mode = Control.FOCUS_NONE
@@ -476,7 +556,6 @@ func _menu_text(title: String, text: String, bbcode := false) -> RichTextLabel:
 	fit.call()
 	get_tree().process_frame.connect(fit)
 	overlay.tree_exiting.connect(func() -> void: get_tree().process_frame.disconnect(fit))
-	return body
 
 
 ## Loading screen over everything, then the game scene for the chosen place. The
