@@ -1797,6 +1797,13 @@ func _traffic_lanes() -> Array:
 		[[Vector2(l7, -72.1), Vector2(l7, 247.2), Vector2(-273.0, 247.2), Vector2(-273.0, -72.1), Vector2(l7, -72.1)], 4],
 		# 42nd east -> 6th north -> 43rd west -> 7th south.
 		[[Vector2(m7, 252.8), Vector2(276.5, 252.8), Vector2(276.5, 162.1), Vector2(m7, 162.1), Vector2(m7, 252.8)], 3],
+		# Add local loops after the existing ones so older clients keep their car indices.
+		# 7th south -> 45th west -> 8th north -> 48th east.
+		[[Vector2(m7, -229.8), Vector2(m7, 3.3), Vector2(-273.0, 3.3), Vector2(-273.0, -229.8), Vector2(m7, -229.8)], 6],
+		# 7th south -> 46th east -> 6th north -> 47th west.
+		[[Vector2(r7, -155.0), Vector2(r7, -72.1), Vector2(269.5, -72.1), Vector2(269.5, -155.0), Vector2(r7, -155.0)], 6],
+		# 7th south -> 43rd west -> 8th north -> 44th east.
+		[[Vector2(l7, 86.5), Vector2(l7, 162.1), Vector2(-276.5, 162.1), Vector2(-276.5, 86.5), Vector2(l7, 86.5)], 5],
 	]
 
 
