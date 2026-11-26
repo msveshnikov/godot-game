@@ -1,7 +1,6 @@
 extends Node3D
-## Cars driving along the main streets (Dr. E. Beneše, 28. října). Each lane is a
-## straight line that runs out into the forest at both ends, where cars wrap round
-## unseen. Cars brake for people and for the car in front, and hum as they go.
+## Cars drive along district lanes. Straight estate lanes wrap unseen in the forest.
+## In Paris the lanes form continuous loops. Cars brake for people and other cars.
 ## Local to each client: traffic is scenery, not gameplay state, except that a car
 ## shot by a player blows up (car_fire.gd) on everyone's screen at the same spot of
 ## its lane; it stands there burning, the cars behind queue up, and once the wreck
@@ -13,8 +12,10 @@ const STOP_GAP := 6.5
 const LANE_HALF_WIDTH := 1.9
 
 ## Lanes: [start (game xz), end (game xz), cars on it], or [[points (game xz)...], cars on it]
-## for a lane that turns a corner; set before adding to the tree.
+## for a lane that turns a corner. With smooth_loops, omit the repeated closing point.
 var lanes: Array = []
+## Closed lanes can use baked curves, with rounded turns and speed limits.
+var smooth_loops := false
 ## Car models: [mesh, collision size Vector3, paint material to replace], optionally followed
 ## by a fixed paint colour (a taxi is always yellow; null = random) and extra parts
 ## [[mesh, Transform3D, material], ...] such as a roof sign.
@@ -41,11 +42,17 @@ func _ready() -> void:
 	for lane_index in lanes.size():
 		var lane: Array = lanes[lane_index]
 		var points: Array = lane[0] if lane[0] is Array else [lane[0], lane[1]]
-		var ends: Array[float] = [0.0]
-		for index in range(1, points.size()):
-			ends.append(ends[-1] + (points[index] as Vector2).distance_to(points[index - 1]))
-		_paths.append({"points": points, "ends": ends, "length": ends[-1]})
-		var length: float = ends[-1]
+		var length: float
+		if smooth_loops:
+			var curve := _bake_loop(points)
+			length = curve.get_baked_length()
+			_paths.append({"curve": curve, "length": length})
+		else:
+			var ends: Array[float] = [0.0]
+			for index in range(1, points.size()):
+				ends.append(ends[-1] + (points[index] as Vector2).distance_to(points[index - 1]))
+			length = ends[-1]
+			_paths.append({"points": points, "ends": ends, "length": length})
 		var count: int = lane[-1]
 		for k in count:
 			var model: Array = models[_rng.randi() % models.size()]
@@ -133,6 +140,11 @@ func _physics_process(delta: float) -> void:
 		var target: float = car["cruise"]
 		if gap < LOOK_AHEAD:
 			target = clampf((gap - STOP_GAP) / (LOOK_AHEAD - STOP_GAP), 0.0, 1.0) * float(car["cruise"])
+		if path.has("curve"):
+			var curve: Curve2D = path["curve"]
+			var ahead := curve.sample_baked_with_rotation(fposmod(float(car["s"]) + 11.0, length)).x
+			var turn := Vector2(dir.x, dir.z).angle_to(ahead)
+			target = minf(target, lerpf(float(car["cruise"]), 4.4, clampf(absf(turn) / (PI * 0.5), 0.0, 1.0)))
 		var rate := 7.0 if target < float(car["speed"]) else 2.5
 		car["speed"] = move_toward(float(car["speed"]), target, rate * delta)
 		car["s"] = fposmod(float(car["s"]) + float(car["speed"]) * delta, length)
@@ -255,6 +267,10 @@ func _tow_away(index: int) -> void:
 
 ## [position, heading] at distance `s` along a lane; corners are rounded over the last few metres.
 func _place(path: Dictionary, s: float) -> Array:
+	if path.has("curve"):
+		var curve: Curve2D = path["curve"]
+		var pose := curve.sample_baked_with_rotation(s)
+		return [Vector3(pose.origin.x, 0.0, pose.origin.y), Vector3(pose.x.x, 0.0, pose.x.y)]
 	var points: Array = path["points"]
 	var ends: Array[float] = path["ends"]
 	var index := 1
@@ -281,6 +297,25 @@ func _place(path: Dictionary, s: float) -> Array:
 			dir2 = dir2.lerp(prev_dir, t * 0.5).normalized()
 			at += ((b - a).normalized() - prev_dir) * t * t * 1.5
 	return [Vector3(at.x, 0.0, at.y), Vector3(dir2.x, 0.0, dir2.y)]
+
+
+## Round the corners without cutting across blocks. The seam sits on a straight
+## section, with the same position and heading on both sides of the wrap.
+static func _bake_loop(points: Array) -> Curve2D:
+	var curve := Curve2D.new()
+	curve.bake_interval = 0.35
+	var seam := (points[-1] as Vector2).lerp(points[0], 0.5)
+	curve.add_point(seam)
+	for index in points.size():
+		var corner: Vector2 = points[index]
+		var incoming := (points[index - 1] as Vector2) - corner
+		var outgoing := (points[(index + 1) % points.size()] as Vector2) - corner
+		var entry := corner + incoming.limit_length(minf(5.5, incoming.length() * 0.42))
+		var exit := corner + outgoing.limit_length(minf(5.5, outgoing.length() * 0.42))
+		curve.add_point(entry, Vector2.ZERO, (corner - entry) * (2.0 / 3.0))
+		curve.add_point(exit, (corner - exit) * (2.0 / 3.0))
+	curve.add_point(seam)
+	return curve
 
 
 ## Distance along the lane to `point` if it stands in the lane ahead, else LOOK_AHEAD.

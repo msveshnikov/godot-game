@@ -608,6 +608,18 @@ func _build_traffic() -> void:
 			models.append([mesh, model[2], _materials.get("car_paint")])
 	if models.is_empty():
 		return
+
+	var traffic := Node3D.new()
+	traffic.name = "Traffic"
+	traffic.set_script(TRAFFIC)
+	traffic.set("models", models)
+	traffic.set("colors", CAR_COLORS.map(func(p): return p[0]))
+	traffic.set("lanes", _traffic_lanes())
+	traffic.set("smooth_loops", _is_paris())
+	add_child(traffic)
+
+
+func _traffic_lanes() -> Array:
 	var lanes := []
 	for item in _data["lanes"]:
 		var points := _points(item[0])
@@ -623,10 +635,4 @@ func _build_traffic() -> void:
 			if side != 0.0 and (side > 0) != _is_paris():
 				path.reverse()
 			lanes.append([path, clampi(roundi(metres / 83.0), 1, 4)])
-	var traffic := Node3D.new()
-	traffic.name = "Traffic"
-	traffic.set_script(TRAFFIC)
-	traffic.set("models", models)
-	traffic.set("colors", CAR_COLORS.map(func(p): return p[0]))
-	traffic.set("lanes", lanes)
-	add_child(traffic)
+	return lanes

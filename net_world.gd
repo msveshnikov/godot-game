@@ -11,6 +11,9 @@ const REMOTE_PLAYER_SCRIPT = preload("res://remote_player.gd")
 const SEND_INTERVAL := 1.0 / 15.0
 const REMOTE_TIMEOUT_MSEC := 10000
 const FEED_TIME := 6.0
+## Older Paris builds have different moving cars at the same local indices.
+## Keep their damage events separate while sharing the rest of the room.
+const PARIS_TRAFFIC_INDEX_BASE := 1000
 
 var _remotes := {} # peer id -> remote player body
 var _rockets := {} # peer id -> their rockets in flight (harmless copies), oldest first
@@ -96,13 +99,17 @@ func broadcast_shot(origin: Vector3, end: Vector3, flesh: bool, normal: Vector3)
 ## The local player blew up a car: "parked" (spot index) or "traffic" (car index and
 ## where it was along its lane).
 func broadcast_car(kind: String, index: int, s: float) -> void:
-	Net.send({"t": "cx", "w": kind, "i": index, "s": snappedf(s, 0.01)})
+	Net.send({"t": "cx", "w": kind, "i": index + _car_index_base(kind), "s": snappedf(s, 0.01)})
 
 
 ## The local player dented a car with the bat: where and which way (car space),
 ## and whether it was a window.
 func broadcast_dent(kind: String, index: int, point: Vector3, dir: Vector3, glass: bool, first: bool) -> void:
-	Net.send({"t": "dn", "w": kind, "i": index, "p": _vec3(point), "d": _vec3(dir), "g": glass, "first": first})
+	Net.send({"t": "dn", "w": kind, "i": index + _car_index_base(kind), "p": _vec3(point), "d": _vec3(dir), "g": glass, "first": first})
+
+
+func _car_index_base(kind: String) -> int:
+	return PARIS_TRAFFIC_INDEX_BASE if kind == "traffic" and Net.location == "paris" else 0
 
 
 ## The local player fired the bazooka: others see the rocket fly (harmless) until
@@ -182,18 +189,21 @@ func _on_message(from: int, data: Dictionary) -> void:
 			var district := get_tree().current_scene.get_node_or_null("Diorama/District")
 			if district == null:
 				return
-			var cars: Node = district.get_node_or_null("Traffic") if str(data.get("w", "")) == "traffic" else district
+			var kind := str(data.get("w", ""))
+			var cars: Node = district.get_node_or_null("Traffic") if kind == "traffic" else district
 			if cars != null and cars.has_method("blow_up_car"):
-				cars.call("blow_up_car", int(data.get("i", -1)), float(data.get("s", -1.0)), from)
+				cars.call("blow_up_car", int(data.get("i", -1)) - _car_index_base(kind), float(data.get("s", -1.0)), from)
 		"dn":
 			var district_d := get_tree().current_scene.get_node_or_null("Diorama/District")
 			var p: Array = data.get("p", [])
 			var d: Array = data.get("d", [])
 			if district_d == null or p.size() < 3 or d.size() < 3:
 				return
-			var dented: Node = district_d.get_node_or_null("Traffic") if str(data.get("w", "")) == "traffic" else district_d
+			var kind := str(data.get("w", ""))
+			var dented: Node = district_d.get_node_or_null("Traffic") if kind == "traffic" else district_d
 			if dented != null and dented.has_method("dent_car"):
-				dented.call("dent_car", int(data.get("i", -1)), Vector3(p[0], p[1], p[2]), Vector3(d[0], d[1], d[2]), bool(data.get("g", false)))
+				dented.call("dent_car", int(data.get("i", -1)) - _car_index_base(kind),
+					Vector3(p[0], p[1], p[2]), Vector3(d[0], d[1], d[2]), bool(data.get("g", false)))
 		"rf":
 			var ro: Array = data.get("o", [])
 			var rd: Array = data.get("d", [])

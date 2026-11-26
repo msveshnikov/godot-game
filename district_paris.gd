@@ -44,6 +44,42 @@ func _parked_rows() -> Array:
 	]
 
 
+func _traffic_lanes() -> Array:
+	# The one-way link at Richelieu connects the two boulevard carriageways.
+	var richelieu := [Vector2(-146.52, -35.39), Vector2(-149.10, -27.02),
+		Vector2(-135.4, -26.4), Vector2(-120.49, -25.23)]
+	var outbound := [Vector2(-111.0, -20.1), Vector2(60.2, 22.2), Vector2(73.9, 25.0)]
+	var inbound := [Vector2(75.2, 19.2), Vector2(61.6, 16.2), Vector2(-118.8, -28.0)]
+	var boulevard := outbound + [Vector2(114.8, 35.2), Vector2(194.5, 55.15)]
+	# Rounded U-turn on the existing pavement, before the eastern perimeter.
+	var east := Vector2(156.27, 39.26).normalized()
+	var turn := Vector2(207.0, 55.31)
+	for step in 9:
+		var angle := PI * step / 8.0
+		boulevard.append(turn + (east * sin(angle) + east.orthogonal() * cos(angle)) * 3.8)
+	boulevard.append_array([Vector2(195.55, 49.55), Vector2(117.9, 29.9)])
+	boulevard.append_array(inbound + [Vector2(-133.9, -32.31)] + richelieu)
+
+	# Boulevard Montmartre → Faubourg Montmartre → Grange Batelière → Drouot.
+	var north := outbound + [
+		Vector2(77.6, 5.5), Vector2(82.65, -36.41), Vector2(84.19, -54.67),
+		Vector2(83.51, -68.96), Vector2(78.9, -112.3), Vector2(75.7, -141.6),
+		Vector2(13.8, -153.0), Vector2(-74.1, -169.2), Vector2(-110.5, -176.5),
+		Vector2(-116.6, -129.5), Vector2(-144.9, -40.0),
+	] + richelieu
+
+	# Boulevard Montmartre → Vivienne → Feydeau → Rue Montmartre.
+	var south := [
+		Vector2(75.2, 19.2), Vector2(61.6, 16.2), Vector2(-32.0, -6.65),
+		Vector2(-36.4, 7.1), Vector2(-61.29, 78.48), Vector2(-85.69, 150.74),
+		Vector2(-100.0, 186.73), Vector2(-102.6, 194.3), Vector2(-95.5, 192.7),
+		Vector2(-64.6, 185.6), Vector2(12.9, 169.0), Vector2(47.6, 161.14),
+		Vector2(46.96, 154.13), Vector2(49.87, 134.34), Vector2(59.5, 91.4),
+		Vector2(70.4, 40.6), Vector2(73.4, 27.2),
+	]
+	return [[boulevard, 7], [north, 6], [south, 6]]
+
+
 func _build_landmarks() -> void:
 	_grevin()
 	_varietes()

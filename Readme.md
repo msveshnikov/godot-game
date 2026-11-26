@@ -148,7 +148,8 @@ Each district has 52 armed adult NPCs. The extra patrols start on the main stree
 - **Paris** (`?loc=paris`) starts near Musée Grévin and Théâtre des Variétés. It includes rue Vivienne,
   rue du Faubourg Montmartre, the beginning of boulevard Poissonnière, café terraces, Morris columns,
   Grands Boulevards métro entrances, and walkable portions of Passages Jouffroy and des Panoramas.
-  Roughly half the crowd carries baguettes in paper sleeves.
+  Roughly half the crowd carries baguettes in paper sleeves. Traffic loops through the district,
+  with a U-turn on boulevard Poissonnière before the wall.
   [Google Maps](https://www.google.com/maps/search/?api=1&query=Mus%C3%A9e+Gr%C3%A9vin+Paris)
   · [Street View](https://www.google.com/maps/@?api=1&map_action=pano&pano=ohH5edyRZTLShDAQAJhbLg&heading=340)
 - **Dublin** (`?loc=dublin`) follows granite-paved Grafton Street between Suffolk Street and St Stephen’s Green,
