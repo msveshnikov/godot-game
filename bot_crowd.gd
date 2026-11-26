@@ -2,7 +2,7 @@ extends Node3D
 ## Armed villagers on district routes, plus unarmed civilians in local zones.
 ##
 ## The host simulates the armed villagers and streams their state to other clients.
-## Waterfront villagers are simulated locally while an older client hosts.
+## Extra district villagers are simulated locally while an older client hosts.
 ## Shots are broadcast so every client sees the pellets, and each client only
 ## applies damage to its own player.
 
@@ -13,18 +13,18 @@ const SEND_INTERVAL := 0.1
 const PELLET_SPEED := 18.0
 const PELLET_DAMAGE := 20.0
 const SAFE_RESPAWN_DISTANCE := 35.0
+const PATROL_RESPAWN_RADIUS := 48.0
+const PATROL_SPAWN_SPACING := 6.0
 const CIVILIAN_SEED_BASE := 100
 ## Dead villagers stay lying around; past this many the oldest bodies go.
 const MAX_CORPSES := 30
 
 ## Walkable graph over the roads and paths (game x, z), from the district's bot_graph().
 var NODES: Array[Vector2] = []
-## Nodes next to the busiest player spawn points; bots never (re)spawn there.
-var NO_SPAWN: Array = []
-
 var bots: Array = []
 var civilians: Array = []
 var _adjacency: Array = []
+var _street_spawns: Array[int] = []
 var _waterfront_route := PackedVector2Array()
 var _waterfront_spawns := PackedInt32Array()
 var _baguettes := false
@@ -40,7 +40,8 @@ func _ready() -> void:
 	NODES.assign(graph.get("nodes", [Vector2.ZERO]))
 	var edges: Array = graph.get("edges", [])
 	_baguettes = graph.get("baguettes", false)
-	NO_SPAWN = graph.get("no_spawn", [])
+	var no_spawn: Array = graph.get("no_spawn", [])
+	_street_spawns.assign(range(NODES.size()).filter(func(n): return not no_spawn.has(n)))
 	var waterfront: Dictionary = graph.get("waterfront", {})
 	_waterfront_route = waterfront.get("route", PackedVector2Array())
 	_waterfront_spawns = waterfront.get("spawns", PackedInt32Array())
@@ -54,10 +55,9 @@ func _ready() -> void:
 	# Same seed everywhere, so every client starts with the same crowd layout.
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 2611
-	var spawn_nodes := range(NODES.size()).filter(func(n): return not NO_SPAWN.has(n))
 	for _index in BOT_COUNT:
 		var speed := rng.randf_range(1.6, 2.5)
-		var node: int = spawn_nodes[rng.randi() % spawn_nodes.size()]
+		var node: int = _street_spawns[rng.randi() % _street_spawns.size()]
 		var spawn := node_position(node) + Vector3(rng.randf_range(-1, 1), 0.1, rng.randf_range(-1, 1))
 		_add_villager(spawn, speed)
 
@@ -72,19 +72,46 @@ func _ready() -> void:
 	# Append these after the original villagers so their network indices stay stable.
 	for node in _waterfront_spawns:
 		_add_villager(node_position(node, true) + Vector3.UP * 0.1, rng.randf_range(1.7, 2.1), true)
+	_add_patrols(graph.get("patrol_spots", []), rng)
 
 	Net.message_received.connect(_on_message)
 	Net.host_changed.connect(_on_host_changed)
 	_on_host_changed()
 
 
-func _add_villager(spawn: Vector3, speed: float, waterfront := false) -> void:
+func _add_patrols(spots: Array, rng: RandomNumberGenerator) -> void:
+	var occupied := PackedVector2Array()
+	for bot in bots:
+		occupied.append(Vector2(bot.position.x, bot.position.z))
+	for spot: Vector2 in spots:
+		var best := -1
+		var distance := INF
+		for node in _street_spawns:
+			var point := NODES[node]
+			var candidate := spot.distance_squared_to(point)
+			if candidate >= distance:
+				continue
+			var clear := true
+			for used in occupied:
+				if point.distance_squared_to(used) < PATROL_SPAWN_SPACING * PATROL_SPAWN_SPACING:
+					clear = false
+					break
+			if clear:
+				distance = candidate
+				best = node
+		if best >= 0:
+			occupied.append(NODES[best])
+			_add_villager(node_position(best) + Vector3.UP * 0.1, rng.randf_range(1.6, 2.5), false, best)
+
+
+func _add_villager(spawn: Vector3, speed: float, waterfront := false, home_node := -1) -> void:
 	var bot := BOT_SCENE.instantiate() as CharacterBody3D
 	bot.name = "Villager%d" % bots.size()
 	bot.set("bot_index", bots.size())
 	bot.set("crowd", self)
 	bot.set("walk_speed", speed)
 	bot.set("waterfront", waterfront)
+	bot.set("home_node", home_node)
 	bot.set("carries_baguette", _baguettes and bots.size() % 2 == 0)
 	bot.position = spawn
 	add_child(bot)
@@ -183,13 +210,12 @@ func nodes_between(around: Vector3, near: float, far: float) -> Array[int]:
 
 
 ## A random node well away from every player, so respawns don't happen in someone's face.
-func respawn_position(rng: RandomNumberGenerator, waterfront := false) -> Vector3:
+func respawn_position(rng: RandomNumberGenerator, waterfront := false, home_node := -1) -> Vector3:
 	var players := _active_players()
 	var candidates: Array[int] = []
-	var spawn_nodes = _waterfront_spawns if waterfront else range(NODES.size())
+	var local_candidates: Array[int] = []
+	var spawn_nodes = _waterfront_spawns if waterfront else _street_spawns
 	for index in spawn_nodes:
-		if not waterfront and NO_SPAWN.has(index):
-			continue
 		var far := true
 		var position := node_position(index, waterfront)
 		for player in players:
@@ -198,6 +224,10 @@ func respawn_position(rng: RandomNumberGenerator, waterfront := false) -> Vector
 				break
 		if far:
 			candidates.append(index)
+			if home_node >= 0 and NODES[index].distance_squared_to(NODES[home_node]) <= PATROL_RESPAWN_RADIUS * PATROL_RESPAWN_RADIUS:
+				local_candidates.append(index)
+	if not local_candidates.is_empty():
+		candidates = local_candidates
 	if candidates.is_empty():
 		candidates.append(spawn_nodes[rng.randi_range(0, spawn_nodes.size() - 1)])
 	return node_position(candidates[rng.randi() % candidates.size()], waterfront) + Vector3.UP * 0.1

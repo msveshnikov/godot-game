@@ -17,10 +17,22 @@ func intro_text() -> String:
 	return "Grafton Street, Dublin. Follow the pedestrian street past Bewley’s, turn into Harry Street or walk to the Gaiety and St Stephen’s Green. Map data © OpenStreetMap contributors."
 
 
-func _pedestrian_spots() -> Array[Vector2]:
-	return [Vector2(2, -5), Vector2(4, -14), Vector2(-4, 11), Vector2(-11, 23), Vector2(-16, 34),
-		Vector2(-17, 43), Vector2(-35, 53), Vector2(-44, 48.6), Vector2(15, -42), Vector2(24.6, -65.7),
-		Vector2(42, -130.2), Vector2(-44, 160.3), Vector2(-80, 174), Vector2(-100, 167)]
+func _patrol_spots() -> Array[Vector2]:
+	return [
+		# Grafton Street and the approach to the park.
+		Vector2(43, -148), Vector2(36, -112), Vector2(28, -89), Vector2(17, -53),
+		Vector2(9, -27), Vector2(-3, 12), Vector2(-14, 46), Vector2(-31, 81),
+		Vector2(-42, 115), Vector2(-44, 145), Vector2(-43, 182),
+		# West of Grafton Street, including Harry Street and the Gaiety.
+		Vector2(-43, 48), Vector2(-69, 51), Vector2(-89, 69), Vector2(-112, 80),
+		Vector2(-134, 90), Vector2(-168, 77), Vector2(-123, 47), Vector2(-97, 6),
+		Vector2(-76, -30), Vector2(-58, -67), Vector2(-44, -98), Vector2(-104, 151),
+		Vector2(-69, 165),
+		# East of Grafton Street, with patrols on both sides of Anne Street.
+		Vector2(50, 59), Vector2(83, 66), Vector2(112, 73), Vector2(151, 61),
+		Vector2(117, 43), Vector2(130, 15), Vector2(129, -23), Vector2(139, -68),
+		Vector2(150, -110), Vector2(63, -21), Vector2(58, 16), Vector2(110, 143),
+	]
 
 
 func _parked_rows() -> Array:

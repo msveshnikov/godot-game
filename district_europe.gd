@@ -122,15 +122,11 @@ func bot_graph() -> Dictionary:
 	var edges := []
 	for edge in graph["edges"]:
 		edges.append([int(edge[0]), int(edge[1])])
-	var civilians := []
-	for p in _pedestrian_spots():
-		if _fits_street(p, 1.55):
-			civilians.append(["civilian", p.x, p.y, 1.1, false])
 	return {"nodes": Array(points), "edges": edges, "no_spawn": near_spawn,
-		"civilians": civilians, "baguettes": _is_paris()}
+		"patrol_spots": _patrol_spots(), "baguettes": _is_paris()}
 
 
-func _pedestrian_spots() -> Array[Vector2]:
+func _patrol_spots() -> Array[Vector2]:
 	return []
 
 

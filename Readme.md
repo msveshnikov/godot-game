@@ -143,6 +143,7 @@ Both districts have a roughly 250 m playable radius. Masonry walls close off the
 Street centerlines and building footprints use metre coordinates from OpenStreetMap. The procedural buildings
 use tagged heights and floor counts where available, with estimated heights, widths, and facade detail elsewhere.
 Google Maps and Street View were visual references for street layout, materials, signs and landmark exteriors.
+Each district has 52 armed adult NPCs. The extra patrols start on the main streets and in surrounding side lanes.
 
 - **Paris** (`?loc=paris`) starts near Musée Grévin and Théâtre des Variétés. It includes rue Vivienne,
   rue du Faubourg Montmartre, the beginning of boulevard Poissonnière, café terraces, Morris columns,

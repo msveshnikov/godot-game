@@ -19,12 +19,21 @@ func intro_text() -> String:
 	return "Boulevard Montmartre, Paris. Walk from the Grévin and Théâtre des Variétés to the covered Passages Jouffroy and des Panoramas. Map data © OpenStreetMap contributors."
 
 
-func _pedestrian_spots() -> Array[Vector2]:
-	return [Vector2(10.7, -8.8), Vector2(15.8, -6.7), Vector2(21.4, -4.8), Vector2(-22.9, -13.3),
-		Vector2(-26.5, 8.6), Vector2(-10.9, 12.9), Vector2(10.9, 18.8), Vector2(37.4, -5.2),
-		Vector2(53.0, 24.5), Vector2(73.4, 31.3), Vector2(-58.6, -24.0), Vector2(-65.1, -3.92),
-		Vector2(-43.2, -17.8), Vector2(-29.1, 6.8), Vector2(5.8, -9.4), Vector2(31.7, -5.1),
-		Vector2(44.7, -1.2), Vector2(81.1, 11.8), Vector2(67.5, -25.9), Vector2(-15.4, 145.7)]
+func _patrol_spots() -> Array[Vector2]:
+	return [
+		# Boulevard and the two theatre entrances.
+		Vector2(-125, -34), Vector2(-98, -22), Vector2(-64, -9), Vector2(-35, -5),
+		Vector2(0, 5), Vector2(29, 12), Vector2(59, 23), Vector2(96, 27), Vector2(130, 37),
+		# Streets behind the north side of the boulevard.
+		Vector2(-136, -57), Vector2(-125, -82), Vector2(-116, -110), Vector2(-108, -142),
+		Vector2(-85, -168), Vector2(-47, -161), Vector2(-13, -153), Vector2(29, -149),
+		Vector2(73, -52), Vector2(78, -82), Vector2(77, -112), Vector2(127, -104), Vector2(152, -99),
+		# Passages and adjoining streets south of the boulevard.
+		Vector2(-39, 37), Vector2(-51, 71), Vector2(-60, 103), Vector2(-77, 131),
+		Vector2(-116, 132), Vector2(-145, 123), Vector2(-35, 145), Vector2(9, 155),
+		Vector2(51, 63), Vector2(43, 100), Vector2(39, 132), Vector2(28, 158),
+		Vector2(86, 104), Vector2(121, 117),
+	]
 
 
 func _parked_rows() -> Array:

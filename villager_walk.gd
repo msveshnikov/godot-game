@@ -42,6 +42,8 @@ var alive := true
 var lives := 0
 ## Waterfront villagers follow the promenade loop.
 var waterfront := false
+## Extra villagers return to the streets near their original patrol on respawn.
+var home_node := -1
 ## Civilians: game-space XZ area they wander in; `stay` keeps them standing where they are.
 var zone := Rect2()
 var stay := false
@@ -399,7 +401,7 @@ func _spread_blood(corpse: Node3D, body: Node3D, ground_y: float) -> void:
 
 
 func _respawn() -> void:
-	global_position = crowd.respawn_position(_rng, waterfront)
+	global_position = crowd.respawn_position(_rng, waterfront, home_node)
 	velocity = Vector3.ZERO
 	_target_node = -1
 	_previous_node = -1

@@ -7,13 +7,14 @@ static var _loaf: ArrayMesh
 static func attach(skeleton: Skeleton3D, under_arm: bool) -> void:
 	if skeleton == null:
 		return
-	var bone := skeleton.find_bone("DEF-spine.002" if under_arm else "DEF-hand.R")
+	var bone_name := "DEF-spine.002" if under_arm else "DEF-hand.R"
+	var bone := skeleton.find_bone(bone_name)
 	if bone < 0:
 		return
 	var rest := skeleton.get_bone_global_rest(bone)
 	var grip := BoneAttachment3D.new()
 	grip.name = "BaguetteGrip"
-	grip.bone_idx = bone
+	grip.bone_name = bone_name
 	skeleton.add_child(grip)
 	var model := MeshInstance3D.new()
 	model.name = "Baguette"
