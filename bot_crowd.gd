@@ -27,6 +27,7 @@ var civilians: Array = []
 var _adjacency: Array = []
 var _waterfront_route := PackedVector2Array()
 var _waterfront_spawns := PackedInt32Array()
+var _baguettes := false
 var _puppet_count := 0
 var _send_timer := 0.0
 var _corpses: Array[Node3D] = []
@@ -38,6 +39,7 @@ func _ready() -> void:
 	var graph: Dictionary = district.call("bot_graph") if district != null and district.has_method("bot_graph") else {}
 	NODES.assign(graph.get("nodes", [Vector2.ZERO]))
 	var edges: Array = graph.get("edges", [])
+	_baguettes = graph.get("baguettes", false)
 	NO_SPAWN = graph.get("no_spawn", [])
 	var waterfront: Dictionary = graph.get("waterfront", {})
 	_waterfront_route = waterfront.get("route", PackedVector2Array())
@@ -83,6 +85,7 @@ func _add_villager(spawn: Vector3, speed: float, waterfront := false) -> void:
 	bot.set("crowd", self)
 	bot.set("walk_speed", speed)
 	bot.set("waterfront", waterfront)
+	bot.set("carries_baguette", _baguettes and bots.size() % 2 == 0)
 	bot.position = spawn
 	add_child(bot)
 	bots.append(bot)
@@ -96,6 +99,7 @@ func _make_civilian(spawn: Vector2, rng: RandomNumberGenerator, role: String) ->
 	person.set("bot_index", CIVILIAN_SEED_BASE + index)
 	person.set("crowd", self)
 	person.set("walk_speed", rng.randf_range(1.0, 1.6))
+	person.set("carries_baguette", _baguettes and index % 2 == 1)
 	person.position = Vector3(spawn.x, 0.1, spawn.y)
 	return person
 

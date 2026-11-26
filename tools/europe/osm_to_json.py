@@ -33,6 +33,10 @@ DISTRICTS = {
             ("panoramas", (48.871531, 2.341823), (48.871594, 2.341831)),
             ("jouffroy", (48.871741, 2.341874), (48.871671, 2.34185)),
             ("chartier", (48.871941, 2.342943), (48.871949, 2.34283)),
+            ("brebant", (48.871647, 2.3432629), (48.87154, 2.34319)),
+            ("brioche", (48.8717348, 2.3426744), (48.871627, 2.34269)),
+            ("land_monkeys", (48.8716938, 2.3429662), (48.87156, 2.34297)),
+            ("change_vivienne", (48.8714764, 2.3416264), (48.87156, 2.34155)),
         ],
         "spawns": [(48.871769, 2.341890), (48.871581, 2.342246), (48.8715, 2.34263),
                    (48.871762, 2.342430), (48.871921, 2.341013), (48.871703, 2.341352),
@@ -48,10 +52,16 @@ DISTRICTS = {
         "passages": set(),
         "fronts": [
             ("bewleys", (53.341721, -6.260244), (53.3417277, -6.2600971)),
-            ("brown_thomas", (53.342373, -6.259888), (53.34237, -6.259723)),
+            ("brown_thomas", (53.342402, -6.259755), (53.342422, -6.25962)),
             ("gaiety", (53.340291, -6.261690), (53.340218, -6.261690)),
             ("bruxelles", (53.341255, -6.260882), (53.341291, -6.260827)),
             ("stephens_centre", (53.340027, -6.260914), (53.340016, -6.2607)),
+            ("weir", (53.342759, -6.259645), (53.342792, -6.259557)),
+            ("molton", (53.3417642, -6.2602251), (53.34180, -6.26008)),
+            ("fields", (53.3418593, -6.259914), (53.34183, -6.260026)),
+            ("butlers", (53.3400789, -6.2605489), (53.34012, -6.26071)),
+            ("davy_byrnes", (53.3418506, -6.2593621), (53.341905, -6.259365)),
+            ("marks", (53.34213, -6.25967), (53.34214, -6.25982)),
         ],
         "spawns": [(53.34175, -6.26009), (53.3414, -6.26024), (53.3423, -6.25976),
                    (53.34104, -6.26049), (53.34027, -6.26078), (53.34288, -6.2595),
@@ -184,10 +194,11 @@ class District:
             inner = union_all(list(polygonize(rings["inner"])))
             if not outer.is_empty:
                 members.update(member["ref"] for member in relation["members"] if member["type"] == "way")
-                yield -relation["id"], outer.difference(inner), tags
+                if tags["building"] != "arch":  # The park arch has its own open model.
+                    yield -relation["id"], outer.difference(inner), tags
         for key, way in self.ways.items():
             tags = way.get("tags", {})
-            if key not in members and tags.get("building") not in {None, "no", "roof"}:
+            if key not in members and tags.get("building") not in {None, "no", "roof", "arch"}:
                 yield key, polygon_from_closed(self.points(way)), tags
 
     def buildings(self, passages, frontage):
@@ -208,10 +219,13 @@ class District:
                     h = (levels or default) * (3.18 if self.name == "paris" else 3.30) + 0.6
                 h = min(75, max(3.1, h))
                 front = piece.distance(frontage) < 12 and h > 6.0
-                material = tags.get("building:material", "")
+                material = tags.get("building:material") or tags.get("material", "")
                 style = "stone" if self.name == "paris" or seed > 0.63 else "brick"
                 if material in {"brick", "stone", "glass"}:
                     style = material
+                if tags["building"] == "church" or key == 14398576:
+                    style = "ashlar"
+                    front = False
                 roof = tags.get("roof:shape", "mansard" if self.name == "paris" else "gabled")
                 building = {"id": key, "p": ring(piece.exterior), "h": round(h, 1),
                             "s": style, "roof": roof, "shops": front}
@@ -219,8 +233,8 @@ class District:
                     building["holes"] = [ring(hole) for hole in piece.interiors]
                     building["caps"] = caps(piece)
                 if piece.area - base.area > 0.4 and h > 6.0:
-                    building["base"] = [[ring(poly.exterior), *[ring(hole) for hole in poly.interiors]]
-                                        for poly in components(base, "Polygon") if poly.area > 0.8]
+                    base_parts = (orient(poly) for poly in components(base, "Polygon") if poly.area > 0.8)
+                    building["base"] = [[ring(poly.exterior), *[ring(hole) for hole in poly.interiors]] for poly in base_parts]
                 solids.append(base if "base" in building else piece)
                 buildings.append(building)
                 for a, b in zip(piece.exterior.coords, list(piece.exterior.coords)[1:]):

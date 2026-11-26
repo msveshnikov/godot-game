@@ -1401,13 +1401,19 @@ func _build_tree_meshes() -> void:
 				_part(parts, "trunk", Vector3(1.4, 1.5, 1.4) * s, base + Vector3(0, 2.2 * s, 0), Color(0.45, 0.38, 0.3))
 				_part(parts, "sphere", Vector3(4.2, 4.4, 4.2) * s, base + Vector3(0, 6.6 * s, 0), light)
 			"street_tree":
-				var leaves := Color(0.25, 0.40, 0.17).lerp(Color(0.47, 0.48, 0.22), _rng.randf())
-				_part(parts, "trunk", Vector3(0.85, 1.8, 0.85) * s, base + Vector3(0, 2.65 * s, 0), Color(0.40, 0.35, 0.28))
+				var leaves := Color(0.34, 0.50, 0.21).lerp(Color(0.52, 0.54, 0.28), _rng.randf())
+				var bark := Color(0.40, 0.35, 0.28)
+				_part(parts, "trunk", Vector3(0.85, 1.8, 0.85) * s, base + Vector3(0, 2.65 * s, 0), bark)
 				for branch in 5:
 					var angle := branch * TAU / 5.0 + _rng.randf_range(-0.25, 0.25)
 					var offset := Vector3(cos(angle) * 1.65, _rng.randf_range(5.3, 7.5), sin(angle) * 1.65)
-					_part(parts, "sphere", Vector3(1.55, 1.85, 1.45) * s, base + offset * s, leaves.lightened(_rng.randf_range(-0.05, 0.08)))
-				_part(parts, "sphere", Vector3(1.83, 2.0, 1.78) * s, base + Vector3(0, 8.0 * s, 0), leaves)
+					var fork := Vector3(0, 3.85, 0)
+					var limb := offset - fork
+					var pose := Basis(Quaternion(Vector3.UP, limb.normalized())).scaled_local(Vector3(0.43, limb.length() / 3.0, 0.43) * s)
+					parts["trunk"][0].append(Transform3D(pose, base + (fork + limb * 0.5) * s))
+					parts["trunk"][1].append(bark)
+					_part(parts, "street_sphere", Vector3(1.55, 1.85, 1.45) * s, base + offset * s, leaves.lightened(_rng.randf_range(-0.05, 0.08)))
+				_part(parts, "street_sphere", Vector3(1.83, 2.0, 1.78) * s, base + Vector3(0, 8.0 * s, 0), leaves)
 			_:
 				var green := _autumn_colour()
 				_part(parts, "trunk", Vector3.ONE * s, base + Vector3(0, 1.5 * s, 0), Color(0.33, 0.23, 0.15))
@@ -1437,9 +1443,18 @@ func _build_tree_meshes() -> void:
 	var meshes := {"trunk": trunk_mesh, "sphere": sphere_mesh, "cone": cone_mesh}
 	var crown := ShaderMaterial.new()
 	crown.shader = load("res://tree_crown.gdshader")
+	if parts.has("street_sphere"):
+		var street_sphere := sphere_mesh.duplicate() as SphereMesh
+		street_sphere.radial_segments = 16
+		street_sphere.rings = 10
+		var street_crown := crown.duplicate() as ShaderMaterial
+		street_crown.set_shader_parameter("street_foliage", true)
+		street_sphere.material = street_crown
+		meshes["street_sphere"] = street_sphere
 	for key in parts:
 		var mesh: PrimitiveMesh = meshes[key]
-		mesh.material = _vertex_material() if key == "trunk" else crown
+		if key != "street_sphere":
+			mesh.material = _vertex_material() if key == "trunk" else crown
 		_add_multimesh("Tree_" + key, mesh, parts[key][0], parts[key][1])
 
 

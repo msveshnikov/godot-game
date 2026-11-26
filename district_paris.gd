@@ -22,7 +22,9 @@ func intro_text() -> String:
 func _pedestrian_spots() -> Array[Vector2]:
 	return [Vector2(10.7, -8.8), Vector2(15.8, -6.7), Vector2(21.4, -4.8), Vector2(-22.9, -13.3),
 		Vector2(-26.5, 8.6), Vector2(-10.9, 12.9), Vector2(10.9, 18.8), Vector2(37.4, -5.2),
-		Vector2(53.0, 24.5), Vector2(73.4, 31.3), Vector2(-58.6, -24.0), Vector2(-65.1, -3.92)]
+		Vector2(53.0, 24.5), Vector2(73.4, 31.3), Vector2(-58.6, -24.0), Vector2(-65.1, -3.92),
+		Vector2(-43.2, -17.8), Vector2(-29.1, 6.8), Vector2(5.8, -9.4), Vector2(31.7, -5.1),
+		Vector2(44.7, -1.2), Vector2(81.1, 11.8), Vector2(67.5, -25.9), Vector2(-15.4, 145.7)]
 
 
 func _parked_rows() -> Array:
@@ -39,7 +41,10 @@ func _build_landmarks() -> void:
 	_passage_portal("panoramas", "PASSAGE DES PANORAMAS", Color(0.14, 0.27, 0.22))
 	_passage_portal("jouffroy", "PASSAGE JOUFFROY", Color(0.11, 0.14, 0.14))
 	_chartier()
+	_boulevard_shops()
 	_passage_lights()
+	_arcade_shopfronts()
+	_curb_details()
 	for raw in _data["props"]["metro"]:
 		_metro(_point(raw))
 	for p in [Vector2(24.4, -7.6), Vector2(-55.1, -7.0), Vector2(-125.4, -39.8), Vector2(91.0, 31.6)]:
@@ -53,22 +58,41 @@ func _grevin() -> void:
 		return
 	var f: Array = door[0]
 	var half: float = door[1]
-	_obox(f, -half, -0.07, half, 0.02, 0.03, 5.6, WINE)
-	_arch_face(f, half - 0.43, 2.48, 1.10, GILT, Color(0.10, 0.07, 0.08))
+	_obox(f, -half, -0.073, half, 0.02, 0.03, 5.6, WINE.darkened(0.13))
+	_arch_face(f, half - 0.43, 2.48, 1.10, GILT, Color(0.08, 0.056, 0.045))
+	var relief := _frame(_fp(f, 0, -0.14), rad_to_deg((f[1] as Vector2).angle()))
+	_arch_face(relief, half - 0.29, 2.48, 1.29, GILT.darkened(0.14), WINE, true)
 	for s in [-half + 0.15, half - 0.15]:
 		var p := _fp(f, s, -0.14)
 		_cyl("solid", _w(p.x, p.y, 0.12), 0.13, 4.25, WINE.lightened(0.13), 12)
 		_cyl("solid", _w(p.x, p.y, 4.29), 0.18, 0.22, GILT, 10)
 		_cyl("solid", _w(p.x, p.y, 0.14), 0.17, 0.20, GILT, 10)
+		_disc_face(f, s * 0.82, -0.095, 4.35, 0.13, 0.089, GILT)
+		_obox(f, s * 0.82 - 0.069, -0.127, s * 0.82 + 0.068, -0.082, 3.91, 4.30, GILT.darkened(0.08))
+		_globe("solid", _front_point(f, s * 0.82, -0.124, 4.48), 0.09, GILT.lightened(0.10))
 	_obox(f, -half - 0.07, -0.27, half + 0.07, 0.02, 5.40, 5.57, GILT)
 	_obox(f, -half, -0.24, half, 0.04, 4.75, 4.91, GILT.darkened(0.15))
 	_engraving(f, 0.0, -0.086, 5.12, "MUSÉE GRÉVIN", GILT, 3.44)
-	_engraving(f, 0.0, -0.084, 3.89, "ENTRÉE", GILT.lightened(0.2), 0.95)
+	_sign_panel(f, 0, -0.091, 4.28, 1.18, 0.53, "GRÉVIN", WINE, GILT.lightened(0.15))
+	_engraving(f, 0.0, -0.096, 3.96, "PALAIS DES MIRAGES", GILT.lightened(0.2), 2.56)
+	for s in [-0.98, 0.98]:
+		_obox(f, s - 0.37, -0.107, s + 0.37, -0.081, 0.04, 2.41, Color(0.13, 0.083, 0.064))
+		_obox(f, s - 0.29, -0.115, s + 0.29, -0.106, 0.49, 2.24, Color(0.23, 0.22, 0.18))
+	for s in [-1.16, 1.16]:
+		var end := _fp(f, s, -1.1)
+		_cyl("solid", _w(end.x, end.y), 0.11, 0.085, GILT.darkened(0.18), 9)
+		_cyl("solid", _w(end.x, end.y), 0.028, 0.96, GILT, 8)
+		_globe("solid", _w(end.x, end.y, 0.95), 0.057, GILT)
 	# A long red frontage and gilded transoms sit beside the historical entrance.
 	for s in [-4.1, -6.13, -8.16]:
 		_obox(f, s - 0.92, -0.084, s + 0.92, -0.022, 0.49, 3.93, WINE)
 		_obox(f, s - 0.74, -0.098, s + 0.74, -0.084, 1.01, 3.54, WINE.lightened(0.08))
 		_obox(f, s - 0.82, -0.103, s + 0.82, -0.086, 3.64, 3.69, GILT)
+		_obox(f, s - 0.67, -0.107, s + 0.67, -0.098, 1.16, 3.15, Color(0.22, 0.13, 0.09))
+		for k in range(-3, 4):
+			var bar: float = s + k * 0.17
+			_obox(f, bar - 0.015, -0.13, bar + 0.015, -0.098, 1.16, 3.15, GILT.darkened(0.24))
+		_awning(f, s, 0.97, 3.49, 1.32, WINE)
 	var terrace := _fp(f, -9.8, -3.12)
 	if _fits_street(terrace, 1.8):
 		_cafe_terrace(_frame(terrace, rad_to_deg((f[1] as Vector2).angle())), 3, POSTER_GREEN)
@@ -92,9 +116,14 @@ func _varietes() -> void:
 		_obox(f, s - 0.28, -0.6, s + 0.28, -0.065, 3.86, 4.13, CREAM)
 	_obox(f, -h - 0.12, -0.82, h + 0.12, 0.05, 4.11, 4.34, CREAM)
 	_railing(f, -h + 0.1, h - 0.1, -0.72, 4.34, 0.75, 0.25)
+	for k in range(-2, 3):
+		var s := h * 0.35 * k
+		_obox(f, s - 0.27, -0.095, s + 0.27, -0.07, 6.52, 7.75, Color(0.24, 0.26, 0.22))
+		_obox(f, s - 0.038, -0.113, s + 0.038, -0.09, 6.52, 7.73, CREAM)
 	_obox(f, -h + 0.21, -0.10, h - 0.21, -0.08, 5.43, 6.39, Color(0.13, 0.10, 0.10))
 	_engraving(f, 0.0, -0.11, 5.91, "THÉÂTRE DES VARIÉTÉS", Color(0.94, 0.28, 0.22), h * 1.90)
-	_engraving(f, 0.0, -0.113, 7.89, "VARIÉTÉS", GILT, h * 1.1)
+	for s in [-h + 0.38, h - 0.38]:
+		_show_poster(f, s, -0.24, 1.73, "VARIÉTÉS", WINE)
 
 
 func _passage_portal(key: String, title: String, board: Color) -> void:
@@ -121,6 +150,78 @@ func _chartier() -> void:
 	_engraving(f, 0, -0.12, 2.56, "DEPUIS 1896", GILT, 1.7)
 
 
+func _boulevard_shops() -> void:
+	_shopfront("brebant", "LE BRÉBANT", Color(0.13, 0.22, 0.18), GILT, 8.5, true)
+	_shopfront("brioche", "BRIOCHE DORÉE", Color(0.53, 0.35, 0.16), CREAM, 5.0, false)
+	_shopfront("land_monkeys", "LAND & MONKEYS", Color(0.16, 0.35, 0.30), CREAM, 4.5, true)
+	_shopfront("change_vivienne", "CHANGE VIVIENNE", Color(0.15, 0.24, 0.38), CREAM, 3.8, false)
+	var place := _front("brebant", 4.0)
+	if not place.is_empty():
+		var f: Array = place[0]
+		for t in [-2.0, -3.3]:
+			var at := _fp(f, 0, t)
+			if _fits_street(at, 1.3):
+				_cafe_terrace(_frame(at, rad_to_deg((f[1] as Vector2).angle())), 4, POSTER_GREEN)
+
+
+func _show_poster(f: Array, s: float, t: float, y: float, title: String, poster: Color) -> void:
+	_obox(f, s - 0.33, t, s + 0.33, t + 0.065, y - 0.54, y + 0.55, CAST_IRON)
+	_obox(f, s - 0.29, t - 0.01, s + 0.29, t, y - 0.49, y + 0.49, poster)
+	_engraving(f, s, t - 0.024, y + 0.32, title, CREAM, 0.54)
+	_disc_face(f, s, t - 0.024, y + 0.01, 0.18, 0.0, GILT.darkened(0.06))
+	for i in 4:
+		_obox(f, s - 0.17, t - 0.017, s + 0.17, t - 0.011, y - 0.26 - i * 0.045, y - 0.245 - i * 0.045, CREAM)
+
+
+func _arcade_shopfronts() -> void:
+	var passages := [
+		[Vector2(-16.65, 16.56), Vector2(-36.14, 120.15), [
+			[6.0, 1.0, "ESTAMPES"], [12.0, -1.0, "CARTES POSTALES"],
+			[27.0, 1.0, "LIBRAIRIE ANCIENNE"], [65.0, -1.0, "PHILATÉLIE"],
+			[83.0, 1.0, "GALERIE DES VARIÉTÉS"]]],
+		[Vector2(-9.63, -17.66), Vector2(12.8, -103.61), [
+			[9.5, -1.0, "LE VALENTIN"], [18.0, 1.0, "ANTIQUITÉS"],
+			[36.0, -1.0, "LIBRAIRIE"], [55.0, 1.0, "GRÉVIN • LA BOUTIQUE"],
+			[79.0, -1.0, "HÔTEL CHOPIN"]]],
+	]
+	for passage in passages:
+		var start: Vector2 = passage[0]
+		var along := ((passage[1] as Vector2) - start).normalized()
+		var normal := Vector2(-along.y, along.x)
+		for stall in passage[2]:
+			var side: float = stall[1]
+			var centre := start + along * float(stall[0])
+			var at := centre + normal * side * 1.46
+			if _fits_street(centre + normal * side * 1.7, 0.0):
+				continue
+			var f := _frame(at, rad_to_deg((along * side).angle()))
+			var frame_color := WINE.darkened(0.42) if side > 0.0 else POSTER_GREEN
+			_sign_panel(f, 0, -0.044, 3.19, 2.75, 0.47, stall[2], frame_color, GILT)
+			_obox(f, -1.31, -0.048, 1.31, 0.05, 0.35, 0.53, frame_color)
+			_obox(f, -1.28, -0.019, 1.28, 0.025, 0.53, 2.97, Color(0.23, 0.19, 0.15))
+			for s in [-1.28, -0.42, 0.42, 1.28]:
+				_obox(f, s - 0.036, -0.050, s + 0.036, 0.02, 0.53, 3.0, frame_color)
+			for y in [0.82, 1.54, 2.26]:
+				_obox(f, -1.24, -0.051, 1.24, -0.020, y, y + 0.037, GILT.darkened(0.31))
+				for i in 18:
+					var s := -1.17 + i * 0.137
+					var tint := [CREAM, GILT.darkened(0.24), WINE, POSTER_GREEN][i % 4] as Color
+					_obox(f, s, -0.033, s + 0.075, -0.021, y + 0.039, y + 0.26 + 0.054 * (i % 5), tint)
+
+
+func _curb_details() -> void:
+	for raw in _data["props"]["trees"]:
+		var p := _point(raw)
+		if p.length() > 122 or not _fits_street(p, 0.85):
+			continue
+		_grect(p.x - 0.69, p.y - 0.65, p.x + 0.69, p.y + 0.65, 0.061, Color(0.23, 0.22, 0.18), Surface.GRANITE)
+		for i in range(-3, 4):
+			_gstrip(p + Vector2(-0.62, i * 0.17), p + Vector2(0.62, i * 0.17), 0.019, 0.065, CAST_IRON, Surface.PAINT)
+	for p in [Vector2(-31.1, -8.9), Vector2(34.0, 16.1), Vector2(48.0, 8.2), Vector2(-70.0, -16.2)]:
+		if _fits_street(p, 0.35):
+			_bollard(p)
+
+
 func _passage_lights() -> void:
 	for raw in _data["passages"]:
 		var line := _points(raw)
@@ -134,6 +235,7 @@ func _passage_lights() -> void:
 			for k in range(2, int(length) - 1, 4):
 				var s := float(k) - length * 0.5
 				var p := _fp(f, s, 0.0)
+				_gstrip(_fp(f, s - 1.9, 0), _fp(f, s + 1.9, 0), 2.56, 0.058, Color(0.68, 0.59, 0.48), Surface.SETTS)
 				_obox(f, s - 0.035, -1.46, s + 0.035, 1.46, 3.88, 3.94, CAST_IRON)
 				_cyl("solid", _w(p.x, p.y, 3.37), 0.028, 0.53, CAST_IRON, 8)
 				_globe("glow", _w(p.x, p.y, 3.33), 0.13, Color(0.89, 0.70, 0.39))
@@ -162,6 +264,9 @@ func _poster_column(p: Vector2) -> void:
 		_obox(f, -0.43, -0.716, 0.43, -0.56, 0.48, 2.66, spec[1])
 		_obox(f, -0.37, -0.721, 0.37, -0.715, 0.54, 0.82, CREAM)
 		_engraving(f, 0, -0.727, 2.27, spec[0], CREAM, 0.76)
+		_disc_face(f, 0, -0.728, 1.63, 0.30, 0.17, CREAM.darkened(0.26))
+		for n in 4:
+			_obox(f, -0.27, -0.727, 0.27, -0.719, 1.04 - n * 0.072, 1.058 - n * 0.072, CREAM)
 
 
 func _metro(p: Vector2) -> void:

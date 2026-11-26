@@ -6,7 +6,7 @@ shader_type spatial;
 //   COLOR = wall tint (sRGB); alpha < 0.5 means no shop front at street level
 // Styles: 0 brick with punched windows, 1 limestone, 2 glass curtain wall,
 // 3 ribbon windows, 4 modern grid, 5 dark glass tower, 6 blank party wall,
-// 7 sea wall, 8 Paris limestone, 9 Dublin brick.
+// 7 sea wall, 8 Paris limestone, 9 Dublin brick, 10 Dublin stone, 11 boundary wall.
 
 // Smashed shop windows (nyc_builder.gd smash_window): one texel per window, at the
 // window's middle, 1 m per texel from damage_origin. r: 0.5 cracked, 1 smashed;
@@ -45,11 +45,43 @@ float box(vec2 p, vec2 lo, vec2 hi, vec2 fw) {
 	return a.x * a.y;
 }
 
+vec3 shop_display(vec2 p, vec2 fw, float seed, vec3 view_dir) {
+	// Simulated depth behind the display glass, shelves, merchandise and spotlights.
+	vec2 q = p + vec2(view_dir.x * 0.23 + view_dir.z * 0.15, view_dir.y * 0.28);
+	float bay = floor(q.x / 1.31);
+	float spot = 1.0 - smoothstep(0.12, 0.61, abs(fract(q.x / 1.31) - 0.52));
+	float ceiling = (1.0 - smoothstep(0.015, 0.10, abs(q.y - 3.25))) * pow(spot, 7.0);
+	vec3 colour = vec3(0.062, 0.052, 0.044) + vec3(0.33, 0.22, 0.12) * spot * (0.3 + 0.6 * smoothstep(0.1, 3.2, q.y));
+	colour += vec3(0.9, 0.65, 0.37) * ceiling;
+	float stock = hash(vec2(bay, seed * 57.0));
+	if (stock < 0.57) {
+		vec2 shelf = vec2(fract(q.x / 0.26), mod(q.y - 0.52, 0.62));
+		float item = hash(floor(vec2(q.x / 0.26, (q.y - 0.52) / 0.62)) + seed * 71.0);
+		float goods = box(shelf, vec2(0.13, 0.085), vec2(0.74, 0.14 + item * 0.31), max(fw, vec2(0.017)));
+		float ledge = 1.0 - smoothstep(0.025, 0.075, shelf.y);
+		colour = mix(colour, mix(vec3(0.11, 0.25, 0.21), vec3(0.60, 0.26, 0.13), item) * (0.59 + 0.41 * spot), goods);
+		colour = mix(colour, vec3(0.35, 0.25, 0.16), ledge * 0.76);
+	} else {
+		float mannequin_x = (fract(q.x / 1.31) - 0.5) * 1.31;
+		float face = 1.0 - smoothstep(0.073, 0.098, length(vec2(mannequin_x, q.y - 2.25)));
+		float torso = box(vec2(mannequin_x, q.y), vec2(-0.205, 1.26), vec2(0.205, 2.05), fw + 0.018);
+		float legs = box(vec2(abs(mannequin_x), q.y), vec2(0.034, 0.47), vec2(0.126, 1.29), fw);
+		colour = mix(colour, vec3(0.18, 0.20, 0.18), legs);
+		colour = mix(colour, mix(vec3(0.21, 0.32, 0.35), vec3(0.54, 0.18, 0.12), fract(stock * 8.0)), torso);
+		colour = mix(colour, vec3(0.66, 0.54, 0.40), face);
+	}
+	float reflected_bay = 0.5 + 0.5 * sin(p.x * 2.83 + view_dir.x * 6.5);
+	float upper = smoothstep(1.5, 3.44, p.y);
+	vec3 reflection = vec3(0.16, 0.23, 0.28) * (0.7 + 0.5 * reflected_bay) * (0.45 + upper * 0.65);
+	return colour * 0.78 + reflection;
+}
+
 void fragment() {
 	vec2 m = UV;
 	vec2 fw = max(fwidth(m), vec2(0.002));
 	float seed = v_seed;
 	int style = int(v_style);
+	bool european = style >= 8 && style <= 10;
 	vec3 wall = v_tint;
 	vec3 col = wall;
 	float rough = 0.85;
@@ -60,9 +92,9 @@ void fragment() {
 	float floor_h = 3.3 + seed * 0.6;
 	float bay = 1.9 + fract(seed * 7.3) * 1.0;
 	float storey_base = (v_shops > 0.5) ? 4.8 : 0.0;
-	if (style == 8 || style == 9) {
-		floor_h = 2.95 + seed * 0.45;
-		bay = style == 8 ? 2.12 + fract(seed * 7.3) * 0.45 : 1.65 + fract(seed * 7.3) * 0.5;
+	if (european) {
+		floor_h = style == 8 ? 3.15 + seed * 0.48 : 2.72 + seed * 0.75;
+		bay = style == 8 ? 2.25 + fract(seed * 7.3) * 0.54 : 1.58 + fract(seed * 7.3) * 0.58;
 	}
 	vec2 cell = vec2(m.x / bay, (m.y - storey_base) / floor_h);
 	vec2 id = floor(cell);
@@ -77,7 +109,7 @@ void fragment() {
 
 	// Far away, fade the window pattern into its average so it doesn't shimmer.
 	float detail = 1.0 - smoothstep(0.35, 0.9, max(fw.x / bay, fw.y / floor_h) * 6.0);
-	if (style == 0 || style == 1 || style == 8 || style == 9) {
+	if (style == 0 || style == 1 || european) {
 		// Masonry with punched windows, a sill and a lintel.
 		if (style == 0 || style == 9) {
 			// Brick courses.
@@ -94,9 +126,17 @@ void fragment() {
 		float win = box(f, vec2(bay * 0.24, 0.85), vec2(bay * 0.76, 2.55), fw);
 		float sill = box(f, vec2(bay * 0.2, 0.72), vec2(bay * 0.8, 0.85), fw);
 		float lintel = box(f, vec2(bay * 0.2, 2.55), vec2(bay * 0.8, 2.78), fw);
-		if (style == 8 || style == 9) {
+		if (european) {
 			float moulding = box(f, vec2(bay * 0.17, 0.64), vec2(bay * 0.83, 2.76), fw);
-			col = mix(col, style == 8 ? wall * 1.28 + 0.04 : wall * 1.5 + 0.1, moulding * 0.85 * detail);
+			float grain = hash(floor(m * 29.0)) * (1.0 - smoothstep(0.010, 0.046, max(fw.x, fw.y)));
+			float rain = hash(vec2(floor(m.x * 5.0), floor(m.y * 0.42)));
+			float arch = box(f, vec2(bay * 0.15, 2.55), vec2(bay * 0.85, 2.84), fw);
+			float key = box(f, vec2(bay * 0.455, 2.62), vec2(bay * 0.545, 2.91), fw);
+			col *= 0.91 + grain * 0.19 + rain * 0.10;
+			col = mix(col, style == 9 ? wall * 1.25 + 0.07 : wall * 1.20 + 0.05, max(moulding * 0.78, arch * 0.48) * detail);
+			col = mix(col, wall * 1.32 + 0.06, key * detail);
+			float reveal = box(f, vec2(bay * 0.20, 0.75), vec2(bay * 0.79, 2.58), fw);
+			col = mix(col, col * 0.38, reveal * detail * 0.66);
 			if (style == 8) {
 				float course = box(f, vec2(-1.0, 0.05), vec2(bay + 1.0, 0.23), fw);
 				col = mix(col, wall * 1.35 + 0.03, course * detail);
@@ -106,6 +146,12 @@ void fragment() {
 		// Two sashes.
 		float mull = box(f, vec2(bay * 0.5 - 0.04, 0.85), vec2(bay * 0.5 + 0.04, 2.55), fw) + box(f, vec2(bay * 0.24, 1.66), vec2(bay * 0.76, 1.72), fw);
 		vec3 w = mix(glass, vec3(0.85, 0.84, 0.8), min(mull, 1.0) * detail);
+		if (european) {
+			float frame_inside = box(f, vec2(bay * 0.275, 0.91), vec2(bay * 0.72, 2.49), fw);
+			w *= mix(0.60, 1.0, frame_inside);
+			float drape = smoothstep(0.42, 0.65, abs(f.x / bay - 0.5) * 2.0 + 0.22 * sin(f.y * 2.1));
+			w = mix(w, vec3(0.41, 0.34, 0.25), drape * step(0.64, rnd) * 0.58 * detail);
+		}
 		if (style == 9) {
 			float sash = box(f, vec2(bay * 0.24, 1.21), vec2(bay * 0.76, 1.25), fw)
 				+ box(f, vec2(bay * 0.24, 2.11), vec2(bay * 0.76, 2.15), fw);
@@ -140,6 +186,14 @@ void fragment() {
 		col = mix(wall, glass, win);
 		col = mix(col, wall * 0.75, box(f, vec2(0.3, 0.45), vec2(bay - 0.3, 0.6), fw) * detail);
 		rough = mix(0.8, 0.2, win);
+	} else if (style == 11) {
+		vec2 q = m / vec2(1.02, 0.41);
+		vec2 blocks = vec2(q.x + mod(floor(q.y), 2.0) * 0.5, q.y);
+		float joint = max(step(0.935, fract(blocks.x)), step(0.91, fract(blocks.y)));
+		float chips = hash(floor(m * 53.0)) * (1.0 - smoothstep(0.015, 0.043, max(fw.x, fw.y)));
+		col *= 0.76 + hash(floor(blocks) + seed) * 0.34 + chips * 0.17;
+		col = mix(col, col * 0.54, joint * detail);
+		col *= mix(vec3(0.68, 0.75, 0.61), vec3(1.0), smoothstep(0.0, 1.15, m.y));
 	} else if (style == 7) {
 		// Granite sea wall: big blocks, wet and green-stained low down.
 		vec2 q = m / vec2(1.6, 0.8);
@@ -163,9 +217,13 @@ void fragment() {
 		vec3 frame = mix(vec3(0.08, 0.08, 0.09), vec3(0.75, 0.73, 0.68), step(0.6, sid));
 		vec3 sign_col = vec3(0.6 + 0.4 * sin(sid * 40.0), 0.3 + 0.5 * sin(sid * 23.0 + 1.0), 0.25 + 0.6 * sin(sid * 11.0 + 2.0));
 		sign_col = clamp(sign_col, 0.04, 1.0);
-		if (style == 8 || style == 9) {
-			frame = mix(vec3(0.065, 0.035, 0.027), vec3(0.3, 0.28, 0.23), step(0.59, sid));
-			sign_col = mix(vec3(0.07, 0.08, 0.061), vec3(0.27, 0.066, 0.042), step(0.66, sid));
+		if (european) {
+			frame = mix(vec3(0.029, 0.034, 0.028), vec3(0.19, 0.14, 0.10), step(0.49, sid));
+			sign_col = mix(vec3(0.042, 0.066, 0.055), vec3(0.22, 0.052, 0.037), step(0.57, sid));
+			if (style != 8 && sid > 0.82) {
+				sign_col = vec3(0.15, 0.19, 0.23);
+				frame = vec3(0.12, 0.15, 0.17);
+			}
 		}
 		float window = box(vec2(x, m.y), vec2(0.2, 0.45), vec2(unit - 0.2, 3.5), fw);
 		float door = box(vec2(x, m.y), vec2(unit * 0.62, 0.0), vec2(unit * 0.62 + 1.6, 2.6), fw);
@@ -174,11 +232,15 @@ void fragment() {
 		// Sky reflected in the upper part of the shop window, goods lit warm low down.
 		inside = mix(inside, vec3(0.38, 0.44, 0.5), smoothstep(2.2, 3.4, m.y) * 0.6);
 		inside += vec3(0.25, 0.18, 0.1) * (1.0 - smoothstep(0.5, 1.8, m.y)) * step(0.4, sid);
-		vec3 shop = frame;
-		shop = mix(shop, inside, window);
-		if (style == 8 || style == 9) {
-			float mullions = box(vec2(fract(x / 1.25), m.y), vec2(0.46, 0.48), vec2(0.54, 3.45), fw);
-			shop = mix(shop, frame, mullions * window);
+		if (european && detail > 0.08) {
+			inside = mix(inside * 0.45, shop_display(vec2(x, m.y), fw, sid, VIEW), detail);
+		}
+		vec3 shop = mix(frame, inside, window);
+		if (european) {
+			float mullions = box(vec2(fract(x / 1.31), m.y), vec2(0.455, 0.48), vec2(0.545, 3.45), fw);
+			float transom = box(vec2(x, m.y), vec2(0.2, 2.60), vec2(unit - 0.2, 2.68), fw);
+			float baseboard = box(vec2(x, m.y), vec2(0.27, 0.11), vec2(unit - 0.27, 0.38), fw);
+			shop = mix(shop, frame * 1.58 + 0.018, max(baseboard, max(transom, mullions)) * detail);
 		}
 		shop = mix(shop, vec3(0.05, 0.05, 0.06), door * 0.8);
 		float pane = max(window, door);

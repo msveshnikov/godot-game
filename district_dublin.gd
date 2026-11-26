@@ -36,9 +36,13 @@ func _build_landmarks() -> void:
 	_brown_thomas()
 	_bruxelles()
 	_stephens_centre()
+	_st_anns()
+	_fusiliers_arch()
+	_grafton_shops()
 	for raw in _data["props"]["statues"]:
 		_statue(_point(raw[0]), str(raw[1]))
 	_grafton_furniture()
+	_flower_stall()
 
 
 func _bewleys() -> void:
@@ -78,6 +82,15 @@ func _bewleys() -> void:
 	_globe("solid", disc, 0.24, OCHRE.lightened(0.20))
 	for s in [-h * 0.54, h * 0.54]:
 		_awning(f, s, h * 0.34, 3.34, 1.31, CAFE_RED)
+		for petal in 6:
+			var petal_angle := petal * TAU / 6.0
+			var y := 3.05 + sin(petal_angle) * 0.088
+			var t := -0.53 + (y - 3.05) * 1.4
+			_globe("solid", _front_point(f, s + cos(petal_angle) * 0.11, t, y), 0.041, IVORY)
+	_flower_box(f, -h * 0.63, -0.29, 4.48, 1.65)
+	_flower_box(f, h * 0.63, -0.29, 4.48, 1.65)
+	for s in [-h * 0.74, h * 0.74]:
+		_sign_panel(f, s, -0.246, 1.49, 0.69, 0.49, "BEWLEY’S", DARK_WOOD, IVORY)
 	for s in [-h + 0.62, h - 0.62, 0.0]:
 		var p := _fp(f, s, -0.86)
 		_cone("solid", _w(p.x, p.y, 2.02), 0.22, 0.36, 0.27, Color(0.32, 0.23, 0.15), 8)
@@ -102,8 +115,11 @@ func _gaiety() -> void:
 		_obox(f, s - 0.62, -0.19, s + 0.62, -0.08, 5.58, 5.78, IVORY)
 	_obox(f, -h, -0.91, h, -0.09, 3.50, 4.52, CAST_IRON)
 	_engraving(f, 0.0, -0.936, 4.01, "THE GAIETY THEATRE", OCHRE.lightened(0.2), h * 1.68)
+	for i in range(-9, 10):
+		_globe("glow", _front_point(f, i * h / 9.5, -0.78, 3.47), 0.044, Color(0.70, 0.49, 0.22))
 	for s in [-h + 0.35, h - 0.35]:
 		_obox(f, s - 0.26, -0.25, s + 0.26, -0.04, 0.3, 9.07, IVORY)
+		_sign_panel(f, s * 0.85, -0.17, 2.10, 0.86, 1.39, "GAIETY", CAFE_RED, IVORY)
 
 
 func _brown_thomas() -> void:
@@ -117,6 +133,9 @@ func _brown_thomas() -> void:
 	for i in range(-2, 3):
 		var s := i * h * 0.39
 		_obox(f, s - 0.074, -0.15, s + 0.074, -0.007, 0.17, 3.55, CAST_IRON)
+		_obox(f, s - h * 0.145, -0.094, s + h * 0.145, -0.06, 4.76, 7.46, Color(0.19, 0.25, 0.26))
+		_obox(f, s - h * 0.164, -0.24, s + h * 0.164, -0.067, 4.63, 4.78, LIMESTONE)
+		_obox(f, s - 0.045, -0.10, s + 0.045, -0.07, 4.78, 7.43, IVORY)
 
 
 func _bruxelles() -> void:
@@ -136,14 +155,146 @@ func _stephens_centre() -> void:
 		return
 	var f: Array = front[0]
 	var h: float = front[1]
-	for y in [0.2, 4.62, 8.96]:
-		for i in 4:
-			var s := lerpf(-h * 0.71, h * 0.71, i / 3.0)
-			var frame := _frame(_fp(f, s, -0.12), rad_to_deg((f[1] as Vector2).angle()))
-			_obox(frame, -1.24, -0.071, 1.24, 0.02, y, y + 3.63, OCHRE.lightened(0.3))
-			_arch_face(frame, 0.99, y + 2.46, 0.84, IVORY, Color(0.26, 0.32, 0.33))
+	_shopping_arcade(f, h)
+	_shopping_arcade(_edge_frame(Vector2(-53.53, 193.48), Vector2(-59.73, 213.38)), 9.80)
 	_obox(f, -h, -0.37, h, 0.02, 4.0, 4.55, IVORY)
 	_engraving(f, 0, -0.389, 4.27, "STEPHEN’S GREEN", DARK_WOOD, h * 1.54)
+	_glass_cupola(Vector2(-65.8, 198.6), 13.2)
+
+
+func _shopping_arcade(f: Array, half: float) -> void:
+	var yaw := rad_to_deg((f[1] as Vector2).angle())
+	for y in [0.22, 4.17, 8.15]:
+		var bays := maxi(3, roundi(half * 0.71))
+		for i in bays:
+			var s := lerpf(-half + 1.35, half - 1.35, float(i) / (bays - 1.0))
+			var frame := _frame(_fp(f, s, -0.36), yaw)
+			_obox(frame, -1.29, -0.064, 1.29, 0.13, y, y + 3.74, IVORY.darkened(0.12))
+			_arch_face(frame, 1.06, y + 2.62, 0.76, IVORY, Color(0.20, 0.28, 0.29))
+			for bar in [-0.47, 0.0, 0.47]:
+				_obox(frame, bar - 0.026, -0.091, bar + 0.026, -0.061, y + 0.14, y + 2.65, IVORY)
+			if y > 1.0:
+				_flower_box(frame, 0, -0.34, y + 0.09, 1.32)
+		_obox(f, -half, -0.79, half, 0.10, y + 3.66, y + 3.88, IVORY)
+		if y > 1.0:
+			_railing(f, -half, half, -0.7, y, 0.65, 0.26)
+
+
+func _glass_cupola(centre: Vector2, base_y: float) -> void:
+	var st := _tool("solid", _w(centre.x, centre.y, base_y))
+	for band in 6:
+		var a := PI * 0.5 * band / 6.0
+		var b := PI * 0.5 * (band + 1) / 6.0
+		for pane in 18:
+			var l := Vector2.from_angle(TAU * pane / 18.0)
+			var r := Vector2.from_angle(TAU * (pane + 1) / 18.0)
+			var vertices := []
+			for corner in [[a, l], [a, r], [b, r], [b, l]]:
+				var offset: Vector2 = corner[1] * cos(corner[0]) * 4.28
+				vertices.append(_w(centre.x + offset.x, centre.y + offset.y, base_y + 3.4 * sin(corner[0])))
+			var normal := ((vertices[0] as Vector3) - _w(centre.x, centre.y, base_y)).normalized()
+			st.set_color(Color(0.32, 0.48, 0.49).lightened(0.12 * ((pane + band) % 3)))
+			st.set_normal(normal)
+			_front_quad(st, vertices[0], vertices[1], vertices[2], vertices[3], normal)
+			st.set_color(IVORY)
+			var edge_a: Vector3 = vertices[0].lerp(vertices[1], 0.09)
+			var edge_b: Vector3 = vertices[3].lerp(vertices[2], 0.09)
+			_front_quad(st, vertices[0] + normal * 0.023, edge_a + normal * 0.023,
+				edge_b + normal * 0.023, vertices[3] + normal * 0.023, normal)
+	_cyl("solid", _w(centre.x, centre.y, base_y + 3.39), 0.08, 1.0, IVORY, 8)
+	_globe("solid", _w(centre.x, centre.y, base_y + 4.39), 0.15, OCHRE)
+
+
+func _st_anns() -> void:
+	# Dawson Street facade at the end of the view along Anne Street South.
+	var f := _frame(Vector2(129.1, 82.6), -79.2)
+	var dark := Color(0.24, 0.19, 0.15)
+	var stone := Color(0.69, 0.61, 0.52)
+	_obox(f, -9.25, 0.03, 9.25, 0.56, 0.26, 12.48, stone)
+	for side in [-1.0, 1.0]:
+		var t: float = side * 6.5
+		_obox(f, t - 1.76, -0.32, t + 1.76, 0.74, 0.14, 14.17 + side * 1.1, stone.darkened(0.04))
+		var pier := _frame(_fp(f, t, -0.32), -79.2)
+		for y in [1.3, 7.1, 11.8]:
+			_arch_face(pier, 0.88, y + 1.30, 0.72, LIMESTONE, dark)
+		_obox(f, t - 1.94, -0.48, t + 1.94, 0.78, 12.52, 12.77, LIMESTONE)
+	_arch_face(f, 1.57, 2.66, 1.15, LIMESTONE, CAFE_RED.darkened(0.45))
+	_obox(f, -0.054, -0.09, 0.054, -0.075, 0.39, 2.66, CAFE_RED.darkened(0.66))
+	_disc_face(f, 0, -0.051, 8.40, 1.51, 0.0, Color(0.27, 0.20, 0.15))
+	_disc_face(f, 0, -0.073, 8.40, 1.68, 1.44, LIMESTONE)
+	_disc_face(f, 0, -0.081, 8.40, 0.38, 0.22, IVORY.darkened(0.20))
+	for i in 8:
+		var a := Vector2.from_angle(TAU * i / 8.0)
+		_disc_face(f, a.x * 0.97, -0.064, 8.40 + a.y * 0.97, 0.41, 0.24, LIMESTONE)
+	for s in [-4.4, -2.2, 2.2, 4.4]:
+		var pier := _frame(_fp(f, s, -0.06), -79.2)
+		_arch_face(pier, 0.59, 4.39, 0.49, LIMESTONE, dark)
+	_obox(f, -5.5, -0.21, 5.5, 0.40, 10.79, 11.02, LIMESTONE)
+	var st := _tool("solid", _front_point(f, 0, 0, 11.0))
+	st.set_color(stone)
+	var facing: Vector2 = -f[2]
+	var normal := Vector3(facing.x, 0, facing.y)
+	st.set_normal(normal)
+	_front_tri(st, _front_point(f, -5.15, -0.046, 11.01), _front_point(f, 5.15, -0.046, 11.01),
+		_front_point(f, 0, -0.046, 16.16), normal)
+	_obox(f, -0.10, -0.125, 0.10, 0.16, 16.07, 17.30, LIMESTONE)
+	_obox(f, -0.38, -0.125, 0.38, 0.16, 16.79, 16.99, LIMESTONE)
+	for i in 4:
+		_obox(f, -2.9, -1.4 + i * 0.24, 2.9, 0.20, 0.01, 0.11 + i * 0.09, GRANITE_GREY)
+	_engraving(f, 0, -0.14, 4.14, "ST ANN’S", IVORY, 1.85)
+
+
+func _fusiliers_arch() -> void:
+	var f := _frame(Vector2(-25.16, 227.92), -22.0)
+	var stone := Color(0.62, 0.59, 0.53)
+	for side in [-1.0, 1.0]:
+		var pier: float = side * 3.05
+		_obox(f, pier - 1.19, -0.86, pier + 1.19, 0.88, 0.02, 7.03, stone)
+		_ocollider(f, pier - 1.19, -0.86, pier + 1.19, 0.88, 0.0, 7.03)
+		for s in [-0.72, 0.72]:
+			_obox(f, pier + s - 0.20, -1.08, pier + s + 0.20, -0.82, 0.84, 6.61, LIMESTONE.darkened(0.12))
+		_obox(f, pier - 1.27, -1.04, pier + 1.27, 1.01, 0.03, 0.77, stone.darkened(0.05))
+		var edge: float = side * 7.5
+		_railing(f, minf(edge, side * 4.17), maxf(edge, side * 4.17), 0.0, 0.15, 1.86, 0.19)
+		_obox(f, edge - 0.26, -0.27, edge + 0.26, 0.26, 0.0, 2.18, stone)
+		_globe("solid", _front_point(f, edge, 0, 2.31), 0.14, stone)
+	_arch_face(_frame(_fp(f, 0, -0.85), -22.0), 1.86, 3.73, 1.87, LIMESTONE, stone, true)
+	_obox(f, -1.92, -0.89, 1.92, 0.91, 5.56, 7.05, stone)
+	_obox(f, -4.40, -1.11, 4.40, 1.10, 6.99, 7.46, LIMESTONE.darkened(0.05))
+	_obox(f, -3.75, -0.93, 3.75, 0.93, 7.46, 9.61, stone)
+	_obox(f, -3.90, -1.0, 3.90, 1.0, 9.57, 9.93, LIMESTONE.darkened(0.05))
+	_sign_panel(f, 0, -0.955, 8.67, 4.38, 0.95, "ROYAL DUBLIN FUSILIERS  ·  1907", LIMESTONE, DARK_WOOD)
+	_disc_face(f, 0, -0.911, 6.25, 0.31, 0.11, BRONZE)
+	for i in range(-13, 14):
+		_obox(f, i * 0.31 - 0.052, -1.06, i * 0.31 + 0.052, -0.89, 6.81, 7.03, LIMESTONE)
+	_grect(-33.9, 231.8, -15.3, 241.0, 0.020, Color(0.34, 0.45, 0.26), Surface.GRASS)
+	_gstrip(_fp(f, 0, 1), _fp(f, 0, 12.5), 3.55, 0.044, Color(0.58, 0.52, 0.43), Surface.SETTS)
+
+
+func _grafton_shops() -> void:
+	_shopfront("weir", "WEIR & SONS", Color(0.13, 0.15, 0.14), OCHRE, 9.0, false)
+	_shopfront("molton", "MOLTON BROWN", Color(0.21, 0.19, 0.17), IVORY, 6.0, false)
+	_shopfront("fields", "FIELDS", Color(0.14, 0.22, 0.27), IVORY, 7.8, false)
+	_shopfront("butlers", "BUTLERS CHOCOLATES", Color(0.29, 0.25, 0.17), IVORY, 6.7, true)
+	_shopfront("davy_byrnes", "DAVY BYRNE’S", Color(0.19, 0.25, 0.17), OCHRE, 6.0, true)
+	_shopfront("marks", "M&S", Color(0.16, 0.20, 0.21), IVORY, 6.2, false)
+
+
+func _flower_stall() -> void:
+	var f := _frame(Vector2(-38.8, 176.7), 22.0)
+	if not _fits_street(f[0], 1.6):
+		return
+	for s in [-1.36, 1.36]:
+		for z in [-0.70, 0.70]:
+			_obox(f, s - 0.035, z - 0.035, s + 0.035, z + 0.035, 0.0, 2.65, CAST_IRON)
+	for i in 8:
+		var s := -1.35 + i * 0.35
+		_obox(f, s, -0.82, s + 0.35, 0.83, 2.56, 2.66, ENAMEL if i % 2 == 0 else IVORY)
+	_obox(f, -1.35, -0.62, 1.35, 0.54, 0.62, 0.74, DARK_WOOD)
+	_flower_box(f, 0.0, -0.47, 0.74, 2.52)
+	_flower_box(f, -0.48, 0.26, 0.73, 1.29)
+	_flower_box(f, 0.76, 0.26, 0.73, 0.89)
+	_sign_panel(f, 0, -0.84, 2.44, 1.76, 0.27, "GRAFTON FLOWERS", ENAMEL, IVORY)
 
 
 func _statue(p: Vector2, title: String) -> void:

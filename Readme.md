@@ -139,7 +139,7 @@ The default place for new players (`?loc=nyc` / `-- --loc=nyc`), built by `distr
 
 ### Boulevard Montmartre and Grafton Street
 
-Both districts have a roughly 250 m playable radius and a waterfront promenade, like the Times Square island.
+Both districts have a roughly 250 m playable radius. Masonry walls close off the edge, with city buildings beyond.
 Street centerlines and building footprints use metre coordinates from OpenStreetMap. The procedural buildings
 use tagged heights and floor counts where available, with estimated heights, widths, and facade detail elsewhere.
 Google Maps and Street View were visual references for street layout, materials, signs and landmark exteriors.
@@ -147,10 +147,12 @@ Google Maps and Street View were visual references for street layout, materials,
 - **Paris** (`?loc=paris`) starts near Musée Grévin and Théâtre des Variétés. It includes rue Vivienne,
   rue du Faubourg Montmartre, the beginning of boulevard Poissonnière, café terraces, Morris columns,
   Grands Boulevards métro entrances, and walkable portions of Passages Jouffroy and des Panoramas.
+  Roughly half the crowd carries baguettes in paper sleeves.
   [Google Maps](https://www.google.com/maps/search/?api=1&query=Mus%C3%A9e+Gr%C3%A9vin+Paris)
   · [Street View](https://www.google.com/maps/@?api=1&map_action=pano&pano=ohH5edyRZTLShDAQAJhbLg&heading=340)
 - **Dublin** (`?loc=dublin`) follows granite-paved Grafton Street between Suffolk Street and St Stephen’s Green,
   with Bewley’s, Harry Street and Phil Lynott, Brown Thomas, King Street South and the Gaiety Theatre.
+  Follow Anne Street South to St Ann’s Church or continue to the Fusiliers’ Arch at the park entrance.
   [Google Maps](https://www.google.com/maps/search/?api=1&query=Bewley%27s+Grafton+Street+Dublin)
   · [Street View](https://www.google.com/maps/@?api=1&map_action=pano&pano=Eq-HcjYw9RWKyJcC4ADaQQ&heading=263)
 

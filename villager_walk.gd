@@ -15,6 +15,7 @@ extends "res://addons/cogito/CogitoNPC/cogito_npc.gd"
 
 const PISTOL_SCENE: PackedScene = preload("res://pistol_model.tscn")
 const OUTFIT = preload("res://villager_outfit.gd")
+const BAGUETTE = preload("res://baguette.gd")
 const FOAM_FIRE_SOUND: AudioStream = preload("res://addons/cogito/Assets/Audio/Spray.ogg")
 const PUPPET_SNAP_DISTANCE := 5.0
 const HIT_GRACE := 1.5
@@ -44,6 +45,7 @@ var waterfront := false
 ## Civilians: game-space XZ area they wander in; `stay` keeps them standing where they are.
 var zone := Rect2()
 var stay := false
+var carries_baguette := false
 
 var _rng := RandomNumberGenerator.new()
 var _target_node := -1
@@ -97,6 +99,8 @@ func _ready() -> void:
 		_pause_remaining = _rng.randf_range(0.0, 3.0)
 	if role == "child":
 		_make_child()
+	if carries_baguette and _rig != null:
+		BAGUETTE.attach(_rig.get_node_or_null("Skeleton3D") as Skeleton3D, role == "villager")
 
 
 func _make_child() -> void:
@@ -342,7 +346,7 @@ func _leave_corpse() -> void:
 		return
 	var copy := skeleton.duplicate() as Skeleton3D
 	for child in copy.get_children():
-		if child.name == "Mannequin" or child.name == "PoliceCap":
+		if child.name in ["Mannequin", "PoliceCap", "BaguetteGrip"]:
 			continue
 		if child.name == "HandAttachment":
 			for part in child.get_children():

@@ -14,12 +14,17 @@ const SPOTS := {
 		["varietes", Vector3(-0.5, 2.1, 5.0), Vector3(1.0, 5.3, 21.0)],
 		["passage", Vector3(-15.9, 2.0, 10.9), Vector3(-21.4, 2.8, 39.0)],
 		["aerial", Vector3(-249.0, 164.0, -287.0), Vector3(0.0, 2.0, 0.0)],
+		["brebant", Vector3(70.1, 2.0, 20.6), Vector3(95.0, 4.2, 1.6)],
+		["wall", Vector3(212.0, 2.2, 58.0), Vector3(244.0, 2.0, 66.0)],
 	],
 	"dublin": [
 		["grafton", Vector3(-17.0, 2.4, 43.0), Vector3(4.0, 7.0, -31.0)],
 		["bewleys", Vector3(3.1, 2.4, -6.4), Vector3(-7.6, 4.2, 2.1)],
 		["gaiety", Vector3(-105.7, 2.6, 169.4), Vector3(-103.5, 5.3, 158.0)],
 		["aerial", Vector3(213.0, 172.0, -280.0), Vector3(0.0, 2.0, 0.0)],
+		["st_anns", Vector3(94.5, 2.3, 76.3), Vector3(130.0, 7.9, 82.2)],
+		["st_stephens", Vector3(-34.6, 3.4, 189.0), Vector3(-66.0, 8.6, 193.2)],
+		["fusiliers", Vector3(-31.0, 2.5, 213.8), Vector3(-25.2, 5.1, 227.9)],
 	],
 	"nyc": [
 		["tkts_south", Vector3(-21.0, 6.6, -144.0), Vector3(14.0, 6.0, 230.0)],

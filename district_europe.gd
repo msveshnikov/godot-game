@@ -1,7 +1,8 @@
 extends "res://nyc_builder.gd"
-## Metric public-street geometry shared by the Montmartre and Grafton Street islands.
+## Metric public-street geometry shared by Montmartre and Grafton Street.
 
-const ISLAND_RADIUS := 250.0
+const WALL_RADIUS := 248.0
+const WALL_HEIGHT := 4.65
 const RIM := 239.0
 const LIMESTONE := Color(0.83, 0.77, 0.66)
 const GRANITE_GREY := Color(0.58, 0.57, 0.55)
@@ -37,7 +38,7 @@ func _ready() -> void:
 	_collision.name = "DistrictCollision"
 	add_child(_collision)
 	_set_city_environment()
-	_build_coast()
+	_build_boundary()
 	_build_surfaces()
 	_build_city_blocks()
 	_build_street_details()
@@ -73,7 +74,7 @@ func _set_city_environment() -> void:
 	if env.sky != null:
 		env.sky = env.sky.duplicate() as Sky
 		var sky_material := env.sky.sky_material.duplicate() as ShaderMaterial
-		sky_material.set_shader_parameter("ground_color", Color(0.13, 0.22, 0.27))
+		sky_material.set_shader_parameter("ground_color", Color(0.25, 0.27, 0.23))
 		sky_material.set_shader_parameter("cloud_cover", 0.40 if _is_paris() else 0.59)
 		env.sky.sky_material = sky_material
 	world.environment = env
@@ -125,7 +126,8 @@ func bot_graph() -> Dictionary:
 	for p in _pedestrian_spots():
 		if _fits_street(p, 1.55):
 			civilians.append(["civilian", p.x, p.y, 1.1, false])
-	return {"nodes": Array(points), "edges": edges, "no_spawn": near_spawn, "civilians": civilians}
+	return {"nodes": Array(points), "edges": edges, "no_spawn": near_spawn,
+		"civilians": civilians, "baguettes": _is_paris()}
 
 
 func _pedestrian_spots() -> Array[Vector2]:
@@ -143,46 +145,48 @@ func _circle(radius: float) -> PackedVector2Array:
 	return points
 
 
-func _build_coast() -> void:
-	var outline := _circle(ISLAND_RADIUS)
-	_gpoly(outline, 0.0, Color(0.52, 0.52, 0.50), Surface.HEX)
-	_gpoly(_circle(RIM), 0.008, Color(0.60, 0.58, 0.54), Surface.SIDEWALK)
-	_extrude(outline, -6.0, 0.02, Style.SEAWALL, 0.3, GRANITE_GREY, false, false)
-	_parapet(outline, 0.0, 0.28, GRANITE_GREY)
+func _build_boundary() -> void:
+	var outline := _circle(WALL_RADIUS)
+	_grect(-840, -840, 840, 840, -0.03, Color(0.33, 0.36, 0.31), Surface.ASPHALT)
+	_gpoly(outline, 0.005, Color(0.58, 0.56, 0.53), Surface.ASPHALT)
+	_gpoly(_circle(RIM), 0.008, Color(0.58, 0.56, 0.53) if _is_paris() else Color(0.56, 0.55, 0.53), Surface.ASPHALT)
+	var masonry := Color(0.65, 0.61, 0.54) if _is_paris() else Color(0.55, 0.53, 0.49)
+	var coping := masonry.lightened(0.14)
 	for i in outline.size():
 		var a := outline[i]
 		var b := outline[(i + 1) % outline.size()]
 		var f := _edge_frame(a, b)
-		var half := a.distance_to(b) * 0.5
-		_ocollider(f, -half - 0.15, -0.1, half + 0.15, 0.55, -1.0, 5.0)
-		_railing(f, -half, half, 0.64, 0.25, 0.95, 0.29)
+		var half := a.distance_to(b) * 0.5 + 0.12
+		_ocollider(f, -half, -0.42, half, 0.48, -1.0, WALL_HEIGHT + 0.25)
+		var band := PackedVector2Array([_fp(f, -half, -0.40), _fp(f, half, -0.40),
+			_fp(f, half, 0.47), _fp(f, -half, 0.47)])
+		_extrude(band, -0.04, WALL_HEIGHT, Style.BOUNDARY_STONE, float(i % 7) * 0.13, masonry, false, false)
+		_obox(f, -half, -0.52, half, 0.60, 0.03, 0.29, masonry.darkened(0.13))
+		_obox(f, -half, -0.51, half, 0.55, WALL_HEIGHT - 0.16, WALL_HEIGHT + 0.11, coping)
+		_obox(f, -half, 0.43, -half + 0.67, 0.72, 0.02, WALL_HEIGHT + 0.16, masonry.darkened(0.06))
+		_obox(f, -half - 0.08, 0.38, -half + 0.75, 0.79, WALL_HEIGHT + 0.06, WALL_HEIGHT + 0.28, coping)
+		if i % 3 == 0:
+			_lantern(_fp(f, 0.0, 1.54), 4.05)
 		if i % 5 == 0:
-			_lantern(_fp(f, 0.0, 3.9), 4.4)
-			_city_bench(f, 4.9)
-	var material := ShaderMaterial.new()
-	material.shader = preload("res://ocean.gdshader")
-	material.set_shader_parameter("island_half", Vector2.ONE * ISLAND_RADIUS)
-	material.set_shader_parameter("island_corner", ISLAND_RADIUS)
-	for span in [1420.0, 11500.0]:
-		var mesh := PlaneMesh.new()
-		mesh.size = Vector2.ONE * span
-		if span < 2000.0:
-			mesh.subdivide_width = 210
-			mesh.subdivide_depth = 210
-		var sea := MeshInstance3D.new()
-		sea.mesh = mesh
-		sea.position.y = -2.0 if span < 2000.0 else -2.9
-		sea.material_override = material
-		sea.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		add_child(sea)
+			_city_bench(f, 1.25)
+		# A skyline behind the wall keeps the streets visually connected to the city.
+		if i % 2 == 0:
+			var face := _frame((_fp(f, 0.0, 0.0) as Vector2).normalized() * (275 + i % 9), rad_to_deg((b - a).angle()))
+			var h := 12.5 + (i * 17 % 14)
+			var rear := PackedVector2Array([_fp(face, -12.5, -7.0), _fp(face, 12.5, -7.0),
+				_fp(face, 12.5, 8.0), _fp(face, -12.5, 8.0)])
+			var tint: Color = PALE_STONE[i % PALE_STONE.size()] if _is_paris() else IRISH_BRICKS[(i / 2) % IRISH_BRICKS.size()]
+			_extrude(rear, 0.0, h, Style.PARIS_STONE if _is_paris() else Style.DUBLIN_BRICK,
+				float(i % 13) / 14.0, tint.darkened(0.13), false, false)
+			_cap(rear, h, SLATE)
 
 
 func _build_surfaces() -> void:
 	var ground: Dictionary = _data["ground"]
 	var surfaces := [
 		["park", 0.017, Color(0.29, 0.41, 0.22), Surface.GRASS],
-		["paving", 0.025, Color(0.59, 0.56, 0.52) if _is_paris() else Color(0.50, 0.49, 0.47), Surface.SETTS],
-		["road", 0.033, Color(0.31, 0.31, 0.31), Surface.ASPHALT],
+		["paving", 0.025, Color(0.61, 0.58, 0.55) if _is_paris() else Color(0.62, 0.60, 0.58), Surface.SETTS],
+		["road", 0.033, Color(0.40, 0.39, 0.38), Surface.ASPHALT],
 		["cycle", 0.039, Color(0.44, 0.43, 0.37), Surface.ASPHALT],
 	]
 	for spec in surfaces:
@@ -194,7 +198,7 @@ func _build_surfaces() -> void:
 			var a := ring[i]
 			var b := ring[(i + 1) % ring.size()]
 			if a.distance_squared_to(b) > 0.09:
-				_gstrip(a, b, 0.20, 0.047, GRANITE_GREY, Surface.GRANITE)
+				_gstrip(a, b, 0.23, 0.057, GRANITE_GREY.lightened(0.12), Surface.GRANITE)
 	for raw in _data["props"]["crossings"]:
 		var at := _point(raw[0])
 		var dir := Vector2.from_angle(raw[1])
@@ -272,7 +276,7 @@ func _build_block(item: Dictionary) -> void:
 	var seed := (posmod(int(item["id"]), 997) + 1.0) / 999.0
 	var shops: bool = item["shops"]
 	var colour: Color = PALE_STONE[int(seed * PALE_STONE.size())]
-	var style := Style.PARIS_STONE if _is_paris() else Style.STONE
+	var style := Style.PARIS_STONE if _is_paris() else Style.DUBLIN_STONE
 	match item["s"]:
 		"brick":
 			colour = IRISH_BRICKS[int(seed * IRISH_BRICKS.size())]
@@ -280,6 +284,9 @@ func _build_block(item: Dictionary) -> void:
 		"glass":
 			colour = Color(0.48, 0.54, 0.57)
 			style = Style.GLASS
+		"ashlar":
+			colour = LIMESTONE
+			style = Style.BOUNDARY_STONE
 	if height < 5.5:
 		style = Style.BLANK
 	if item.has("base"):
@@ -350,17 +357,30 @@ func _trim_fronts(outline: PackedVector2Array, height: float, stone: Color, seed
 			continue
 		var half := length * 0.5 - 0.09
 		_obox(f, -half, -0.30, half, 0.04, height - 0.38, height - 0.12, stone.lightened(0.12))
+		_obox(f, -half, -0.37, half, -0.02, height - 0.19, height - 0.06, stone.lightened(0.08))
+		if not arcade:
+			_obox(f, -half, -0.15, half, 0.02, 0.08, 0.36, stone.darkened(0.22))
 		if height > 10.0:
 			_obox(f, -half, -0.18, half, 0.025, 4.45, 4.58, stone.lightened(0.10))
 		if _is_paris() and not arcade and length < 32.0 and seed > 0.12 and height > 12.0:
 			for y in [7.88, maxf(10.7, height - 3.25)]:
 				_obox(f, -half, -0.66, half, 0.005, y - 0.11, y + 0.045, stone.darkened(0.06))
 				_railing(f, -half, half, -0.64, y, 0.88, 0.28)
+				for j in range(1, floori(half) + 1, 3):
+					for s in [-float(j), float(j)]:
+						_obox(f, s - 0.12, -0.42, s + 0.12, -0.04, y - 0.38, y - 0.07, stone.lightened(0.03))
+				if length > 7.5 and seed > 0.50:
+					_flower_box(f, length * 0.26, -0.50, y + 0.21, 1.3)
 		elif not _is_paris() and not arcade and length > 5.8 and length < 19.0 and seed > 0.38:
 			var trim := stone.lightened(0.23)
 			for s in [-half + 0.22, half - 0.22]:
 				_obox(f, s - 0.15, -0.22, s + 0.15, 0.02, 0.1, 4.27, trim)
 			_obox(f, -half, -0.27, half, 0.02, 3.94, 4.22, trim)
+		if length > 5.3 and not arcade and seed > 0.27:
+			for side in [-1.0, 1.0]:
+				var edge: float = half * side
+				for y in range(5, mini(int(height - 1.0), 20)):
+					_obox(f, edge - 0.18, -0.055, edge + 0.18, 0.01, y, y + 0.34, stone.lightened(0.04))
 
 
 func _edge_frame(a: Vector2, b: Vector2) -> Array:
@@ -523,6 +543,53 @@ func _awning(f: Array, s: float, half: float, y: float, reach: float, colour: Co
 
 func _build_landmarks() -> void:
 	pass
+
+
+func _flower_box(f: Array, s: float, t: float, y: float, span: float) -> void:
+	var h := span * 0.5
+	_obox(f, s - h, t - 0.16, s + h, t + 0.16, y, y + 0.23, Color(0.28, 0.21, 0.15))
+	for i in maxi(3, roundi(span / 0.21)):
+		var loc := _fp(f, s - h + 0.16 + i * 0.17, t)
+		_globe("solid", _w(loc.x, loc.y, y + 0.29), 0.13, Color(0.29, 0.39, 0.20))
+		_globe("solid", _w(loc.x, loc.y, y + 0.38 + (i % 2) * 0.035), 0.057,
+			Color(0.68, 0.20, 0.27) if i % 3 == 0 else Color(0.87, 0.67, 0.28))
+
+
+func _shopfront(key: String, title: String, board: Color, ink: Color, width: float, canopy: bool) -> void:
+	var door := _front(key, width * 0.5)
+	if door.is_empty():
+		return
+	var f: Array = door[0]
+	var h: float = door[1]
+	_obox(f, -h, -0.21, h, 0.015, 3.51, 4.32, board)
+	for y in [3.49, 4.27]:
+		_obox(f, -h - 0.04, -0.29, h + 0.04, -0.08, y, y + 0.076, board.lightened(0.27))
+	_engraving(f, 0, -0.229, 3.91, title, ink, h * 1.82)
+	for s in [-h + 0.15, 0.0, h - 0.15]:
+		_obox(f, s - 0.064, -0.11, s + 0.064, 0.01, 0.39, 3.50, board.lightened(0.10))
+	_obox(f, -h, -0.11, h, 0.01, 0.11, 0.42, board)
+	if canopy:
+		_awning(f, 0, h * 0.95, 3.52, 0.98, board.lightened(0.16))
+
+
+func _sign_panel(f: Array, s: float, t: float, y: float, width: float, h: float, title: String, board: Color, ink: Color) -> void:
+	_obox(f, s - width * 0.5, t, s + width * 0.5, t + 0.045, y - h * 0.5, y + h * 0.5, board)
+	_engraving(f, s, t - 0.013, y, title, ink, width * 0.9)
+
+
+func _disc_face(f: Array, s: float, t: float, y: float, radius: float, ring: float, colour: Color) -> void:
+	var st := _tool("solid", _front_point(f, s, t, y))
+	var facing: Vector2 = -f[2]
+	var normal := Vector3(facing.x, 0, facing.y)
+	st.set_color(colour)
+	st.set_normal(normal)
+	for k in 24:
+		var a := Vector2.from_angle(TAU * k / 24.0)
+		var b := Vector2.from_angle(TAU * (k + 1) / 24.0)
+		var p := _front_point(f, s + a.x * radius, t, y + a.y * radius)
+		var q := _front_point(f, s + b.x * radius, t, y + b.y * radius)
+		_front_quad(st, p, q, _front_point(f, s + b.x * ring, t, y + b.y * ring),
+			_front_point(f, s + a.x * ring, t, y + a.y * ring), normal)
 
 
 func _spawn_cars() -> void:
