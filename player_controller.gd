@@ -425,15 +425,20 @@ func _fire_rocket() -> void:
 func _on_rocket_exploded(at: Vector3, normal: Vector3, surface: String, collider: Object, rocket_id: int) -> void:
 	var scene := get_parent()
 	var net_world := scene.get_node_or_null("NetWorld")
+	var tram_progress := -1.0
 	if collider != null and is_instance_valid(collider):
 		var cars := (collider as Node).get_parent()
-		if _shot_target(collider) != null:
+		if cars is DublinTram:
+			surface = "tram"
+			if cars.wreck_by_rocket():
+				tram_progress = cars.progress()
+		elif _shot_target(collider) != null:
 			surface = "body"
 		elif cars != null and cars.has_method("cars_near") and not (cars.call("cars_near", at, 3.5) as Array).is_empty():
 			surface = "car"
 	Rocket.explode(scene, at, normal, surface, Net.my_id)
 	if net_world != null:
-		net_world.call("broadcast_blast", at, normal, surface, rocket_id)
+		net_world.call("broadcast_blast", at, normal, surface, rocket_id, tram_progress)
 	_police.add_heat(HEAT_ROCKET)
 	if surface == "wall":
 		_reward(at + normal * 1.5, CASH_WALL, 5.0)

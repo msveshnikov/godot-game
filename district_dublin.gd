@@ -42,6 +42,39 @@ func _parked_rows() -> Array:
 	]
 
 
+func _build_tram() -> void:
+	# The continuous eastern rail at St Stephen's Green, from the terminal curve
+	# beside the shopping centre to the last mapped length before the wall.
+	var track := PackedVector2Array()
+	for start in [Vector2(-50.53, 228.50), Vector2(16.13, 224.66)]:
+		for raw in _data["rail"]:
+			var line := _points(raw)
+			if line[0].distance_squared_to(start) < 0.04 and line[-1].x > start.x + 10.0:
+				track.append_array(line if track.is_empty() else line.slice(1))
+				break
+	if track.size() > 2:
+		_tram_wire(track)
+		var tram := DublinTram.new()
+		tram.name = "Tram"
+		tram.rail = track
+		add_child(tram)
+
+
+func _tram_wire(track: PackedVector2Array) -> void:
+	for i in range(1, track.size()):
+		var f := _edge_frame(track[i - 1], track[i])
+		var half := track[i - 1].distance_to(track[i]) * 0.5 + 0.02
+		_obox(f, -half, -0.015, half, 0.015, 4.26, 4.287, CAST_IRON.lightened(0.17))
+	for i in range(5, track.size(), 5):
+		var f := _edge_frame(track[i - 1], track[i])
+		var at := _fp(f, 0, 6.4)
+		if not _fits_street(at, 0.55):
+			continue
+		_cyl("solid", _w(at.x, at.y), 0.07, 4.95, CAST_IRON, 10)
+		_obox(f, -0.035, 0.0, 0.035, 6.43, 4.70, 4.77, CAST_IRON)
+		_obox(f, -0.016, -0.016, 0.016, 0.016, 4.265, 4.73, CAST_IRON)
+
+
 func _build_landmarks() -> void:
 	_bewleys()
 	_gaiety()
@@ -55,6 +88,7 @@ func _build_landmarks() -> void:
 		_statue(_point(raw[0]), str(raw[1]))
 	_grafton_furniture()
 	_flower_stall()
+	_build_tram()
 
 
 func _bewleys() -> void:
@@ -162,59 +196,121 @@ func _bruxelles() -> void:
 
 
 func _stephens_centre() -> void:
-	var front := _front("stephens_centre", 7.0)
-	if front.is_empty():
-		return
-	var f: Array = front[0]
-	var h: float = front[1]
-	_shopping_arcade(f, h)
-	_shopping_arcade(_edge_frame(Vector2(-53.53, 193.48), Vector2(-59.73, 213.38)), 9.80)
-	_obox(f, -h, -0.37, h, 0.02, 4.0, 4.55, IVORY)
-	_engraving(f, 0, -0.389, 4.27, "STEPHEN’S GREEN", DARK_WOOD, h * 1.54)
-	_glass_cupola(Vector2(-65.8, 198.6), 13.2)
+	# The layered iron facade follows both street faces and the curved corner.
+	var front := PackedVector2Array([
+		Vector2(-105.0, 173.0), Vector2(-75.0, 182.98), Vector2(-56.4, 189.57),
+		Vector2(-53.85, 192.28), Vector2(-53.46, 194.96), Vector2(-54.41, 199.1),
+		Vector2(-57.08, 206.17), Vector2(-60.67, 215.45), Vector2(-63.7, 222.75),
+	])
+	for i in range(1, front.size()):
+		_shopping_arcade(_edge_frame(front[i - 1], front[i]), front[i - 1].distance_to(front[i]) * 0.5)
+	var entrance := _edge_frame(Vector2(-56.4, 189.57), Vector2(-53.46, 194.96))
+	_sign_panel(entrance, 0, -0.78, 3.84, 5.7, 0.57, "STEPHEN’S GREEN", IVORY, DARK_WOOD)
+	var cupola := Vector2(-60.9, 196.35)
+	_cyl("solid", _w(cupola.x, cupola.y, 18.0), 6.08, 1.15, IVORY.darkened(0.18), 24)
+	_glass_cupola(cupola, 19.15)
+	_stephens_kiosk()
+
+
+func _stephens_kiosk() -> void:
+	var rim := PackedVector2Array([Vector2(-48.09, 198.6), Vector2(-45.79, 200.37),
+		Vector2(-52.21, 208.64), Vector2(-54.5, 206.88)])
+	var metal := Color(0.23, 0.25, 0.23)
+	_cap(rim, 2.71, metal)
+	for i in rim.size():
+		var a := rim[i]
+		var b := rim[(i + 1) % rim.size()]
+		var f := _edge_frame(a, b)
+		var half := a.distance_to(b) * 0.5
+		_obox(f, -half, -0.055, half, -0.010, 0.20, 2.66, metal)
+		for j in ceili(2.0 * half / 0.19):
+			var s := -half + j * 0.19
+			_obox(f, s, -0.085, s + 0.063, -0.053, 0.26, 2.55, metal.lightened(0.20 if j % 2 == 0 else 0.13))
+		_obox(f, -half - 0.04, -0.10, half + 0.04, 0.04, 2.63, 2.71, metal.darkened(0.12))
 
 
 func _shopping_arcade(f: Array, half: float) -> void:
 	var yaw := rad_to_deg((f[1] as Vector2).angle())
-	for y in [0.22, 4.17, 8.15]:
-		var bays := maxi(3, roundi(half * 0.71))
+	var bays := maxi(1, roundi(half * 0.88))
+	var pitch := 2.0 * half / bays
+	_obox(f, -half, -0.41, half, -0.05, 0.28, 4.1, Color(0.18, 0.25, 0.24))
+	_obox(f, -half, -0.55, half, 0.06, 4.11, 4.65, IVORY.darkened(0.09))
+	for i in bays + 1:
+		var s := -half + pitch * i
+		_obox(f, s - 0.09, -0.47, s + 0.09, 0.03, 0.21, 4.12, IVORY.darkened(0.21))
+	for y in [4.64, 8.78, 12.92]:
 		for i in bays:
-			var s := lerpf(-half + 1.35, half - 1.35, float(i) / (bays - 1.0))
-			var frame := _frame(_fp(f, s, -0.36), yaw)
-			_obox(frame, -1.29, -0.064, 1.29, 0.13, y, y + 3.74, IVORY.darkened(0.12))
-			_arch_face(frame, 1.06, y + 2.62, 0.76, IVORY, Color(0.20, 0.28, 0.29))
-			for bar in [-0.47, 0.0, 0.47]:
-				_obox(frame, bar - 0.026, -0.091, bar + 0.026, -0.061, y + 0.14, y + 2.65, IVORY)
-			if y > 1.0:
-				_flower_box(frame, 0, -0.34, y + 0.09, 1.32)
-		_obox(f, -half, -0.79, half, 0.10, y + 3.66, y + 3.88, IVORY)
-		if y > 1.0:
-			_railing(f, -half, half, -0.7, y, 0.65, 0.26)
+			var s := -half + pitch * (i + 0.5)
+			var frame := _frame(_fp(f, s, -0.43), yaw)
+			var opening := pitch * 0.5 - 0.21
+			_obox(frame, -pitch * 0.5, -0.043, pitch * 0.5, 0.13, y, y + 3.97, IVORY.darkened(0.16))
+			var glass := Color(0.12, 0.21, 0.25).lightened(0.023 * (i % 3))
+			_arch_face(frame, opening, y + 2.94, 0.65, IVORY, glass)
+			_obox(frame, -0.034, -0.112, 0.034, -0.083, y + 0.10, y + 3.47, IVORY)
+			_obox(frame, -opening, -0.112, opening, -0.083, y + 2.05, y + 2.11, IVORY)
+			for j in 4:
+				var bar := s - pitch * 0.48 + pitch * j / 4.0
+				_obox(f, bar - 0.024, -0.81, bar + 0.024, -0.75, y + 0.07, y + 0.71, IVORY)
+				_disc_face(f, bar + pitch * 0.12, -0.83, y + 0.39, 0.13, 0.098, IVORY)
+			if i % 2 == 0 or half < 4.0:
+				_flower_box(frame, 0, -0.34, y + 0.34, minf(1.42, pitch - 0.28))
+		_obox(f, -half, -0.85, half, 0.10, y - 0.06, y + 0.11, IVORY)
+		_obox(f, -half, -0.84, half, -0.71, y + 0.68, y + 0.76, IVORY)
+		_obox(f, -half, -0.69, half, 0.12, y + 3.97, y + 4.17, IVORY)
+	_shopping_glass_roof(f, half, bays)
+
+
+func _shopping_glass_roof(f: Array, half: float, bays: int) -> void:
+	var roof := [Vector2(-0.69, 17.07), Vector2(-0.36, 18.08), Vector2(0.38, 18.79), Vector2(1.66, 19.15)]
+	var st := _tool("solid", _front_point(f, 0.0, 0.0, 17.1))
+	for i in range(1, roof.size()):
+		var low: Vector2 = roof[i - 1]
+		var high: Vector2 = roof[i]
+		for bay in bays:
+			var left := lerpf(-half, half, float(bay) / bays)
+			var right := lerpf(-half, half, float(bay + 1) / bays)
+			var a := _front_point(f, left, low.x, low.y)
+			var b := _front_point(f, right, low.x, low.y)
+			var c := _front_point(f, right, high.x, high.y)
+			var d := _front_point(f, left, high.x, high.y)
+			var normal := (d - a).cross(b - a).normalized()
+			st.set_normal(normal)
+			st.set_color(Color(0.33, 0.46, 0.49).lightened(0.07 * ((bay + i) % 3)))
+			_front_quad(st, a, b, c, d, normal)
+			st.set_color(IVORY.darkened(0.14))
+			var offset := normal * 0.026
+			_front_quad(st, a + offset, a.lerp(b, 0.045) + offset,
+				d.lerp(c, 0.045) + offset, d + offset, normal)
+		_obox(f, -half, high.x - 0.055, half, high.x + 0.062, high.y - 0.043, high.y + 0.04, IVORY.darkened(0.1))
 
 
 func _glass_cupola(centre: Vector2, base_y: float) -> void:
 	var st := _tool("solid", _w(centre.x, centre.y, base_y))
-	for band in 6:
-		var a := PI * 0.5 * band / 6.0
-		var b := PI * 0.5 * (band + 1) / 6.0
-		for pane in 18:
-			var l := Vector2.from_angle(TAU * pane / 18.0)
-			var r := Vector2.from_angle(TAU * (pane + 1) / 18.0)
+	for band in 7:
+		var a := PI * 0.5 * band / 7.0
+		var b := PI * 0.5 * (band + 1) / 7.0
+		for pane in 24:
+			var l := Vector2.from_angle(TAU * pane / 24.0)
+			var r := Vector2.from_angle(TAU * (pane + 1) / 24.0)
 			var vertices := []
 			for corner in [[a, l], [a, r], [b, r], [b, l]]:
-				var offset: Vector2 = corner[1] * cos(corner[0]) * 4.28
-				vertices.append(_w(centre.x + offset.x, centre.y + offset.y, base_y + 3.4 * sin(corner[0])))
+				var offset: Vector2 = corner[1] * cos(corner[0]) * 6.04
+				vertices.append(_w(centre.x + offset.x, centre.y + offset.y, base_y + 5.55 * sin(corner[0])))
 			var normal := ((vertices[0] as Vector3) - _w(centre.x, centre.y, base_y)).normalized()
 			st.set_color(Color(0.32, 0.48, 0.49).lightened(0.12 * ((pane + band) % 3)))
 			st.set_normal(normal)
 			_front_quad(st, vertices[0], vertices[1], vertices[2], vertices[3], normal)
 			st.set_color(IVORY)
-			var edge_a: Vector3 = vertices[0].lerp(vertices[1], 0.09)
-			var edge_b: Vector3 = vertices[3].lerp(vertices[2], 0.09)
+			var edge_a: Vector3 = vertices[0].lerp(vertices[1], 0.062)
+			var edge_b: Vector3 = vertices[3].lerp(vertices[2], 0.062)
 			_front_quad(st, vertices[0] + normal * 0.023, edge_a + normal * 0.023,
 				edge_b + normal * 0.023, vertices[3] + normal * 0.023, normal)
-	_cyl("solid", _w(centre.x, centre.y, base_y + 3.39), 0.08, 1.0, IVORY, 8)
-	_globe("solid", _w(centre.x, centre.y, base_y + 4.39), 0.15, OCHRE)
+			var ring_a: Vector3 = vertices[0].lerp(vertices[3], 0.073)
+			var ring_b: Vector3 = vertices[1].lerp(vertices[2], 0.073)
+			_front_quad(st, vertices[0] + normal * 0.024, vertices[1] + normal * 0.024,
+				ring_b + normal * 0.024, ring_a + normal * 0.024, normal)
+	_cyl("solid", _w(centre.x, centre.y, base_y + 5.49), 0.075, 0.55, IVORY, 8)
+	_globe("solid", _w(centre.x, centre.y, base_y + 6.04), 0.13, OCHRE)
 
 
 func _st_anns() -> void:

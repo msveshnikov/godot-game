@@ -218,6 +218,10 @@ class District:
                         default = 1
                     h = (levels or default) * (3.18 if self.name == "paris" else 3.30) + 0.6
                 h = min(75, max(3.1, h))
+                if key == 14398576:  # Stephen's Green wall below the glazed roof and cupola.
+                    h = 18.0
+                elif key == 1320104393:  # Low street kiosk in front of Stephen's Green.
+                    h = 2.65
                 front = piece.distance(frontage) < 12 and h > 6.0
                 material = tags.get("building:material") or tags.get("material", "")
                 style = "stone" if self.name == "paris" or seed > 0.63 else "brick"

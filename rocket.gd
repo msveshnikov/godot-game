@@ -201,7 +201,7 @@ static func _backblast(parent: Node, at: Vector3, dir: Vector3) -> void:
 
 
 ## The blast at `at`, on everyone's screen: `surface` "ground" (crater), "wall"
-## (a hole in it) or "air"/"car"/"body" (no mark). `by` fired it.
+## (a hole in it) or "air"/"car"/"body"/"tram" (no mark). `by` fired it.
 static func explode(parent: Node3D, at: Vector3, normal: Vector3, surface: String, by: int) -> void:
 	_make_materials()
 	if normal.length_squared() < 0.01:

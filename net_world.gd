@@ -118,9 +118,13 @@ func broadcast_rocket(origin: Vector3, direction: Vector3, rocket_id: int) -> vo
 	Net.send({"t": "rf", "rocket": rocket_id, "o": _vec(origin), "d": _vec3(direction)})
 
 
-## The local player's rocket blew up at `at` ("ground", "wall", "car", "body", "air").
-func broadcast_blast(at: Vector3, normal: Vector3, surface: String, rocket_id: int) -> void:
-	Net.send({"t": "rx", "rocket": rocket_id, "p": _vec(at), "nm": _vec3(normal), "s": surface})
+## The local player's rocket blew up at `at`. Include the position along the
+## rail when it wrecked the Dublin shuttle so peers use the same position.
+func broadcast_blast(at: Vector3, normal: Vector3, surface: String, rocket_id: int, tram_progress := -1.0) -> void:
+	var packet := {"t": "rx", "rocket": rocket_id, "p": _vec(at), "nm": _vec3(normal), "s": surface}
+	if tram_progress >= 0.0:
+		packet["tp"] = snappedf(tram_progress, 0.01)
+	Net.send(packet)
 
 
 ## The local player cracked or smashed a shop window at `point`.
@@ -228,7 +232,12 @@ func _on_message(from: int, data: Dictionary) -> void:
 				if is_instance_valid(rocket):
 					rocket.fizzle()
 					break
-			Rocket.explode(get_parent(), Vector3(bp[0], bp[1], bp[2]), Vector3(bn[0], bn[1], bn[2]), str(data.get("s", "air")), from)
+			var surface := str(data.get("s", "air"))
+			if surface == "tram" and float(data.get("tp", -1.0)) >= 0.0:
+				var tram := get_tree().current_scene.get_node_or_null("Diorama/District/Tram") as DublinTram
+				if tram != null:
+					tram.wreck_by_rocket(float(data["tp"]))
+			Rocket.explode(get_parent(), Vector3(bp[0], bp[1], bp[2]), Vector3(bn[0], bn[1], bn[2]), surface, from)
 		"gw":
 			var district_w := get_tree().current_scene.get_node_or_null("Diorama/District")
 			var at: Array = data.get("p", [])
