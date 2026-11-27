@@ -25,3 +25,4 @@ max.apk.idsig
 
 # Relay usage log when run locally
 /server/logs/
+.vscode/settings.json
