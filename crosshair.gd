@@ -23,8 +23,8 @@ func _ready() -> void:
 
 
 ## The gap jumps open with the recoil.
-func kick() -> void:
-	_gap = BASE_GAP + KICK_GAP
+func kick(amount := KICK_GAP) -> void:
+	_gap = BASE_GAP + amount
 	queue_redraw()
 
 

@@ -92,8 +92,11 @@ func broadcast_swing() -> void:
 
 ## Called by the local player whenever it fires: others hear the shot and see the
 ## tracer, and blood or a bullet hole where it ended.
-func broadcast_shot(origin: Vector3, end: Vector3, flesh: bool, normal: Vector3) -> void:
-	Net.send({"t": "ps", "o": _vec(origin), "e": _vec(end), "f": flesh, "nm": _vec(normal)})
+func broadcast_shot(origin: Vector3, end: Vector3, flesh: bool, normal: Vector3, suppressed := false) -> void:
+	var packet := {"t": "ps", "o": _vec(origin), "e": _vec(end), "f": flesh, "nm": _vec(normal)}
+	if suppressed:
+		packet["sup"] = true
+	Net.send(packet)
 
 
 ## The local player blew up a car: "parked" (spot index) or "traffic" (car index and
@@ -184,15 +187,17 @@ func _on_message(from: int, data: Dictionary) -> void:
 			var origin := Vector3(o[0], o[1], o[2])
 			var end := Vector3(e[0], e[1], e[2])
 			var scene := get_tree().current_scene
-			shooter.show_shot(origin, end - origin)
-			ShotFx.tracer(scene, origin, end)
+			var suppressed: bool = data.get("sup", false) == true
+			shooter.show_shot(origin, end - origin, suppressed)
+			if not suppressed:
+				ShotFx.tracer(scene, origin, end)
 			if bool(data.get("f", false)):
 				ShotFx.blood(scene, end, origin.direction_to(end))
 			else:
 				var n: Array = data.get("nm", [])
 				if n.size() >= 3:
 					ShotFx.impact(scene, end, Vector3(n[0], n[1], n[2]))
-			ShotFx.shot_sound(scene, origin)
+			ShotFx.shot_sound(scene, origin, suppressed)
 		"cx":
 			var district := get_tree().current_scene.get_node_or_null("Diorama/District")
 			if district == null:

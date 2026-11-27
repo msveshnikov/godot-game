@@ -7,6 +7,7 @@ extends Node3D
 
 const BODY_SHADER: Shader = preload("res://player_body.gdshader")
 const PISTOL_SCENE: PackedScene = preload("res://pistol_model.tscn")
+const M4A1_SCENE: PackedScene = preload("res://assets/weapons/m4a1.glb")
 const PHASE_PER_METER := 1.43  # ~one full stride cycle per 0.96 s at walk speed, matches footsteps
 const WALK_SPEED := 4.5
 const RUN_SPEED := 7.5
@@ -83,7 +84,7 @@ var _gun_hand: Node3D
 var _muzzle: Marker3D
 var _pistol: Node3D
 var _m4a1: Node3D
-var _m4a1_muzzle: Marker3D
+var _m4a1_muzzle: Node3D
 var _bat: Node3D
 var _bazooka: Node3D
 var _bazooka_muzzle: Marker3D
@@ -149,7 +150,9 @@ func _build_gun() -> void:
 	_muzzle.position = PISTOL_MUZZLE
 	pistol.add_child(_muzzle)
 	_pistol = pistol
-	_m4a1 = _build_m4a1()
+	_m4a1 = M4A1_SCENE.instantiate() as Node3D
+	_m4a1.name = "HeldM4A1"
+	_m4a1_muzzle = _m4a1.get_node("M4A1Muzzle") as Node3D
 	_gun_hand.add_child(_m4a1)
 	_build_flash()
 	_bat = _build_bat()
@@ -192,50 +195,16 @@ func _build_flash() -> void:
 
 
 ## A shot just left the barrel: flash and flip the muzzle up a little.
-func fire_effects() -> void:
+func fire_effects(suppressed := false) -> void:
+	if suppressed:
+		_recoil = RECOIL_KICK * 0.18
+		return
 	_flash_time = FLASH_TIME
 	_recoil = RECOIL_KICK
 	if _flash != null:
 		_flash.visible = true
 		_flash.rotation.x = randf() * TAU
 		_flash.scale = Vector3.ONE * randf_range(0.8, 1.2)
-
-
-func _build_m4a1() -> Node3D:
-	var rifle := Node3D.new()
-	rifle.name = "HeldM4A1"
-	var metal := StandardMaterial3D.new()
-	metal.albedo_color = Color(0.19, 0.20, 0.22)
-	metal.metallic = 0.55
-	var polymer := StandardMaterial3D.new()
-	polymer.albedo_color = Color(0.08, 0.09, 0.10)
-	# Receiver, handguard, barrel, stock, grip, magazine and sights.
-	var parts := [
-		[Vector3(0.07, 0.09, 0.24), Vector3(0, 0.075, -0.055), 0.0, metal],
-		[Vector3(0.075, 0.075, 0.24), Vector3(0, 0.082, -0.29), 0.0, polymer],
-		[Vector3(0.036, 0.036, 0.20), Vector3(0, 0.083, -0.49), 0.0, metal],
-		[Vector3(0.055, 0.055, 0.08), Vector3(0, 0.083, -0.61), 0.0, metal],
-		[Vector3(0.055, 0.08, 0.24), Vector3(0, 0.07, 0.17), 0.0, polymer],
-		[Vector3(0.065, 0.15, 0.055), Vector3(0, 0.035, 0.29), 0.0, polymer],
-		[Vector3(0.045, 0.11, 0.062), Vector3(0, 0.0, 0.015), -0.24, polymer],
-		[Vector3(0.052, 0.14, 0.08), Vector3(0, -0.025, -0.12), 0.19, metal],
-		[Vector3(0.03, 0.055, 0.04), Vector3(0, 0.13, -0.4), 0.0, metal],
-		[Vector3(0.04, 0.03, 0.07), Vector3(0, 0.13, 0.035), 0.0, metal],
-	]
-	for part in parts:
-		var mesh := BoxMesh.new()
-		mesh.size = part[0]
-		mesh.material = part[3]
-		var piece := MeshInstance3D.new()
-		piece.mesh = mesh
-		piece.position = part[1]
-		piece.rotation.x = part[2]
-		rifle.add_child(piece)
-	_m4a1_muzzle = Marker3D.new()
-	_m4a1_muzzle.position = Vector3(0, 0.083, -0.65)
-	_m4a1_muzzle.rotation.y = -PI / 2.0
-	rifle.add_child(_m4a1_muzzle)
-	return rifle
 
 
 ## Wooden bat along the hand's -Z: knob just behind the palm, barrel end forward.
@@ -366,11 +335,6 @@ func set_weapon(value: String) -> void:
 		_pistol.visible = value == "pistol"
 	if _m4a1 != null:
 		_m4a1.visible = value == "m4a1"
-	if _flash != null:
-		var muzzle := _m4a1_muzzle if value == "m4a1" else _muzzle
-		if _flash.get_parent() != muzzle:
-			_flash.reparent(muzzle, false)
-			_flash.visible = false
 	if _bat != null:
 		_bat.visible = value == "bat"
 	if _bazooka != null:
@@ -395,7 +359,7 @@ func is_gun_raised() -> bool:
 	return _aim_amount >= 0.92
 
 
-func get_muzzle() -> Marker3D:
+func get_muzzle() -> Node3D:
 	if _weapon == "m4a1":
 		return _m4a1_muzzle
 	return _bazooka_muzzle if _weapon == "bazooka" and _bazooka_muzzle != null else _muzzle

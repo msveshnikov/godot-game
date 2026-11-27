@@ -6,6 +6,7 @@ extends RefCounted
 ## other players' shots (net_world.gd).
 
 const SHOT_SOUND: AudioStream = preload("res://audio/pistol_shot.ogg")
+const SUPPRESSED_SOUND: AudioStream = preload("res://audio/m4a1_suppressed.ogg")
 const MAX_HOLES := 80
 
 static var _holes: Array[Node3D] = []
@@ -88,12 +89,12 @@ static func blood(root: Node, point: Vector3, direction: Vector3) -> void:
 
 
 ## The gunshot from somewhere in the world (another player firing): loud, carries far.
-static func shot_sound(root: Node, at: Vector3) -> void:
+static func shot_sound(root: Node, at: Vector3, suppressed := false) -> void:
 	var player := AudioStreamPlayer3D.new()
-	player.stream = SHOT_SOUND
-	player.unit_size = 12.0
-	player.max_distance = 220.0
-	player.volume_db = 2.0
+	player.stream = SUPPRESSED_SOUND if suppressed else SHOT_SOUND
+	player.unit_size = 7.0 if suppressed else 12.0
+	player.max_distance = 95.0 if suppressed else 220.0
+	player.volume_db = -5.0 if suppressed else 2.0
 	player.pitch_scale = randf_range(0.95, 1.05)
 	root.add_child(player)
 	player.global_position = at

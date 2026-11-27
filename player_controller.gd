@@ -1,6 +1,5 @@
 extends CharacterBody3D
 
-const SHOT_SOUND: AudioStream = preload("res://audio/pistol_shot.ogg")
 const MOBILE_CONTROLS_SCRIPT = preload("res://mobile_controls.gd")
 const BAT_HIT_SOUND: AudioStream = preload("res://audio/bat_hit.ogg")
 const BAT_WOOSH_SOUND: AudioStream = preload("res://audio/bat_woosh.ogg")
@@ -12,7 +11,10 @@ const ROCKET_RELOAD := 1.4 # seconds between rockets
 const ROCKET_KICK := 0.06
 const MAX_HEALTH := 100
 const FIRE_INTERVAL := 0.22
-const M4A1_FIRE_INTERVAL := 0.10
+const M4A1_FIRE_INTERVAL := 0.08
+const M4A1_SPREAD := 0.0015
+const PISTOL_SPREAD := 0.005
+const M4A1_VIEW_KICK := 0.012
 const SHOT_RANGE := 150.0
 const CAMERA_KICK := 0.014 # radians the view jumps up per shot
 ## Where a round lands on a standing person, in metres above the feet.
@@ -70,6 +72,7 @@ var weapon := "pistol"
 var health := MAX_HEALTH
 var _can_fire := true
 var _shot_pending := false
+var _rifle_view_kick := 0.0
 var _aim_target := Vector3.ZERO
 var _game_started := false
 var _game_over := false
@@ -111,10 +114,10 @@ func _ready() -> void:
 		_mobile_controls.swap_pressed.connect(func() -> void: _cycle_weapon(1))
 		_mobile_controls.look_delta.connect(_apply_look_delta)
 	_fire_sound = AudioStreamPlayer.new()
-	_fire_sound.name = "PistolShotSound"
-	_fire_sound.stream = SHOT_SOUND
+	_fire_sound.name = "GunshotSound"
+	_fire_sound.stream = ShotFx.SHOT_SOUND
+	_fire_sound.max_polyphony = 5
 	_fire_sound.volume_db = -3.0
-	_fire_sound.max_polyphony = 3
 	add_child(_fire_sound)
 	_bat_sound = AudioStreamPlayer.new()
 	_bat_sound.name = "BatHitSound"
@@ -237,7 +240,8 @@ func _process(delta: float) -> void:
 		_crosshair.visible = is_playing() and weapon in ["pistol", "bazooka", "m4a1"]
 	_shake = move_toward(_shake, 0.0, delta * 1.6)
 	camera.h_offset = randf_range(-1.0, 1.0) * _shake * 0.35
-	camera.v_offset = randf_range(-1.0, 1.0) * _shake * 0.35
+	_rifle_view_kick = move_toward(_rifle_view_kick, 0.0, delta * 0.16)
+	camera.v_offset = randf_range(-1.0, 1.0) * _shake * 0.35 + _rifle_view_kick
 	_fit_game_screen(_game_over_screen)
 	_fit_game_screen(_pause_screen)
 	if _pause_button != null:
@@ -629,12 +633,20 @@ func _pull_trigger() -> void:
 func _fire_shot() -> void:
 	if not is_playing():
 		return
-	if weapon == "m4a1" and not Game.use_m4a1_round():
+	var rifle := weapon == "m4a1"
+	if rifle and not Game.use_m4a1_round():
 		return
 	var scene := get_tree().current_scene
-	var muzzle := (model.call("get_muzzle") as Marker3D).global_position
-	var hit := _shoot_ray()
-	var end: Vector3 = hit.get("position", camera.global_position - camera.global_basis.z * SHOT_RANGE)
+	var muzzle := (model.call("get_muzzle") as Node3D).global_position
+	var basis := camera.global_basis
+	var from := camera.global_position
+	from -= basis.z * maxf((from - global_position).dot(basis.z), 0.0)
+	var spread := M4A1_SPREAD if rifle else PISTOL_SPREAD
+	var offset := Vector2.from_angle(randf() * TAU) * sqrt(randf()) * spread
+	var direction := (-basis.z + basis.x * offset.x + basis.y * offset.y).normalized()
+	var to := from + direction * SHOT_RANGE
+	var hit := _shoot_ray(from, to, direction)
+	var end: Vector3 = hit.get("position", to)
 	var target := _shot_target(hit.get("collider"))
 	var flesh := false
 	var net_world := scene.get_node_or_null("NetWorld")
@@ -662,12 +674,20 @@ func _fire_shot() -> void:
 		ShotFx.blood(scene, end, muzzle.direction_to(end))
 	elif not hit.is_empty():
 		ShotFx.impact(scene, end, normal)
-	ShotFx.tracer(scene, muzzle, end)
-	model.call("fire_effects")
-	_crosshair.kick()
-	camera_pivot.rotation.x = clampf(camera_pivot.rotation.x + CAMERA_KICK, deg_to_rad(-60.0), deg_to_rad(35.0))
+	model.call("fire_effects", rifle)
+	if rifle:
+		_crosshair.kick(2.0)
+		_rifle_view_kick = M4A1_VIEW_KICK
+	else:
+		ShotFx.tracer(scene, muzzle, end)
+		_crosshair.kick()
+		camera_pivot.rotation.x = clampf(camera_pivot.rotation.x + CAMERA_KICK, deg_to_rad(-60.0), deg_to_rad(35.0))
 	if net_world != null:
-		net_world.call("broadcast_shot", muzzle, end, flesh, normal)
+		net_world.call("broadcast_shot", muzzle, end, flesh, normal, rifle)
+	var stream := ShotFx.SUPPRESSED_SOUND if rifle else ShotFx.SHOT_SOUND
+	if _fire_sound.stream != stream:
+		_fire_sound.stream = stream
+		_fire_sound.volume_db = -7.0 if rifle else -3.0
 	_fire_sound.pitch_scale = randf_range(0.96, 1.04)
 	_fire_sound.play()
 
@@ -693,11 +713,7 @@ func _shoot_car(hit: Dictionary, net_world: Node) -> void:
 ## player's back gets hit) out to SHOT_RANGE. Goes through: ourselves, civilians
 ## (bullets are not for them), players who are not in the game, and the empty
 ## corners of a player's capsule beside the head.
-func _shoot_ray() -> Dictionary:
-	var forward := -camera.global_basis.z
-	var from := camera.global_position
-	from += forward * maxf((global_position - from).dot(forward), 0.0)
-	var to := from + forward * SHOT_RANGE
+func _shoot_ray(from: Vector3, to: Vector3, forward: Vector3) -> Dictionary:
 	var exclude: Array[RID] = [get_rid()]
 	var space := get_world_3d().direct_space_state
 	for attempt in 6:

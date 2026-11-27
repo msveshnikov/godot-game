@@ -64,11 +64,11 @@ func show_swing() -> void:
 
 
 ## Their shot just arrived: snap the arm up toward where the round went, flash the muzzle.
-func show_shot(origin: Vector3, direction: Vector3) -> void:
+func show_shot(origin: Vector3, direction: Vector3, suppressed := false) -> void:
 	_animator.set("aim_point", origin + direction.normalized() * 30.0)
 	_animator.set("has_aim_point", true)
 	_animator.call("raise_gun")
-	_animator.call("fire_effects")
+	_animator.call("fire_effects", suppressed)
 
 
 ## Used by the model animator instead of is_on_floor(), since this body never moves itself.
