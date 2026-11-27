@@ -208,8 +208,9 @@ Everyone who opens the game (web link or the Android APK) lands in the same worl
 - **Shift**: Run
 - **Space**: Jump
 - **Mouse**: Look around (vertical look is inverted by default)
-- **Q or left mouse button**: Fire the pistol (unlimited ammo) or swing the bat
-- **1 / 2 / 3 / 4 or mouse wheel**: Baseball bat / pistol / bazooka / empty hands
+- **Q or left mouse button**: Fire or swing the bat. Hold to fire the M4A1 automatically.
+- **1 / 2 / 3 / 4 / 5 or mouse wheel**: Baseball bat / Desert Eagle / bazooka / empty hands / M4A1
+- **Shop**: The M4A1 costs $500 and comes empty. A pack of 30 rounds costs $30.
 - **Health**: The game ends when your health reaches zero; use **Respawn** to drop back into the estate at a random spot.
 - **Esc**: Release the mouse; click to capture it again
 - **Android/mobile**: Move with the floating stick on the left (pull your thumb past the outer ring to run), drag on the right side to look. The big **FIRE** button sits under the right thumb: hold it to keep firing and slide the thumb to aim while shooting; the small **JUMP** and **SWAP** (next weapon) buttons are next to it. While you move, the camera swings round to where you walk and levels out at chest height, so you aim mostly with the stick.

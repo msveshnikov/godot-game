@@ -2,13 +2,13 @@ class_name WeaponBar
 extends Control
 ## The weapon slots in cycle order, each drawn as its silhouette,
 ## the one in hand lit up. The bazooka shows its rockets (or a lock and its price
-## until it is bought). Keys 1-4 are shown on a keyboard; on a touch screen the
+## until it is bought). Keys 1-5 are shown on a keyboard; on a touch screen the
 ## slots are tapped to pick a weapon (`picked`).
 
 signal picked(kind: String)
 
-const ORDER := ["bat", "pistol", "bazooka", "none"]
-const NAMES := {"pistol": "PISTOL", "bat": "BAT", "none": "HANDS", "bazooka": "BAZOOKA"}
+const ORDER := ["bat", "pistol", "bazooka", "none", "m4a1"]
+const NAMES := {"pistol": "DESERT EAGLE", "bat": "BAT", "none": "HANDS", "bazooka": "BAZOOKA", "m4a1": "M4A1"}
 const SLOT := Vector2(84.0, 68.0)
 const GAP := 8.0
 const GOLD := Color(1.0, 0.82, 0.25)
@@ -18,6 +18,8 @@ var owned_bazooka := false
 var rockets := 0
 var max_rockets := 5
 var bazooka_price := 1000
+var owned_m4a1 := false
+var rounds := 0
 var show_keys := true
 var _font: Font
 var _pop := 0.0 # the slot just picked swells for a moment
@@ -37,12 +39,14 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 
 
-func set_state(weapon: String, has_bazooka: bool, rocket_count: int) -> void:
+func set_state(weapon: String, has_bazooka: bool, rocket_count: int, has_m4a1 := false, round_count := 0) -> void:
 	if weapon != current:
 		_pop = 1.0
 	current = weapon
 	owned_bazooka = has_bazooka
 	rockets = rocket_count
+	owned_m4a1 = has_m4a1
+	rounds = round_count
 	queue_redraw()
 
 
@@ -70,7 +74,7 @@ func _draw() -> void:
 		var kind: String = ORDER[i]
 		var rect := _slot_rect(i)
 		var lit := kind == current
-		var locked := kind == "bazooka" and not owned_bazooka
+		var locked := (kind == "bazooka" and not owned_bazooka) or (kind == "m4a1" and not owned_m4a1)
 		if lit and _pop > 0.0:
 			rect = rect.grow(3.0 * _pop)
 		var box := StyleBoxFlat.new()
@@ -93,6 +97,9 @@ func _draw() -> void:
 				_text("$%d" % bazooka_price, rect.position + Vector2(rect.size.x - 24, 13), 12, Color(1, 0.82, 0.25, 0.7), true)
 			else:
 				_rocket_pips(rect)
+		elif kind == "m4a1":
+			var count := "$%d" % Game.M4A1_PRICE if locked else str(rounds)
+			_text(count, rect.position + Vector2(rect.size.x - 24, 13), 12, GOLD, true)
 
 
 ## The rockets carried, as little pips along the top of the slot.

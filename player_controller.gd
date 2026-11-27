@@ -7,11 +7,12 @@ const BAT_WOOSH_SOUND: AudioStream = preload("res://audio/bat_woosh.ogg")
 const BAT_RANGE := 2.6
 const BAT_HIT_DELAY := 0.24 # from the start of the swing to the moment the bat comes down
 const BAT_COOLDOWN := 0.62
-const WEAPON_NAMES := {"pistol": "Pistol", "bat": "Baseball bat", "bazooka": "Bazooka", "none": "Hands"}
+const WEAPON_NAMES := {"pistol": "Desert Eagle", "bat": "Baseball bat", "bazooka": "Bazooka", "none": "Hands", "m4a1": "M4A1"}
 const ROCKET_RELOAD := 1.4 # seconds between rockets
 const ROCKET_KICK := 0.06
 const MAX_HEALTH := 100
 const FIRE_INTERVAL := 0.22
+const M4A1_FIRE_INTERVAL := 0.10
 const SHOT_RANGE := 150.0
 const CAMERA_KICK := 0.014 # radians the view jumps up per shot
 ## Where a round lands on a standing person, in metres above the feet.
@@ -200,6 +201,9 @@ func set_weapon(value: String) -> void:
 	if value == "bazooka" and not Game.has_bazooka:
 		show_toast("Buy the bazooka in the SHOP ($%d)" % Game.BAZOOKA_PRICE)
 		return
+	if value == "m4a1" and not Game.has_m4a1:
+		show_toast("Buy the M4A1 in the SHOP ($%d)" % Game.M4A1_PRICE)
+		return
 	weapon = value
 	_shot_pending = false
 	model.call("set_weapon", weapon)
@@ -211,7 +215,7 @@ func _cycle_weapon(step: int) -> void:
 	for k in WeaponBar.ORDER.size():
 		at = posmod(at + step, WeaponBar.ORDER.size())
 		var next: String = WeaponBar.ORDER[at]
-		if next != "bazooka" or Game.has_bazooka:
+		if (next != "bazooka" or Game.has_bazooka) and (next != "m4a1" or Game.has_m4a1):
 			set_weapon(next)
 			return
 
@@ -230,7 +234,7 @@ func _process(delta: float) -> void:
 	model.set("aim_point", _aim_target)
 	model.set("has_aim_point", true)
 	if _crosshair != null:
-		_crosshair.visible = is_playing() and (weapon == "pistol" or weapon == "bazooka")
+		_crosshair.visible = is_playing() and weapon in ["pistol", "bazooka", "m4a1"]
 	_shake = move_toward(_shake, 0.0, delta * 1.6)
 	camera.h_offset = randf_range(-1.0, 1.0) * _shake * 0.35
 	camera.v_offset = randf_range(-1.0, 1.0) * _shake * 0.35
@@ -245,6 +249,10 @@ func _process(delta: float) -> void:
 		if _mobile_controls.fire_held:
 			_attack()
 		_auto_camera(delta)
+	elif weapon == "m4a1" and (Input.is_physical_key_pressed(KEY_Q) or (
+		Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+	)):
+		_pull_trigger()
 	# The trigger snaps the arm up first; the round leaves the barrel once it points at the target.
 	if _shot_pending and model.call("is_gun_raised"):
 		_shot_pending = false
@@ -345,7 +353,7 @@ func _move_to_random_spawn() -> void:
 ## Fire the pistol or swing the bat, whichever is in hand.
 func _attack() -> void:
 	match weapon:
-		"pistol":
+		"pistol", "m4a1":
 			_pull_trigger()
 		"bat":
 			_swing_bat()
@@ -600,13 +608,18 @@ func _smash_window(hit: Dictionary, net_world: Node) -> void:
 
 
 func _pull_trigger() -> void:
-	if not is_playing() or weapon != "pistol" or not _can_fire:
+	if not is_playing() or not _can_fire or _shot_pending:
 		return
-
 	_can_fire = false
-	_shot_pending = true
-	model.call("raise_gun")
-	await get_tree().create_timer(FIRE_INTERVAL).timeout
+	var rifle := weapon == "m4a1"
+	if rifle and Game.m4a1_rounds <= 0:
+		show_toast("Out of M4A1 ammo! %d rounds for $%d in the SHOP" % [
+			Game.M4A1_PACK_SIZE, Game.M4A1_PACK_SIZE * Game.M4A1_ROUND_PRICE])
+		await get_tree().create_timer(1.5).timeout
+	else:
+		_shot_pending = true
+		model.call("raise_gun")
+		await get_tree().create_timer(M4A1_FIRE_INTERVAL if rifle else FIRE_INTERVAL).timeout
 	_can_fire = true
 
 
@@ -615,6 +628,8 @@ func _pull_trigger() -> void:
 ## damage by where they were hit (pistol_damage) and are told over the network.
 func _fire_shot() -> void:
 	if not is_playing():
+		return
+	if weapon == "m4a1" and not Game.use_m4a1_round():
 		return
 	var scene := get_tree().current_scene
 	var muzzle := (model.call("get_muzzle") as Marker3D).global_position
@@ -1139,7 +1154,7 @@ static func _thousands(value: int) -> String:
 
 func _update_weapon_ui() -> void:
 	if _weapon_bar != null:
-		_weapon_bar.set_state(weapon, Game.has_bazooka, Game.rockets)
+		_weapon_bar.set_state(weapon, Game.has_bazooka, Game.rockets, Game.has_m4a1, Game.m4a1_rounds)
 	if _mobile_controls != null:
 		_mobile_controls.weapon = weapon
 		_mobile_controls.loaded = Game.rockets > 0

@@ -13,6 +13,13 @@ static func draw(canvas: CanvasItem, kind: String, centre: Vector2, size: float,
 			_bat(canvas, centre, size, color)
 		"bazooka":
 			_bazooka(canvas, centre, size, color, accent)
+		"m4a1":
+			_poly(canvas, centre, size, [
+				Vector2(-25, -5), Vector2(-14, -8), Vector2(14, -8), Vector2(14, -6),
+				Vector2(26, -6), Vector2(26, -2), Vector2(9, -2), Vector2(7, 10),
+				Vector2(1, 8), Vector2(2, 0), Vector2(-7, 0), Vector2(-11, 7),
+				Vector2(-16, 7), Vector2(-13, -2), Vector2(-25, 2)
+			], color)
 		_:
 			_fist(canvas, centre, size, color)
 

@@ -20,6 +20,9 @@ const WHISKEY_HEAL := 100
 const BAZOOKA_PRICE := 1000
 const ROCKET_PRICE := 100
 const MAX_ROCKETS := 5
+const M4A1_PRICE := 500
+const M4A1_PACK_SIZE := 30
+const M4A1_ROUND_PRICE := 1
 
 ## What the shop sells, per slot, in display order. The first item of every slot is
 ## free and worn from the start. "color" tints the clothes (null: as painted).
@@ -66,6 +69,8 @@ var look := {}
 var owned := {}
 var has_bazooka := false
 var rockets := 0
+var has_m4a1 := false
+var m4a1_rounds := 0
 
 
 func _init() -> void:
@@ -160,6 +165,34 @@ func use_rocket() -> bool:
 	return true
 
 
+func buy_m4a1() -> bool:
+	if has_m4a1 or money < M4A1_PRICE:
+		return false
+	has_m4a1 = true
+	add_money(-M4A1_PRICE)
+	arsenal_changed.emit()
+	return true
+
+
+func buy_m4a1_pack() -> bool:
+	var price := M4A1_PACK_SIZE * M4A1_ROUND_PRICE
+	if not has_m4a1 or money < price:
+		return false
+	m4a1_rounds += M4A1_PACK_SIZE
+	add_money(-price)
+	arsenal_changed.emit()
+	return true
+
+
+func use_m4a1_round() -> bool:
+	if not has_m4a1 or m4a1_rounds <= 0:
+		return false
+	m4a1_rounds -= 1
+	arsenal_changed.emit()
+	_save()
+	return true
+
+
 ## The look as a short string for the network: "female,red,blue,none,dark".
 func look_code() -> String:
 	var parts := []
@@ -199,6 +232,8 @@ func _load() -> void:
 	for key in config.get_value("progress", "owned", []):
 		owned[str(key)] = true
 	has_bazooka = bool(config.get_value("progress", "bazooka", false))
+	has_m4a1 = bool(config.get_value("progress", "m4a1", false))
+	m4a1_rounds = maxi(0, int(config.get_value("progress", "m4a1_rounds", 0))) if has_m4a1 else 0
 	rockets = clampi(int(config.get_value("progress", "rockets", 0)), 0, MAX_ROCKETS) if has_bazooka else 0
 	var saved: Dictionary = decode_look(str(config.get_value("progress", "look", "")))
 	for slot in SLOTS:
@@ -212,5 +247,7 @@ func _save() -> void:
 	config.set_value("progress", "owned", owned.keys())
 	config.set_value("progress", "look", look_code())
 	config.set_value("progress", "bazooka", has_bazooka)
+	config.set_value("progress", "m4a1", has_m4a1)
+	config.set_value("progress", "m4a1_rounds", m4a1_rounds)
 	config.set_value("progress", "rockets", rockets)
 	config.save(SAVE_PATH)

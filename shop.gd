@@ -212,6 +212,7 @@ func _refresh() -> void:
 		_items.remove_child(child)
 		child.queue_free()
 	_add_weapons()
+	_add_m4a1()
 	var look: Dictionary = (_game.get("look") as Dictionary).duplicate()
 	for slot in _const("SLOTS"):
 		var heading := Label.new()
@@ -297,9 +298,46 @@ func _plain_button(text: String, lit: bool, dim: bool) -> Button:
 	return button
 
 
+func _add_m4a1() -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	_items.add_child(row)
+	var price := int(_const("M4A1_PRICE"))
+	var size := int(_const("M4A1_PACK_SIZE"))
+	var pack_price := size * int(_const("M4A1_ROUND_PRICE"))
+	var owned: bool = _game.get("has_m4a1")
+	var money: int = _game.get("money")
+	var rifle := _plain_button("M4A1\n%s" % ("OWNED" if owned else "$%d" % price), owned, not owned and money < price)
+	rifle.custom_minimum_size.x = 140.0
+	rifle.pressed.connect(func() -> void:
+		if _game.call("buy_m4a1"):
+			_sound.play()
+			_note.text = "M4A1 bought! Buy a pack of rounds and select slot 5."
+			_refresh.call_deferred()
+		elif _game.get("has_m4a1"):
+			_note.text = "Select slot 5 and hold FIRE to shoot the M4A1."
+		else:
+			_note.text = "The M4A1 costs $%d." % price)
+	row.add_child(rifle)
+	var count := Label.new()
+	count.text = "Rounds\n%d" % int(_game.get("m4a1_rounds"))
+	count.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(count)
+	var pack := _plain_button("+%d rounds\n$%d" % [size, pack_price], false, not owned or money < pack_price)
+	pack.disabled = not owned
+	pack.pressed.connect(func() -> void:
+		if _game.call("buy_m4a1_pack"):
+			_sound.play()
+			_note.text = "+%d M4A1 rounds." % size
+			_refresh.call_deferred()
+		else:
+			_note.text = "A pack of M4A1 rounds costs $%d." % pack_price)
+	row.add_child(pack)
+
+
 func _on_bazooka() -> void:
 	if _game.get("has_bazooka"):
-		_note.text = "Press 4 (or SWAP) to take the bazooka. Every rocket costs $%d." % int(_const("ROCKET_PRICE"))
+		_note.text = "Select slot 3 to take the bazooka. Every rocket costs $%d." % int(_const("ROCKET_PRICE"))
 	elif _game.call("buy_bazooka"):
 		_sound.play()
 		_note.text = "Bazooka bought! It comes empty: buy rockets, %d at most." % int(_const("MAX_ROCKETS"))
