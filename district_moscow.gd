@@ -3,6 +3,9 @@ extends "res://district_moscow_landmarks.gd"
 
 const CAFE_RED := Color(0.56, 0.14, 0.12)
 const MOSCOW_RADIUS := 300.0
+const WALL_WALK_RADIUS := 293.0
+const WALL_PATROL_SECTORS := 8
+const WALL_PATROL_SPAWNS := [1, 3, 5, 7, 9]
 const PLAZA_COLUMNS := [-35.0, -17.5, 0.0, 17.5, 35.0]
 const PLAZA_ROWS := [-98.0, -78.0, -58.0, -38.0, -18.0, 2.0, 22.0, 42.0, 62.0]
 const INNER_STREETS := [
@@ -40,6 +43,7 @@ func _ready() -> void:
 	(environment.sky.sky_material as ShaderMaterial).set_shader_parameter("cloud_cover", 0.43)
 	_build_boundary()
 	_build_neighborhood()
+	_build_wall_walk()
 	_build_square()
 	_kremlin()
 	_build_kremlin_courts()
@@ -142,6 +146,7 @@ func bot_graph() -> Dictionary:
 	var court := _add_patrol_route(nodes, edges, routes, KREMLIN_WALK, [2, 4, 7, 9])
 	var hall := _add_patrol_route(nodes, edges, routes, KREMLIN_HALL_WALK, [1, 3])
 	edges.append_array([[court, (PLAZA_ROWS.size() - 2) * columns], [court + KREMLIN_WALK.size() - 1, hall]])
+	_add_wall_patrols(nodes, edges, routes, outer)
 	# The original crowd still spawns on the square. Each new patrol has its own homes.
 	no_spawn.append_array(range(inner, nodes.size()))
 	return {
@@ -162,6 +167,43 @@ func _add_patrol_route(nodes: Array[Vector2], edges: Array, routes: Array, walk:
 		spawns.append(first + index)
 	routes.append({"nodes": PackedInt32Array(range(first, nodes.size())), "spawns": spawns})
 	return first
+
+
+func _add_wall_patrols(nodes: Array[Vector2], edges: Array, routes: Array, outer: int) -> void:
+	var ring := _circle(WALL_WALK_RADIUS)
+	var first := nodes.size()
+	var sector_size := ring.size() / WALL_PATROL_SECTORS
+	for sector in WALL_PATROL_SECTORS:
+		var start := sector * sector_size
+		_add_patrol_route(nodes, edges, routes, Array(ring.slice(start, start + sector_size)), WALL_PATROL_SPAWNS)
+		# Players and police can cross between sectors. The residents stay on their own patrol.
+		edges.append([first + start + sector_size - 1, first + (start + sector_size) % ring.size()])
+	for i in [1, 3, 5, 7]:
+		var link := _wall_walk_link(OUTER_STREETS[i], ring)
+		var start := nodes.size()
+		nodes.append_array(link.slice(1, 3))
+		edges.append_array([[outer + i, start], [start, start + 1], [start + 1, first + ring.find(link[-1])]])
+
+
+func _wall_walk_link(road: Vector2, ring: PackedVector2Array) -> Array[Vector2]:
+	var outward := road.normalized()
+	var side := outward.orthogonal() * 5.4
+	var junction := posmod(roundi(road.angle() / TAU * ring.size()), ring.size())
+	return [road, road + outward * 6.0 + side, ring[junction] - outward * 20.0 + side, ring[junction]]
+
+
+func _build_wall_walk() -> void:
+	var ring := _circle(WALL_WALK_RADIUS)
+	var paving := Color(0.61, 0.55, 0.49)
+	for i in ring.size():
+		var a := ring[i]
+		var b := ring[(i + 1) % ring.size()]
+		_gpoly(PackedVector2Array([a - a.normalized() * 3.4, a + a.normalized() * 3.4,
+			b + b.normalized() * 3.4, b - b.normalized() * 3.4]), 0.037, paving, Surface.GRANITE)
+	for i in [1, 3, 5, 7]:
+		var link := _wall_walk_link(OUTER_STREETS[i], ring)
+		for j in link.size() - 1:
+			_gstrip(link[j], link[j + 1], 4.8, 0.039, paving, Surface.GRANITE)
 
 
 func _connect_walk(nodes: Array[Vector2], edges: Array, walk: Array, start: int, end_a: int, end_b: int) -> void:

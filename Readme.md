@@ -149,6 +149,7 @@ Breakable shop windows line GUM and nearby streets. Cars circle the square and p
 Pedestrians stay on their own routes around the surrounding streets. Zaryadye Park has an amphitheatre under a
 glass canopy and a walkable floating bridge. Through the Kremlin’s arch, a stylized courtyard and indoor gallery
 have their own armed NPCs.
+Forty more NPCs patrol the footpath along the outer wall, with five residents per sector.
 
 ### Montmartre, the Grands Boulevards and Grafton Street
 

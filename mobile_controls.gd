@@ -13,6 +13,7 @@ const STICK_R := 70.0       # ring radius, canvas px
 const RUN_AT := 1.3         # finger beyond RUN_AT * STICK_R from where it landed -> run
 const DEAD_ZONE := 0.12
 const TEXT_COL := Color(1.0, 1.0, 1.0, 0.92)
+const BUTTON_SHIFT_WIDTH_RATIO := 1.0 / 15.0
 
 ## id, offset of the centre from the bottom-right corner, radius, label
 const BUTTONS := [
@@ -76,7 +77,7 @@ func _input(event: InputEvent) -> void:
 
 
 func _center(b: Dictionary) -> Vector2:
-	return _pad.size + (b["off"] as Vector2)
+	return _pad.size + (b["off"] as Vector2) - Vector2(_pad.size.x * BUTTON_SHIFT_WIDTH_RATIO, 0.0)
 
 
 func _button_at(p: Vector2) -> String:
