@@ -6,7 +6,7 @@ extends RefCounted
 ## other players' shots (net_world.gd).
 
 const SHOT_SOUND: AudioStream = preload("res://audio/pistol_shot.ogg")
-const SUPPRESSED_SOUND: AudioStream = preload("res://audio/m4a1_suppressed.ogg")
+const SUPPRESSED_SOUND: AudioStream = preload("res://audio/m4a1_suppressed.tres")
 const MAX_HOLES := 80
 
 static var _holes: Array[Node3D] = []
@@ -95,7 +95,8 @@ static func shot_sound(root: Node, at: Vector3, suppressed := false) -> void:
 	player.unit_size = 7.0 if suppressed else 12.0
 	player.max_distance = 95.0 if suppressed else 220.0
 	player.volume_db = -5.0 if suppressed else 2.0
-	player.pitch_scale = randf_range(0.95, 1.05)
+	if not suppressed:
+		player.pitch_scale = randf_range(0.95, 1.05)
 	root.add_child(player)
 	player.global_position = at
 	player.finished.connect(player.queue_free)

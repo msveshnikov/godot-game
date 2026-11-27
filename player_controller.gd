@@ -688,7 +688,7 @@ func _fire_shot() -> void:
 	if _fire_sound.stream != stream:
 		_fire_sound.stream = stream
 		_fire_sound.volume_db = -7.0 if rifle else -3.0
-	_fire_sound.pitch_scale = randf_range(0.96, 1.04)
+	_fire_sound.pitch_scale = 1.0 if rifle else randf_range(0.96, 1.04)
 	_fire_sound.play()
 
 

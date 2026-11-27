@@ -9,6 +9,6 @@
 | `coin.wav`, `purchase.wav`, `siren.wav` | synthesised by `make_game_sounds.py` in this folder | own work |
 | Glass cracks and tinkles (`glass_fx.gd`) | Kenney (kenney.nl) via the Cogito addon (`impactGlass_medium_*.ogg`, `impactGlass_light_*.ogg`) | CC0 |
 | `pistol_shot.ogg` | "9 mm gunshot" by Dantedun, https://commons.wikimedia.org/wiki/File:9_mm_gunshot-mike-koenig-123.wav (trimmed, mono, faded out) | CC BY-SA 4.0 |
-| `m4a1_suppressed.ogg` | [Silenced Gunshot 4](https://freesound.org/people/morganpurkis/sounds/396015/) by morganpurkis (converted to mono Vorbis) | CC0 1.0 |
+| `m4a1_suppressed*.ogg` | [Gunshots machine gun with silencer in a shooting range](https://freesound.org/people/YannSauvin/sounds/779237/) by YannSauvin (three transients edited and equalized for the in-game burst) | CC0 1.0 |
 | `car_explosion.ogg` | "Explosion 10" by tcpp, https://commons.wikimedia.org/wiki/File:Explosion_10.ogg (trimmed, faded out) | Public domain |
 | `car_fire.ogg` | "Dry grass burning in open fireplace" by ezwa, https://commons.wikimedia.org/wiki/File:Dry_grass_burning_in_open_fireplace.ogg (louder, made into a seamless loop) | Public domain |
