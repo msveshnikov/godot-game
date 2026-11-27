@@ -147,6 +147,11 @@ func bot_graph() -> Dictionary:
 	var hall := _add_patrol_route(nodes, edges, routes, KREMLIN_HALL_WALK, [1, 3])
 	edges.append_array([[court, (PLAZA_ROWS.size() - 2) * columns], [court + KREMLIN_WALK.size() - 1, hall]])
 	_add_wall_patrols(nodes, edges, routes, outer)
+	# Keep existing network slots stable by appending the new park walkers.
+	var bridge_walk := _bridge_walk()
+	var bridge := _add_patrol_route(nodes, edges, routes, bridge_walk, [0, bridge_walk.size() - 1])
+	var theatre := _add_patrol_route(nodes, edges, routes, _amphitheatre_walk(), [0])
+	edges.append_array([[bridge, park + 11], [bridge + bridge_walk.size() - 1, park + 10], [theatre, park + 5]])
 	# The original crowd still spawns on the square. Each new patrol has its own homes.
 	no_spawn.append_array(range(inner, nodes.size()))
 	return {

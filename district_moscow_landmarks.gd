@@ -26,6 +26,17 @@ const PARK_PAVING := Color(0.72, 0.67, 0.57)
 const PARK_LEAVES := Color(0.37, 0.55, 0.23)
 const PARK_STEEL := Color(0.34, 0.39, 0.37)
 const COURT_PAVING := Color(0.56, 0.50, 0.45)
+const AMPHITHEATRE_CENTRE := Vector2(130, 67)
+const TERRACE_ROWS := 5
+const TERRACE_RADIUS := 4.8
+const TERRACE_DEPTH := 1.75
+const TERRACE_RISE := 0.29
+const AISLE_HALF_WIDTH := 1.55
+const AMPHITHEATRE_APPROACH := Vector2(130, 45)
+const AMPHITHEATRE_APRON := Vector2(130, 63.6)
+const BRIDGE_HALF_WIDTH := 1.95
+const BRIDGE_CORNERS := [Vector2(125, 118), Vector2(135, 124), Vector2(150, 135),
+	Vector2(155, 122), Vector2(155, 110)]
 
 
 func _build_zaryadye() -> void:
@@ -34,6 +45,8 @@ func _build_zaryadye() -> void:
 	_gpoly(park_edge, 0.023, PARK_LEAVES, Surface.GRASS)
 	for i in PARK_WALK.size() - 1:
 		_gstrip(PARK_WALK[i], PARK_WALK[i + 1], 4.7, 0.049, PARK_PAVING, Surface.GRANITE)
+	for i in range(1, PARK_WALK.size()):
+		_park_path_rounding(PARK_WALK[i], 2.35, 0.049)
 	_gstrip(PARK_WALK[-1], PARK_WALK[1], 4.7, 0.049, PARK_PAVING, Surface.GRANITE)
 	_gstrip(Vector2(83, 96), PARK_WALK[0], 4.7, 0.053, PARK_PAVING, Surface.GRANITE)
 	_grect(97, 92, 111, 100, 0.053, PARK_PAVING, Surface.GRANITE)
@@ -58,7 +71,7 @@ func _park_planting() -> void:
 		var kind := "birch" if _rng.randf() < 0.42 else "street_tree"
 		_trees.append([kind, _w(point.x, point.y), _rng.randf_range(0.73, 1.08)])
 	for point in [Vector2(105, 67), Vector2(124, 29), Vector2(151, 49), Vector2(156, 84),
-			Vector2(107, 103), Vector2(130, 120)]:
+			Vector2(107, 103), Vector2(119, 116)]:
 		_city_bench(_frame(point, 25), 0)
 		_lantern(point + Vector2(2.7, 1.5), 3.8)
 	for meadow in [Rect2(117, 74, 28, 10), Rect2(118, 93, 23, 10), Rect2(100, 108, 8, 20),
@@ -74,29 +87,102 @@ func _park_planting() -> void:
 
 
 func _zaryadye_amphitheatre() -> void:
-	var centre := Vector2(130, 67)
-	var stage := _frame(centre, 0)
+	var stage := _frame(AMPHITHEATRE_CENTRE, 0)
 	_obox(stage, -9.5, -2.1, 9.5, 4.3, 0.04, 0.25, WHITE_STONE)
 	_obox(stage, -8.9, -2.0, 8.9, 4.15, 0.24, 0.29, Color(0.56, 0.40, 0.26))
 	_sign_panel(_frame(Vector2(130, 70.1), 0), 0, -0.05, 0.72, 8.4, 0.63,
 		"ЛЕТНИЙ АМФИТЕАТР", PARK_STEEL, WHITE_STONE)
-	for row in 5:
-		var radius := 4.8 + row * 1.75
-		var height := 0.28 + row * 0.29
-		for bay in 12:
-			var a := Vector2.from_angle(PI + bay * PI / 12.0)
-			var b := Vector2.from_angle(PI + (bay + 1) * PI / 12.0)
-			var p := centre + a * radius
-			var q := centre + b * radius
-			var band := PackedVector2Array([p, q, centre + b * (radius + 1.65), centre + a * (radius + 1.65)])
-			_gpoly(band, height, PARK_PAVING, Surface.GRANITE)
-			var riser := _edge_frame(p, q)
-			var half := p.distance_to(q) * 0.5
-			_obox(riser, -half, -0.09, half, 0.09, maxf(0.04, height - 0.32), height, WHITE_STONE)
-			if bay != 5 and bay != 6:
-				var seat := _edge_frame(p.lerp(centre, -0.095), q.lerp(centre, -0.095))
-				_obox(seat, -half * 0.9, -0.24, half * 0.9, 0.25, height, height + 0.20, Color(0.48, 0.30, 0.17))
+	_gstrip(PARK_WALK[5], AMPHITHEATRE_APPROACH, 3.1, 0.052, PARK_PAVING, Surface.GRANITE)
+	_park_path_rounding(AMPHITHEATRE_APPROACH, AISLE_HALF_WIDTH, 0.052)
+	var faces := PackedVector3Array()
+	for side: float in [-1.0, 1.0]:
+		for row in TERRACE_ROWS:
+			var radius := TERRACE_RADIUS + row * TERRACE_DEPTH
+			var height := (row + 1) * TERRACE_RISE
+			_terrace_band(radius, radius + TERRACE_DEPTH, height - TERRACE_RISE, height, side,
+				PARK_PAVING, WHITE_STONE, faces, 0.0, row == TERRACE_ROWS - 1)
+			_terrace_band(radius + 1.10, radius + 1.57, height, height + 0.20, side,
+				Color(0.49, 0.31, 0.18), Color(0.38, 0.24, 0.16), faces, height, true)
+	_amphitheatre_stairs(faces)
+	_park_collider("Amphitheatre", faces)
 	_glass_canopy(Vector2(130, 56))
+
+
+func _terrace_band(inner: float, outer: float, bottom: float, top: float, side: float,
+		paving: Color, edge: Color, faces: PackedVector3Array, base: float, close_back: bool) -> void:
+	const SEGMENTS := 24
+	for i in SEGMENTS:
+		var t0 := float(i) / SEGMENTS
+		var t1 := float(i + 1) / SEGMENTS
+		var a := _terrace_point(inner, top, side, t0)
+		var b := _terrace_point(inner, top, side, t1)
+		var c := _terrace_point(outer, top, side, t1)
+		var d := _terrace_point(outer, top, side, t0)
+		var inward := Vector3(AMPHITHEATRE_CENTRE.x - (a.x + b.x) * 0.5, 0,
+			AMPHITHEATRE_CENTRE.y - (a.z + b.z) * 0.5).normalized()
+		_park_face(a, b, c, d, Vector3.UP, paving, faces)
+		_park_face(a, b, _at_height(b, bottom), _at_height(a, bottom), inward, edge, faces)
+		if close_back:
+			_park_face(c, d, _at_height(d, base), _at_height(c, base), -inward, edge, faces)
+		if i == 0:
+			_park_face(d, a, _at_height(a, base), _at_height(d, base), Vector3.BACK, edge, faces)
+		if i == SEGMENTS - 1:
+			_park_face(b, c, _at_height(c, base), _at_height(b, base), -Vector3.RIGHT * side, edge, faces)
+
+
+func _terrace_point(radius: float, height: float, side: float, fraction: float) -> Vector3:
+	var angle := lerpf(0.0, acos(AISLE_HALF_WIDTH / radius), fraction)
+	return Vector3(AMPHITHEATRE_CENTRE.x + side * radius * cos(angle), height,
+		AMPHITHEATRE_CENTRE.y - radius * sin(angle))
+
+
+func _amphitheatre_stairs(faces: PackedVector3Array) -> void:
+	var left := _terrace_point(TERRACE_RADIUS, 0.0, -1.0, 1.0)
+	var right := _terrace_point(TERRACE_RADIUS, 0.0, 1.0, 1.0)
+	var grade := PackedVector3Array([Vector3(AMPHITHEATRE_CENTRE.x, 0, AMPHITHEATRE_APRON.y)])
+	var visual_only := PackedVector3Array()
+	for step in TERRACE_ROWS * 2:
+		var radius := TERRACE_RADIUS + (step + 1) * TERRACE_DEPTH * 0.5
+		var height := (step + 1) * TERRACE_RISE * 0.5
+		var a := _at_height(left, height)
+		var b := _at_height(right, height)
+		var c := _terrace_point(radius, height, 1.0, 1.0)
+		var d := _terrace_point(radius, height, -1.0, 1.0)
+		_park_face(a, b, c, d, Vector3.UP, PARK_PAVING.lightened(0.13), visual_only, "solid", false)
+		_park_face(left, right, b, a, Vector3.BACK, WHITE_STONE, visual_only, "solid", false)
+		grade.append((a + b) * 0.5)
+		left = d
+		right = c
+	grade.append((left + right) * 0.5)
+	# A continuous floor under the stair profile lets characters climb without jumping.
+	for i in grade.size() - 1:
+		var offset := Vector3.RIGHT * AISLE_HALF_WIDTH
+		var a := grade[i]
+		var b := grade[i + 1]
+		_park_collision_quad(faces, a - offset, a + offset, b + offset, b - offset, Vector3.UP)
+	var landing := grade[-1]
+	for i in 12:
+		var t0 := float(i) / 12.0
+		var t1 := float(i + 1) / 12.0
+		var a := landing.lerp(_w(AMPHITHEATRE_APPROACH.x, AMPHITHEATRE_APPROACH.y), t0)
+		var b := landing.lerp(_w(AMPHITHEATRE_APPROACH.x, AMPHITHEATRE_APPROACH.y), t1)
+		a.y = landing.y * (1.0 - smoothstep(0.0, 1.0, t0))
+		b.y = landing.y * (1.0 - smoothstep(0.0, 1.0, t1))
+		var offset := Vector3.RIGHT * AISLE_HALF_WIDTH
+		var normal := Vector3.RIGHT.cross(b - a).normalized()
+		_park_face(a - offset, a + offset, b + offset, b - offset, normal, PARK_PAVING, faces)
+		for side: float in [-1.0, 1.0]:
+			var p := a + offset * side
+			var q := b + offset * side
+			_park_face(p, q, _at_height(q, -0.04), _at_height(p, -0.04), Vector3.RIGHT * side, WHITE_STONE, faces)
+
+
+func _amphitheatre_walk() -> Array[Vector2]:
+	var walk: Array[Vector2] = [PARK_WALK[5].lerp(AMPHITHEATRE_APPROACH, 0.35), AMPHITHEATRE_APPROACH]
+	for z in [49.0, 52.5, 55.5, 59.0]:
+		walk.append(Vector2(AMPHITHEATRE_CENTRE.x, z))
+	walk.append(AMPHITHEATRE_APRON)
+	return walk
 
 
 func _glass_canopy(centre: Vector2) -> void:
@@ -135,35 +221,146 @@ func _zaryadye_bridge() -> void:
 	_gpoly(water, 0.048, Color(0.13, 0.29, 0.32), Surface.GRANITE)
 	for i in water.size():
 		_gstrip(water[i], water[(i + 1) % water.size()], 0.65, 0.052, PARK_PAVING, Surface.GRANITE)
-	var walk := [
-		Vector3(125, 0.10, 118), Vector3(133, 2.1, 122), Vector3(147, 2.9, 133),
-		Vector3(152, 2.9, 131), Vector3(154, 2.1, 120), Vector3(155, 0.10, 110),
-	]
-	for i in walk.size() - 1:
-		var a: Vector3 = walk[i]
-		var b: Vector3 = walk[i + 1]
-		var offset := (b - a).normalized().cross(Vector3.UP).normalized()
-		_sloped_box(a - Vector3.UP * 0.27, b - Vector3.UP * 0.27, 3.9, 0.48, WHITE_STONE, true)
+	_gstrip(PARK_WALK[11], BRIDGE_CORNERS[0], BRIDGE_HALF_WIDTH * 2.0, 0.052, PARK_PAVING, Surface.GRANITE)
+	_gstrip(PARK_WALK[10], BRIDGE_CORNERS[-1], BRIDGE_HALF_WIDTH * 2.0, 0.052, PARK_PAVING, Surface.GRANITE)
+	_park_path_rounding(BRIDGE_CORNERS[0], BRIDGE_HALF_WIDTH + 0.25, 0.052)
+	_park_path_rounding(BRIDGE_CORNERS[-1], BRIDGE_HALF_WIDTH + 0.25, 0.052)
+	var plan := _bridge_plan()
+	var distance := PackedFloat32Array([0.0])
+	for i in range(1, plan.size()):
+		distance.append(distance[-1] + plan[i - 1].distance_to(plan[i]))
+	var centres := PackedVector3Array()
+	var offsets := PackedVector3Array()
+	for i in plan.size():
+		var tangent := (plan[i] - plan[maxi(i - 1, 0)]).normalized()
+		tangent += (plan[mini(i + 1, plan.size() - 1)] - plan[i]).normalized()
+		var side := tangent.normalized().orthogonal()
+		offsets.append(Vector3(side.x, 0, side.y))
+		var from_end := minf(distance[i], distance[-1] - distance[i])
+		var y := 2.9 * smoothstep(0.0, 15.0, from_end)
+		centres.append(_w(plan[i].x, plan[i].y, y))
+	var faces := PackedVector3Array()
+	var rail_faces := PackedVector3Array()
+	for i in plan.size() - 1:
+		var a := centres[i]
+		var b := centres[i + 1]
+		var offset_a := offsets[i] * BRIDGE_HALF_WIDTH
+		var offset_b := offsets[i + 1] * BRIDGE_HALF_WIDTH
+		var normal := (b - a).cross(offset_a + offset_b).normalized()
+		if normal.y < 0.0:
+			normal = -normal
+		_park_face(a - offset_a, a + offset_a, b + offset_b, b - offset_b, normal,
+			PARK_PAVING.lightened(0.18), faces)
 		for side: float in [-1.0, 1.0]:
-			var rail := offset * side * 1.87
-			_sloped_box(a + rail + Vector3.UP * 1.03, b + rail + Vector3.UP * 1.03, 0.10, 0.08, PARK_STEEL)
-			_sloped_box(a + rail + Vector3.UP * 0.52, b + rail + Vector3.UP * 0.52, 0.09, 0.92,
-				Color(0.42, 0.59, 0.61), true, "glass")
-			for step in range(1, ceili(a.distance_to(b) / 2.1)):
-				var p := a.lerp(b, minf(step * 2.1 / a.distance_to(b), 0.98)) + rail
-				_cyl("solid", p, 0.039, 1.05, PARK_STEEL, 6)
-		# Flare the deck at the corners so the two sloping boxes meet underfoot.
-		if i > 0:
-			var f := _frame(Vector2(a.x, a.z), 0)
-			_obox(f, -1.22, -1.22, 1.22, 1.22, a.y - 0.45, a.y - 0.08, WHITE_STONE)
-			_ocollider(f, -1.22, -1.22, 1.22, 1.22, a.y - 0.45, a.y - 0.08)
+			var p := a + offset_a * side
+			var q := b + offset_b * side
+			var outward := (offsets[i] + offsets[i + 1]).normalized() * side
+			_park_face(p, q, q - Vector3.UP * 0.40, p - Vector3.UP * 0.40, outward, WHITE_STONE, faces)
+			_bridge_rail(p - offsets[i] * side * 0.07, q - offsets[i + 1] * side * 0.07,
+				offsets[i] * side, offsets[i + 1] * side, rail_faces)
+			if i % 4 == 0:
+				_cyl("solid", p - offsets[i] * side * 0.07, 0.045, 1.06, PARK_STEEL, 8)
+			if i == plan.size() - 2:
+				_cyl("solid", q - offsets[i + 1] * side * 0.07, 0.045, 1.06, PARK_STEEL, 8)
+		_park_face(a - offset_a - Vector3.UP * 0.40, a + offset_a - Vector3.UP * 0.40,
+			b + offset_b - Vector3.UP * 0.40, b - offset_b - Vector3.UP * 0.40,
+			-normal, WHITE_STONE.darkened(0.22), faces)
+	_park_collider("FloatingBridgeDeck", faces)
+	_park_collider("FloatingBridgeRails", rail_faces, true)
 
 
-func _sloped_box(a: Vector3, b: Vector3, width: float, thickness: float, colour: Color, collide := false, kind := "solid") -> void:
+func _bridge_plan() -> PackedVector2Array:
+	var plan := PackedVector2Array([BRIDGE_CORNERS[0]])
+	for i in range(1, BRIDGE_CORNERS.size() - 1):
+		var corner: Vector2 = BRIDGE_CORNERS[i]
+		var trim := 7.0 if i == 2 else 3.5
+		var start := corner.move_toward(BRIDGE_CORNERS[i - 1], trim)
+		var finish := corner.move_toward(BRIDGE_CORNERS[i + 1], trim)
+		_extend_bridge_plan(plan, start)
+		var divisions := ceili(trim * 3.0)
+		for j in range(1, divisions + 1):
+			var t := float(j) / divisions
+			plan.append(start.lerp(corner, t).lerp(corner.lerp(finish, t), t))
+	_extend_bridge_plan(plan, BRIDGE_CORNERS[-1])
+	return plan
+
+
+func _extend_bridge_plan(plan: PackedVector2Array, finish: Vector2) -> void:
+	var start := plan[-1]
+	var divisions := ceili(start.distance_to(finish) / 0.65)
+	for i in range(1, divisions + 1):
+		plan.append(start.lerp(finish, float(i) / divisions))
+
+
+func _bridge_walk() -> Array[Vector2]:
+	var plan := _bridge_plan()
+	var walk: Array[Vector2] = [PARK_WALK[11].lerp(plan[0], 0.4), plan[0]]
+	for i in range(1, plan.size() - 1):
+		if plan[i].distance_to(walk[-1]) >= 2.0 and plan[i].distance_to(plan[-1]) >= 1.2:
+			walk.append(plan[i])
+	walk.append_array([plan[-1], PARK_WALK[10].lerp(plan[-1], 0.4)])
+	return walk
+
+
+func _bridge_rail(a: Vector3, b: Vector3, side_a: Vector3, side_b: Vector3, faces: PackedVector3Array) -> void:
+	var top_a := a + Vector3.UP * 1.04
+	var top_b := b + Vector3.UP * 1.04
+	var outward := (side_a + side_b).normalized()
+	_park_face(a, b, top_b, top_a, outward, Color(0.42, 0.59, 0.61), faces, "glass")
+	_park_face(a, b, top_b, top_a, -outward, Color(0.50, 0.65, 0.66), faces, "glass", false)
+	var cap_a := side_a * 0.060
+	var cap_b := side_b * 0.060
+	var band := Vector3.UP * 0.055
+	_park_face(top_a - cap_a + band, top_a + cap_a + band, top_b + cap_b + band, top_b - cap_b + band,
+		Vector3.UP, PARK_STEEL, faces)
+	_park_face(top_a + cap_a, top_b + cap_b, top_b + cap_b + band, top_a + cap_a + band, outward, PARK_STEEL, faces)
+	_park_face(top_a - cap_a, top_b - cap_b, top_b - cap_b + band, top_a - cap_a + band, -outward, PARK_STEEL, faces)
+
+
+func _at_height(point: Vector3, height: float) -> Vector3:
+	return Vector3(point.x, height, point.z)
+
+
+func _park_path_rounding(centre: Vector2, radius: float, height: float) -> void:
+	var outline := PackedVector2Array()
+	for i in 24:
+		outline.append(centre + Vector2.from_angle(TAU * i / 24.0) * radius)
+	_gpoly(outline, height, PARK_PAVING, Surface.GRANITE)
+
+
+func _park_face(a: Vector3, b: Vector3, c: Vector3, d: Vector3, normal: Vector3, colour: Color,
+		faces: PackedVector3Array, kind := "solid", collide := true) -> void:
+	var surface := _tool(kind, (a + b + c + d) * 0.25)
+	surface.set_color(colour)
+	surface.set_normal(normal)
+	_front_quad(surface, a, b, c, d, normal)
+	if collide:
+		_park_collision_quad(faces, a, b, c, d, normal)
+
+
+func _park_collision_quad(faces: PackedVector3Array, a: Vector3, b: Vector3, c: Vector3,
+		d: Vector3, outward: Vector3) -> void:
+	if (b - a).cross(c - a).dot(outward) > 0.0:
+		faces.append_array([a, c, b, a, d, c])
+	else:
+		faces.append_array([a, b, c, a, c, d])
+
+
+func _park_collider(label: String, faces: PackedVector3Array, two_sided := false) -> void:
+	var shape := ConcavePolygonShape3D.new()
+	shape.backface_collision = two_sided
+	shape.set_faces(faces)
+	var collider := CollisionShape3D.new()
+	collider.name = label
+	collider.shape = shape
+	_collision.add_child(collider)
+
+
+func _sloped_box(a: Vector3, b: Vector3, width: float, thickness: float, colour: Color) -> void:
 	var centre := a.lerp(b, 0.5)
 	var basis := Basis.looking_at(b - a)
 	var half := Vector3(width, thickness, a.distance_to(b)) * 0.5
-	var surface := _tool(kind, centre)
+	var surface := _tool("solid", centre)
 	surface.set_color(colour)
 	for face in [
 		[Vector3.RIGHT, Vector3.UP, Vector3.BACK], [Vector3.LEFT, Vector3.BACK, Vector3.UP],
@@ -176,13 +373,6 @@ func _sloped_box(a: Vector3, b: Vector3, width: float, thickness: float, colour:
 		var v: Vector3 = basis * (face[2] * half)
 		surface.set_normal(normal)
 		_front_quad(surface, middle - u - v, middle + u - v, middle + u + v, middle - u + v, normal)
-	if collide:
-		var shape := BoxShape3D.new()
-		shape.size = half * 2.0
-		var collider := CollisionShape3D.new()
-		collider.shape = shape
-		collider.transform = Transform3D(basis, centre)
-		_collision.add_child(collider)
 
 
 func _kremlin_arch() -> void:
