@@ -7,7 +7,6 @@ const BAT_WOOSH_SOUND: AudioStream = preload("res://audio/bat_woosh.ogg")
 const BAT_RANGE := 2.6
 const BAT_HIT_DELAY := 0.24 # from the start of the swing to the moment the bat comes down
 const BAT_COOLDOWN := 0.62
-const WEAPONS := ["pistol", "bat", "bazooka", "none"]
 const WEAPON_NAMES := {"pistol": "Pistol", "bat": "Baseball bat", "bazooka": "Bazooka", "none": "Hands"}
 const ROCKET_RELOAD := 1.4 # seconds between rockets
 const ROCKET_KICK := 0.06
@@ -196,7 +195,7 @@ func is_armed() -> bool:
 
 
 func set_weapon(value: String) -> void:
-	if not WEAPONS.has(value) or value == weapon:
+	if not WeaponBar.ORDER.has(value) or value == weapon:
 		return
 	if value == "bazooka" and not Game.has_bazooka:
 		show_toast("Buy the bazooka in the SHOP ($%d)" % Game.BAZOOKA_PRICE)
@@ -208,12 +207,13 @@ func set_weapon(value: String) -> void:
 
 
 func _cycle_weapon(step: int) -> void:
-	var at := WEAPONS.find(weapon)
-	for k in WEAPONS.size():
-		at = (at + step + WEAPONS.size()) % WEAPONS.size()
-		if WEAPONS[at] != "bazooka" or Game.has_bazooka:
-			break
-	set_weapon(WEAPONS[at])
+	var at := WeaponBar.ORDER.find(weapon)
+	for k in WeaponBar.ORDER.size():
+		at = posmod(at + step, WeaponBar.ORDER.size())
+		var next: String = WeaponBar.ORDER[at]
+		if next != "bazooka" or Game.has_bazooka:
+			set_weapon(next)
+			return
 
 
 func _is_touch_device() -> bool:
@@ -256,17 +256,10 @@ func _input(event: InputEvent) -> void:
 		return
 
 	if event is InputEventKey and event.pressed and not event.echo:
-		match event.keycode:
-			KEY_Q:
-				_attack()
-			KEY_1:
-				set_weapon("pistol")
-			KEY_2:
-				set_weapon("bat")
-			KEY_3:
-				set_weapon("none")
-			KEY_4:
-				set_weapon("bazooka")
+		if event.keycode == KEY_Q:
+			_attack()
+		elif event.keycode >= KEY_1 and event.keycode < KEY_1 + WeaponBar.ORDER.size():
+			set_weapon(WeaponBar.ORDER[event.keycode - KEY_1])
 	elif _mobile_controls == null and event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
@@ -935,9 +928,8 @@ func _setup_game_ui() -> void:
 ## The controls, for the pause screen.
 func _controls_text() -> String:
 	if _mobile_controls != null:
-		return "Left thumb: walk, pull further to run  |  Right thumb: look\nFIRE: shoot or swing  |  WEAPON (or tap the slots up top): pistol, bat, hands, bazooka  |  JUMP"
-	return "WASD move  |  Shift run  |  Space jump  |  Mouse look\nQ / click: fire or swing  |  1 pistol  2 bat  3 hands  4 bazooka (or mouse wheel)
-Esc: pause"
+		return "Left thumb: walk, pull further to run  |  Right thumb: look\nFIRE: shoot or swing  |  WEAPON: cycle the slots at the top  |  JUMP"
+	return "WASD move  |  Shift run  |  Space jump  |  Mouse look\nQ / click: fire or swing  |  %s (or mouse wheel)\nEsc: pause" % WeaponBar.shortcut_text()
 
 
 func _make_hud_label(label_text: String, top: float, bottom: float, font_size: int) -> Label:

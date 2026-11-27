@@ -477,8 +477,8 @@ func _save_name() -> void:
 
 func _how_to_play() -> void:
 	var touch := OS.has_feature("mobile") or OS.has_feature("web_android") or OS.has_feature("web_ios")
-	var controls := "Left thumb: walk, pull further to run.  Right thumb: look.\nFIRE shoots or swings, WEAPON (or a tap on the weapon slots) changes pistol / bat / hands / bazooka, JUMP jumps." if touch else \
-		"WASD move  ·  Shift run  ·  Space jump  ·  Mouse look\nClick or Q: fire or swing  ·  1 pistol  2 bat  3 hands  4 bazooka (or the mouse wheel)  ·  Esc: pause"
+	var controls := "Left thumb: walk, pull further to run.  Right thumb: look.\nFIRE shoots or swings, WEAPON cycles the slots at the top, JUMP jumps." if touch else \
+		"WASD move  ·  Shift run  ·  Space jump  ·  Mouse look\nClick or Q: fire or swing  ·  %s (or the mouse wheel)  ·  Esc: pause" % WeaponBar.shortcut_text()
 	var text := "[b]Smash things, get paid.[/b] Dent cars with the bat, crack and smash shop windows, shoot a car to blow it up. Gold coins pop out: walk over them. Spend the cash in the SHOP on new clothes, caps and shades.\n\n" + \
 		"[b]Bazooka.[/b] Buy it in the SHOP for $1000, then $100 a rocket, five at most. One rocket takes out every car around, blows the shop windows in, knocks holes in buildings (skyscrapers too) and leaves craters in the street.\n\n" + \
 		"[b]Mind the heat.[/b] Every act of violence fills the heat meter; it cools down if you behave. When it tops out, a patrol car comes with two officers, and they shoot back hard. Take both down to clear the heat and grab their $150, or run far enough to lose them. Die and you drop a quarter of your cash.\n\n" + \

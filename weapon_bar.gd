@@ -1,13 +1,13 @@
 class_name WeaponBar
 extends Control
-## The weapon slots: pistol, bat, hands, bazooka, each drawn as its silhouette,
+## The weapon slots in cycle order, each drawn as its silhouette,
 ## the one in hand lit up. The bazooka shows its rockets (or a lock and its price
 ## until it is bought). Keys 1-4 are shown on a keyboard; on a touch screen the
 ## slots are tapped to pick a weapon (`picked`).
 
 signal picked(kind: String)
 
-const ORDER := ["pistol", "bat", "none", "bazooka"]
+const ORDER := ["bat", "pistol", "bazooka", "none"]
 const NAMES := {"pistol": "PISTOL", "bat": "BAT", "none": "HANDS", "bazooka": "BAZOOKA"}
 const SLOT := Vector2(84.0, 68.0)
 const GAP := 8.0
@@ -21,6 +21,13 @@ var bazooka_price := 1000
 var show_keys := true
 var _font: Font
 var _pop := 0.0 # the slot just picked swells for a moment
+
+
+static func shortcut_text() -> String:
+	var labels := PackedStringArray()
+	for i in ORDER.size():
+		labels.append("%d %s" % [i + 1, NAMES[ORDER[i]].to_lower()])
+	return "  ".join(labels)
 
 
 func _ready() -> void:
