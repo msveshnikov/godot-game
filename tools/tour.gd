@@ -18,6 +18,11 @@ const SPOTS := {
 		["aerial", Vector3(-338, 220, -370), Vector3(0, 0, 0)],
 		["gum", Vector3(43, 3.0, -15), Vector3(53, 4.4, -41)],
 		["forecourt", Vector3(37, 5.6, 127), Vector3(6, 14.6, 94)],
+		["zaryadye", Vector3(100.5, 4.1, 76), Vector3(130, 4.8, 57)],
+		["floating_bridge", Vector3(161, 10.2, 108), Vector3(145, 2.4, 127)],
+		["kremlin_gate", Vector3(-35, 3.3, 38), Vector3(-53, 3.8, 33)],
+		["kremlin_court", Vector3(-66, 4.6, 19), Vector3(-66, 12.4, -60)],
+		["kremlin_gallery", Vector3(-68, 2.7, -40.5), Vector3(-65, 3.1, -56)],
 	],
 	"paris": [
 		["boulevard", Vector3(-47.5, 2.7, -9.3), Vector3(59.0, 10.0, 14.1)],

@@ -1,13 +1,7 @@
-extends "res://district_europe.gd"
+extends "res://district_moscow_landmarks.gd"
 ## A stylized Red Square and surrounding streets within a 300 m city wall.
 
-const BRICK_RED := Color(0.60, 0.20, 0.15)
-const BRICK_SHADE := Color(0.42, 0.10, 0.085)
-const WHITE_STONE := Color(0.92, 0.83, 0.70)
-const ROOF_GREEN := Color(0.12, 0.30, 0.22)
 const CAFE_RED := Color(0.56, 0.14, 0.12)
-const GILT := Color(0.98, 0.70, 0.26)
-const WINDOW := Color(0.13, 0.18, 0.20)
 const MOSCOW_RADIUS := 300.0
 const PLAZA_COLUMNS := [-35.0, -17.5, 0.0, 17.5, 35.0]
 const PLAZA_ROWS := [-98.0, -78.0, -58.0, -38.0, -18.0, 2.0, 22.0, 42.0, 62.0]
@@ -22,6 +16,13 @@ const OUTER_STREETS := [
 const NORTH_WALK := [Vector2(17.5, -98), Vector2(22.4, -110), Vector2(22.4, -127), Vector2(22.4, -140)]
 const WEST_WALK := [Vector2(-35, 62), Vector2(-37, 86), Vector2(-65, 95), Vector2(-80, 95)]
 const EAST_WALK := [Vector2(35, 62), Vector2(39, 96), Vector2(69, 96), Vector2(83, 96)]
+const NEIGHBORHOOD_WALKS := [
+	[Vector2(-65, -134), Vector2(-32, -134), Vector2(0, -134), Vector2(34, -134), Vector2(65, -134)],
+	[Vector2(89, -112), Vector2(89, -66), Vector2(89, -10), Vector2(89, 19)],
+	[Vector2(-56, 124), Vector2(-30, 124), Vector2(0, 124), Vector2(30, 124), Vector2(58, 124)],
+	[Vector2(-86, -49), Vector2(-86, -15), Vector2(-86, 24), Vector2(-86, 63), Vector2(-86, 100)],
+	[Vector2(218, 12), Vector2(202, 51), Vector2(187, 82), Vector2(171, 119), Vector2(157, 148)],
+]
 
 
 func _enter_tree() -> void:
@@ -41,11 +42,13 @@ func _ready() -> void:
 	_build_neighborhood()
 	_build_square()
 	_kremlin()
+	_build_kremlin_courts()
 	_gum()
 	_museum()
 	_cathedral()
 	_build_promenade()
 	_forecourt_gardens()
+	_build_zaryadye()
 	_build_tree_meshes()
 	_commit_chunks()
 	_commit_wall_faces()
@@ -59,7 +62,7 @@ func _ready() -> void:
 
 
 func intro_text() -> String:
-	return "Red Square · Moscow"
+	return "Red Square · Moscow. Walk through the Kremlin arch to the courtyard, or follow the signs to Zaryadye Park."
 
 
 func spawn_points() -> Array[Vector2]:
@@ -126,13 +129,39 @@ func bot_graph() -> Dictionary:
 	_connect_walk(nodes, edges, NORTH_WALK, 3, inner + 1, inner + 2)
 	_connect_walk(nodes, edges, WEST_WALK, inner - columns, inner + 6, inner + 7)
 	_connect_walk(nodes, edges, EAST_WALK, inner - 1, inner + 3, inner + 4)
-	# The crowd starts and respawns on the square. The connecting streets stay walkable.
+	var park_entrance := nodes.size() - 1
+	var routes := [{"nodes": PackedInt32Array(range(nodes.size())), "spawns": PackedInt32Array()}]
+	var street_joins := [inner + 1, inner + 3, inner + 5, inner + 7, outer + 3]
+	for i in NEIGHBORHOOD_WALKS.size():
+		var walk: Array = NEIGHBORHOOD_WALKS[i]
+		var route := _add_patrol_route(nodes, edges, routes, walk, [1, walk.size() - 2])
+		var junction: int = [2, 2, 2, 1, 0][i]
+		edges.append([route + junction, street_joins[i]])
+	var park := _add_patrol_route(nodes, edges, routes, PARK_WALK, [1, 3, 5, 7, 9, 11])
+	edges.append_array([[park, park_entrance], [park + 1, park + PARK_WALK.size() - 1]])
+	var court := _add_patrol_route(nodes, edges, routes, KREMLIN_WALK, [2, 4, 7, 9])
+	var hall := _add_patrol_route(nodes, edges, routes, KREMLIN_HALL_WALK, [1, 3])
+	edges.append_array([[court, (PLAZA_ROWS.size() - 2) * columns], [court + KREMLIN_WALK.size() - 1, hall]])
+	# The original crowd still spawns on the square. Each new patrol has its own homes.
 	no_spawn.append_array(range(inner, nodes.size()))
 	return {
 		"nodes": nodes, "edges": edges, "no_spawn": no_spawn, "uniformed_half": true,
+		"patrol_routes": routes,
 		"patrol_spots": [Vector2(-32, -92), Vector2(33, -82), Vector2(-30, -47), Vector2(33, -27),
 			Vector2(-32, 12), Vector2(33, 23), Vector2(-32, 55), Vector2(33, 59)],
 	}
+
+
+func _add_patrol_route(nodes: Array[Vector2], edges: Array, routes: Array, walk: Array, spawn_indices: Array) -> int:
+	var first := nodes.size()
+	nodes.append_array(walk)
+	for i in range(first + 1, nodes.size()):
+		edges.append([i - 1, i])
+	var spawns := PackedInt32Array()
+	for index: int in spawn_indices:
+		spawns.append(first + index)
+	routes.append({"nodes": PackedInt32Array(range(first, nodes.size())), "spawns": spawns})
+	return first
 
 
 func _connect_walk(nodes: Array[Vector2], edges: Array, walk: Array, start: int, end_a: int, end_b: int) -> void:
@@ -177,7 +206,7 @@ func _build_neighborhood() -> void:
 	for x in range(-253, 254, 36):
 		for z in range(-252, 253, 36):
 			var point := Vector2(x, z)
-			if landmarks.grow(11.0).has_point(point) or point.length() > 267.0:
+			if landmarks.grow(11.0).has_point(point) or PARK_BOUNDS.grow(14.0).has_point(point) or point.length() > 267.0:
 				continue
 			var clearance := INF
 			for street in streets:
@@ -245,9 +274,13 @@ func _build_square() -> void:
 
 func _kremlin() -> void:
 	var wall := _frame(Vector2(-51, 0), 90)
-	_brick_shell(wall, Rect2(-123, -3.2, 205, 5.2), -0.2, 9.7, BRICK_RED)
-	_ocollider(wall, -123, -3.2, 82, 2.0, -0.2, 10.9)
-	_obox(wall, -123, -3.25, 82, 2.12, 0.0, 0.58, BRICK_SHADE)
+	for ends in [Vector2(-123, 28.6), Vector2(37.4, 82)]:
+		_brick_shell(wall, Rect2(ends.x, -3.2, ends.y - ends.x, 5.2), -0.2, 9.7, BRICK_RED)
+		_ocollider(wall, ends.x, -3.2, ends.y, 2.0, -0.2, 10.9)
+		_obox(wall, ends.x, -3.25, ends.y, 2.12, 0.0, 0.58, BRICK_SHADE)
+	_brick_shell(wall, Rect2(28.6, -3.2, 8.8, 5.2), 5.5, 9.7, BRICK_RED)
+	_ocollider(wall, 28.6, -3.2, 37.4, 2.0, 5.5, 10.9)
+	_kremlin_arch()
 	_obox(wall, -123, -3.3, 82, 2.19, 8.9, 9.45, BRICK_SHADE)
 	for z in range(-121, 82, 3):
 		_obox(wall, z, -2.0, z + 1.55, 2.10, 9.5, 11.25, BRICK_RED.lightened(0.08))
@@ -295,15 +328,6 @@ func _kremlin() -> void:
 			Color(0.34, 0.14, 0.13) if tier[2] < 1.2 else Color(0.42, 0.22, 0.20))
 	_ocollider(tomb, -10.0, -4.6, 10.0, 4.6, 0, 7.0)
 	_sign_panel(tomb, 0, -4.15, 3.1, 5.7, 1.2, "ЛЕНИН", BRICK_SHADE, WHITE_STONE)
-
-
-func _brick_shell(f: Array, area: Rect2, bottom: float, top: float, colour: Color) -> void:
-	var lo := area.position
-	var hi := area.end
-	var footprint := PackedVector2Array([_fp(f, lo.x, lo.y), _fp(f, hi.x, lo.y),
-		_fp(f, hi.x, hi.y), _fp(f, lo.x, hi.y)])
-	_extrude(footprint, bottom, top, Style.SOLID_BRICK, 0.32, colour, false, false)
-	_cap(footprint, top, colour.darkened(0.10))
 
 
 func _star(f: Array, y: float) -> void:

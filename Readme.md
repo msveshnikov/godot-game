@@ -146,6 +146,9 @@ The stylized cobblestone plaza is framed by the Kremlin wall and its clock tower
 and Saint Basil’s Cathedral. Half of the armed NPCs wear olive-green uniforms and peaked caps.
 The surrounding streets are playable out to a 300 m radius, enclosed by a masonry wall.
 Breakable shop windows line GUM and nearby streets. Cars circle the square and park in marked bays.
+Pedestrians stay on their own routes around the surrounding streets. Zaryadye Park has an amphitheatre under a
+glass canopy and a walkable floating bridge. Through the Kremlin’s arch, a stylized courtyard and indoor gallery
+have their own armed NPCs.
 
 ### Montmartre, the Grands Boulevards and Grafton Street
 

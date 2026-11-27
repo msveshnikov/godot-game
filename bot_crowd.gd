@@ -25,6 +25,7 @@ var bots: Array = []
 var civilians: Array = []
 var _adjacency: Array = []
 var _street_spawns: Array[int] = []
+var _patrol_routes: Array = []
 var _waterfront_route := PackedVector2Array()
 var _waterfront_spawns := PackedInt32Array()
 var _baguettes := false
@@ -53,6 +54,7 @@ func _ready() -> void:
 	for edge in edges:
 		_adjacency[edge[0]].append(edge[1])
 		_adjacency[edge[1]].append(edge[0])
+	_patrol_routes = graph.get("patrol_routes", [])
 
 	# Same seed everywhere, so every client starts with the same crowd layout.
 	var rng := RandomNumberGenerator.new()
@@ -75,6 +77,9 @@ func _ready() -> void:
 	for node in _waterfront_spawns:
 		_add_villager(node_position(node, true) + Vector3.UP * 0.1, rng.randf_range(1.7, 2.1), true)
 	_add_patrols(graph.get("patrol_spots", []), rng)
+	for route in _patrol_routes.size():
+		for node: int in _patrol_routes[route]["spawns"]:
+			_add_villager(node_position(node) + Vector3.UP * 0.1, rng.randf_range(1.5, 2.15), false, node, route)
 
 	Net.message_received.connect(_on_message)
 	Net.host_changed.connect(_on_host_changed)
@@ -106,7 +111,7 @@ func _add_patrols(spots: Array, rng: RandomNumberGenerator) -> void:
 			_add_villager(node_position(best) + Vector3.UP * 0.1, rng.randf_range(1.6, 2.5), false, best)
 
 
-func _add_villager(spawn: Vector3, speed: float, waterfront := false, home_node := -1) -> void:
+func _add_villager(spawn: Vector3, speed: float, waterfront := false, home_node := -1, patrol_route := -1) -> void:
 	var bot := BOT_SCENE.instantiate() as CharacterBody3D
 	bot.name = "Villager%d" % bots.size()
 	bot.set("bot_index", bots.size())
@@ -114,6 +119,9 @@ func _add_villager(spawn: Vector3, speed: float, waterfront := false, home_node 
 	bot.set("walk_speed", speed)
 	bot.set("waterfront", waterfront)
 	bot.set("home_node", home_node)
+	# Route zero preserves the original crowd's walkable network. Later routes
+	# get their own residents with stable indices after the original crowd.
+	bot.set("patrol_route", 0 if patrol_route < 0 and not _patrol_routes.is_empty() and not waterfront else patrol_route)
 	bot.set("military_uniform", _uniformed_half and bots.size() % 2 == 0)
 	bot.set("carries_baguette", _baguettes and bots.size() % 2 == 0)
 	bot.position = spawn
@@ -139,12 +147,13 @@ func node_position(node: int, waterfront := false) -> Vector3:
 	return Vector3(point.x, 0.0, point.y)
 
 
-func nearest_node(position_3d: Vector3, waterfront := false) -> int:
+func nearest_node(position_3d: Vector3, waterfront := false, patrol_route := -1) -> int:
 	var best := 0
 	var best_distance := INF
 	var flat := Vector2(position_3d.x, position_3d.z)
 	var route = _waterfront_route if waterfront else NODES
-	for index in route.size():
+	var indices = _patrol_routes[patrol_route]["nodes"] if patrol_route >= 0 else range(route.size())
+	for index in indices:
 		var distance := flat.distance_squared_to(route[index])
 		if distance < best_distance:
 			best_distance = distance
@@ -153,10 +162,13 @@ func nearest_node(position_3d: Vector3, waterfront := false) -> int:
 
 
 ## Next node to walk to: any neighbour except the one we came from, unless it's a dead end.
-func pick_next(current: int, previous: int, rng: RandomNumberGenerator, waterfront := false) -> int:
+func pick_next(current: int, previous: int, rng: RandomNumberGenerator, waterfront := false, patrol_route := -1) -> int:
 	if waterfront:
 		return (current + 1) % _waterfront_route.size()
 	var options: Array = _adjacency[current].duplicate()
+	if patrol_route >= 0:
+		var route: PackedInt32Array = _patrol_routes[patrol_route]["nodes"]
+		options = options.filter(func(node): return route.has(node))
 	if options.size() > 1:
 		options.erase(previous)
 	return options[rng.randi() % options.size()]
@@ -213,11 +225,13 @@ func nodes_between(around: Vector3, near: float, far: float) -> Array[int]:
 
 
 ## A random node well away from every player, so respawns don't happen in someone's face.
-func respawn_position(rng: RandomNumberGenerator, waterfront := false, home_node := -1) -> Vector3:
+func respawn_position(rng: RandomNumberGenerator, waterfront := false, home_node := -1, patrol_route := -1) -> Vector3:
 	var players := _active_players()
 	var candidates: Array[int] = []
 	var local_candidates: Array[int] = []
 	var spawn_nodes = _waterfront_spawns if waterfront else _street_spawns
+	if patrol_route > 0:
+		spawn_nodes = _patrol_routes[patrol_route]["spawns"]
 	for index in spawn_nodes:
 		var far := true
 		var position := node_position(index, waterfront)
