@@ -7,7 +7,7 @@ extends Control
 
 signal picked(kind: String)
 
-const ORDER := ["bat", "pistol", "bazooka", "none", "m4a1"]
+const ORDER := ["none", "bat", "pistol", "m4a1", "bazooka"]
 const NAMES := {"pistol": "DESERT EAGLE", "bat": "BAT", "none": "HANDS", "bazooka": "BAZOOKA", "m4a1": "M4A1"}
 const SLOT := Vector2(84.0, 68.0)
 const GAP := 8.0

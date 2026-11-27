@@ -209,7 +209,7 @@ Everyone who opens the game (web link or the Android APK) lands in the same worl
 - **Space**: Jump
 - **Mouse**: Look around (vertical look is inverted by default)
 - **Q or left mouse button**: Fire or swing the bat. Hold to fire the M4A1 automatically.
-- **1 / 2 / 3 / 4 / 5 or mouse wheel**: Baseball bat / Desert Eagle / bazooka / empty hands / M4A1
+- **1 / 2 / 3 / 4 / 5 or mouse wheel**: Empty hands / baseball bat / Desert Eagle / M4A1 / bazooka
 - **Shop**: The M4A1 costs $500 and comes empty. A pack of 30 rounds costs $30.
 - **Health**: The game ends when your health reaches zero; use **Respawn** to drop back into the estate at a random spot.
 - **Esc**: Release the mouse; click to capture it again

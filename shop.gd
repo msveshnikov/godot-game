@@ -309,13 +309,14 @@ func _add_m4a1() -> void:
 	var money: int = _game.get("money")
 	var rifle := _plain_button("M4A1\n%s" % ("OWNED" if owned else "$%d" % price), owned, not owned and money < price)
 	rifle.custom_minimum_size.x = 140.0
+	var slot := WeaponBar.ORDER.find("m4a1") + 1
 	rifle.pressed.connect(func() -> void:
 		if _game.call("buy_m4a1"):
 			_sound.play()
-			_note.text = "M4A1 bought! Buy a pack of rounds and select slot 5."
+			_note.text = "M4A1 bought! Buy a pack of rounds and select slot %d." % slot
 			_refresh.call_deferred()
 		elif _game.get("has_m4a1"):
-			_note.text = "Select slot 5 and hold FIRE to shoot the M4A1."
+			_note.text = "Select slot %d and hold FIRE to shoot the M4A1." % slot
 		else:
 			_note.text = "The M4A1 costs $%d." % price)
 	row.add_child(rifle)
@@ -337,7 +338,8 @@ func _add_m4a1() -> void:
 
 func _on_bazooka() -> void:
 	if _game.get("has_bazooka"):
-		_note.text = "Select slot 3 to take the bazooka. Every rocket costs $%d." % int(_const("ROCKET_PRICE"))
+		_note.text = "Select slot %d to take the bazooka. Every rocket costs $%d." % [
+			WeaponBar.ORDER.find("bazooka") + 1, int(_const("ROCKET_PRICE"))]
 	elif _game.call("buy_bazooka"):
 		_sound.play()
 		_note.text = "Bazooka bought! It comes empty: buy rockets, %d at most." % int(_const("MAX_ROCKETS"))
