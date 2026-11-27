@@ -35,8 +35,8 @@
   streets and stop at the lights.
 - **A real place, 1:1.** About 200 m of a Czech panel-housing estate, rebuilt in metres from the satellite map and
   Street View: five-storey blocks with loggias, sixteen-storey towers, garages, a playground, a supermarket, a hill.
-- **Six places to play.** Pick Times Square, Neratovice or either Omsk estate in the main menu. With 10,000
-  leaderboard points, you can also visit Boulevard Montmartre in Paris or Grafton Street in Dublin.
+- **Seven places to play.** Pick Times Square, Moscow’s Red Square, Neratovice or either Omsk estate in the main
+  menu. With 10,000 leaderboard points, you can also visit Montmartre in Paris or Grafton Street in Dublin.
 - **Pistol, baseball bat, empty hands.** A small CS-style crosshair, hitscan shots with a real gunshot sound,
   tracers and bullet holes. Players can shoot each other: a headshot kills, body hits take 15-34 depending on
   how close to the heart, a bat blow 30. Shoot a car and it blows up, then burns for minutes in a column of
@@ -138,6 +138,14 @@ The default place for new players (`?loc=nyc` / `-- --loc=nyc`), built by `distr
 - **Buildings from OpenStreetMap.** `tools/nyc/osm_to_json.py` turns an Overpass dump into `assets/nyc/times_square.json`: 427 footprints and building parts with their heights and setbacks, plus street trees and the street lines. Each one is extruded at load time with a procedural facade shader (`facade.gdshader`: brick and limestone with punched windows, glass curtain walls, ribbon windows, concrete grids, shop fronts with lit sign bands at street level), named landmarks get the look they have on Street View, older roofs carry wooden water tanks.
 - **The square.** LED screens on every facade that looks onto the square, wrapped round the corners and stacked in tiers (`screen.gdshader`); the ads are painted once at load time into an atlas (`nyc_ads.gd`): about every other screen shows NOVA (the AGI robot you print yourself, with its Blender renders), MaxSoft, Claude or Anthropic, the rest made-up brands. One Times Square is covered in screens almost to the top, with the news ticker round it and the ball on its mast over the lit year. The dark plaza pavers with steel discs, granite benches, café tables, hot dog carts, the TKTS booth under 24 glowing red steps you can climb, George M. Cohan and Father Duffy with his Celtic cross, the NYPD station in blue neon and the recruiting booth with its neon flag.
 - **The streets.** Real roadway widths and one-way directions: 7th Avenue south, 8th and 6th north with green bike lanes, even streets east, odd ones west, 42nd both ways with red bus lanes. Granite kerbs, high-visibility crosswalks, traffic lights on every corner with green street-name signs, lamps, hydrants, trash cans, mailboxes, newsstands, Con Ed steam stacks venting, sidewalk sheds, subway entrances with green globes, Broadway theatres with marquees and vertical blade signs, and The Torch going up on 8th Avenue under a tower crane. Yellow cabs (`car_taxi` in `build_vehicles.py`) are half the traffic; the cars follow the signal cycle (`traffic.gd`, the same wall clock on every client) and keep clear of each other where lanes cross.
+
+### Red Square, Moscow
+
+Red Square (`?loc=moscow` / `-- --loc=moscow`) is open to all players and has its own multiplayer room.
+The stylized cobblestone plaza is framed by the Kremlin wall and its clock tower, GUM, the Historical Museum
+and Saint Basil’s Cathedral. Half of the armed NPCs wear olive-green uniforms and peaked caps.
+The surrounding streets are playable out to a 300 m radius, enclosed by a masonry wall.
+Breakable shop windows line GUM and nearby streets. Cars circle the square and park in marked bays.
 
 ### Montmartre, the Grands Boulevards and Grafton Street
 

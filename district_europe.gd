@@ -145,6 +145,10 @@ func _boundary_outline() -> PackedVector2Array:
 	return _circle(WALL_RADIUS)
 
 
+func _boundary_rim() -> float:
+	return RIM
+
+
 func _inside_street_limits(at: Vector2) -> bool:
 	return at.length() <= RIM - 2.0
 
@@ -153,7 +157,7 @@ func _build_boundary() -> void:
 	var outline := _boundary_outline()
 	_grect(-840, -840, 840, 840, -0.03, Color(0.33, 0.36, 0.31), Surface.ASPHALT)
 	_gpoly(outline, 0.005, Color(0.58, 0.56, 0.53), Surface.ASPHALT)
-	_gpoly(_circle(RIM), 0.008, Color(0.58, 0.56, 0.53) if _is_paris() else Color(0.56, 0.55, 0.53), Surface.ASPHALT)
+	_gpoly(_circle(_boundary_rim()), 0.008, Color(0.58, 0.56, 0.53) if _is_paris() else Color(0.56, 0.55, 0.53), Surface.ASPHALT)
 	var masonry := Color(0.65, 0.61, 0.54) if _is_paris() else Color(0.55, 0.53, 0.49)
 	var coping := masonry.lightened(0.14)
 	for i in outline.size():

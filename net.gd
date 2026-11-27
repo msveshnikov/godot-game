@@ -31,6 +31,7 @@ const LOCATIONS := [
 	{"id": "omsk1", "name": "Omsk 1", "script": "res://district_omsk1.gd"},
 	{"id": "omsk2", "name": "Omsk 2", "script": "res://district_omsk2.gd"},
 	{"id": "nyc", "name": "Times Square", "script": "res://district_nyc.gd"},
+	{"id": "moscow", "name": "Moscow · Red Square", "script": "res://district_moscow.gd"},
 	{"id": "paris", "name": "Paris · Montmartre", "script": "res://district_paris.gd", "locked": true},
 	{"id": "dublin", "name": "Dublin · Grafton St", "script": "res://district_dublin.gd", "locked": true},
 ]

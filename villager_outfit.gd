@@ -69,29 +69,39 @@ static func apply(npc: Node, index: int) -> void:
 ## A police officer: navy long-sleeved shirt and trousers, black shoes, and a peaked
 ## cap on the head bone; `female` gets her hair long. `index` picks the skin and hair.
 static func apply_police(npc: Node, index: int, female: bool) -> void:
+	_apply_uniform(npc, index, female, Color(0.13, 0.19, 0.36), Color(0.07, 0.09, 0.17),
+		Color(0.08, 0.11, 0.22), "PoliceCap")
+
+
+static func apply_military(npc: Node, index: int) -> void:
+	_apply_uniform(npc, index, false, Color(0.29, 0.39, 0.16), Color(0.19, 0.26, 0.12),
+		Color(0.27, 0.35, 0.14), "MilitaryCap")
+
+
+static func _apply_uniform(npc: Node, index: int, long_hair: bool, shirt: Color, pants: Color, cap: Color, cap_name: String) -> void:
 	apply(npc, index)
 	var mannequin := npc.get_node_or_null("Rig/Skeleton3D/Mannequin") as MeshInstance3D
 	if mannequin == null:
 		return
 	var material := mannequin.get_surface_override_material(0) as ShaderMaterial
-	material.set_shader_parameter("shirt_color", Color(0.13, 0.19, 0.36))
+	material.set_shader_parameter("shirt_color", shirt)
 	material.set_shader_parameter("stripes", 0.0)
 	material.set_shader_parameter("hem_height", 0.125)
-	material.set_shader_parameter("pants_color", Color(0.07, 0.09, 0.17))
+	material.set_shader_parameter("pants_color", pants)
 	material.set_shader_parameter("denim", 0.0)
 	material.set_shader_parameter("sleeve_end", 0.68)
-	material.set_shader_parameter("long_hair", 1.0 if female else 0.0)
+	material.set_shader_parameter("long_hair", 1.0 if long_hair else 0.0)
 	material.set_shader_parameter("shoe_color", Color(0.04, 0.04, 0.05))
 	var skeleton := npc.get_node_or_null("Rig/Skeleton3D") as Skeleton3D
-	if skeleton == null or skeleton.find_bone("DEF-head") < 0 or skeleton.has_node("PoliceCap"):
+	if skeleton == null or skeleton.find_bone("DEF-head") < 0 or skeleton.has_node(cap_name):
 		return
 	var attachment := BoneAttachment3D.new()
-	attachment.name = "PoliceCap"
+	attachment.name = cap_name
 	attachment.bone_name = "DEF-head"
 	skeleton.add_child(attachment)
-	var navy := StandardMaterial3D.new()
-	navy.albedo_color = Color(0.08, 0.11, 0.22)
-	navy.roughness = 0.7
+	var cap_material := StandardMaterial3D.new()
+	cap_material.albedo_color = cap
+	cap_material.roughness = 0.7
 	var black := StandardMaterial3D.new()
 	black.albedo_color = Color(0.02, 0.02, 0.025)
 	black.roughness = 0.3
@@ -104,7 +114,7 @@ static func apply_police(npc: Node, index: int, female: bool) -> void:
 	crown.bottom_radius = 0.105
 	crown.height = 0.075
 	crown.radial_segments = 16
-	crown.material = navy
+	crown.material = cap_material
 	var peak := CylinderMesh.new()
 	peak.top_radius = 0.09
 	peak.bottom_radius = 0.09

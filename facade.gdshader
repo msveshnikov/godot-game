@@ -6,7 +6,8 @@ shader_type spatial;
 //   COLOR = wall tint (sRGB); alpha < 0.5 means no shop front at street level
 // Styles: 0 brick with punched windows, 1 limestone, 2 glass curtain wall,
 // 3 ribbon windows, 4 modern grid, 5 dark glass tower, 6 blank party wall,
-// 7 sea wall, 8 Paris limestone, 9 Dublin brick, 10 Dublin stone, 11 boundary wall.
+// 7 sea wall, 8 Paris limestone, 9 Dublin brick, 10 Dublin stone, 11 boundary wall,
+// 12 solid brick.
 
 // Smashed shop windows (nyc_builder.gd smash_window): one texel per window, at the
 // window's middle, 1 m per texel from damage_origin. r: 0.5 cracked, 1 smashed;
@@ -194,6 +195,13 @@ void fragment() {
 		col *= 0.76 + hash(floor(blocks) + seed) * 0.34 + chips * 0.17;
 		col = mix(col, col * 0.54, joint * detail);
 		col *= mix(vec3(0.68, 0.75, 0.61), vec3(1.0), smoothstep(0.0, 1.15, m.y));
+	} else if (style == 12) {
+		vec2 brick = m / vec2(0.29, 0.115);
+		brick.x += mod(floor(brick.y), 2.0) * 0.5;
+		float mortar = max(step(0.945, fract(brick.x)), step(0.87, fract(brick.y)));
+		float fine = 1.0 - smoothstep(0.16, 0.56, max(fw.x / 0.29, fw.y / 0.115));
+		col = wall * mix(1.0, 0.88 + hash(floor(brick) + seed) * 0.24, fine);
+		col = mix(col, wall * 1.19 + 0.035, mortar * fine * 0.62);
 	} else if (style == 7) {
 		// Granite sea wall: big blocks, wet and green-stained low down.
 		vec2 q = m / vec2(1.6, 0.8);

@@ -28,6 +28,7 @@ var _street_spawns: Array[int] = []
 var _waterfront_route := PackedVector2Array()
 var _waterfront_spawns := PackedInt32Array()
 var _baguettes := false
+var _uniformed_half := false
 var _puppet_count := 0
 var _send_timer := 0.0
 var _corpses: Array[Node3D] = []
@@ -40,6 +41,7 @@ func _ready() -> void:
 	NODES.assign(graph.get("nodes", [Vector2.ZERO]))
 	var edges: Array = graph.get("edges", [])
 	_baguettes = graph.get("baguettes", false)
+	_uniformed_half = graph.get("uniformed_half", false)
 	var no_spawn: Array = graph.get("no_spawn", [])
 	_street_spawns.assign(range(NODES.size()).filter(func(n): return not no_spawn.has(n)))
 	var waterfront: Dictionary = graph.get("waterfront", {})
@@ -112,6 +114,7 @@ func _add_villager(spawn: Vector3, speed: float, waterfront := false, home_node 
 	bot.set("walk_speed", speed)
 	bot.set("waterfront", waterfront)
 	bot.set("home_node", home_node)
+	bot.set("military_uniform", _uniformed_half and bots.size() % 2 == 0)
 	bot.set("carries_baguette", _baguettes and bots.size() % 2 == 0)
 	bot.position = spawn
 	add_child(bot)

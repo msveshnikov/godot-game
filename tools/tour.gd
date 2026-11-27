@@ -12,6 +12,13 @@ const SPOTS := {
 		["north_aerial", Vector3(347.0, 158.0, -114.0), Vector3(143.0, 3.0, -269.0)],
 	],
 	"omsk1": [["yard", Vector3(0.0, 1.7, -20.0), Vector3(30.0, 5.0, 60.0)], ["aerial", Vector3(-300.0, 200.0, 300.0), Vector3(0.0, 0.0, 0.0)]],
+	"moscow": [
+		["cathedral", Vector3(-16, 7.0, 18), Vector3(-10, 16, 89)],
+		["museum", Vector3(5, 5.0, -49), Vector3(0, 12, -110)],
+		["aerial", Vector3(-338, 220, -370), Vector3(0, 0, 0)],
+		["gum", Vector3(43, 3.0, -15), Vector3(53, 4.4, -41)],
+		["forecourt", Vector3(37, 5.6, 127), Vector3(6, 14.6, 94)],
+	],
 	"paris": [
 		["boulevard", Vector3(-47.5, 2.7, -9.3), Vector3(59.0, 10.0, 14.1)],
 		["grevin", Vector3(4.8, 2.1, 1.8), Vector3(11.3, 5.6, -13.2)],

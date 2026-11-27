@@ -48,6 +48,7 @@ var home_node := -1
 var zone := Rect2()
 var stay := false
 var carries_baguette := false
+var military_uniform := false
 
 var _rng := RandomNumberGenerator.new()
 var _target_node := -1
@@ -79,7 +80,7 @@ func _ready() -> void:
 	if role == "police":
 		OUTFIT.apply_police(self, bot_index, bot_index % 2 == 1)
 	else:
-		OUTFIT.apply(self, bot_index)
+		_apply_outfit()
 	_rng.seed = hash(bot_index * 7919 + Time.get_ticks_usec())
 	_attack_timer = _rng.randf_range(0.5, fire_interval)
 	_spawn_collision_layer = collision_layer
@@ -348,7 +349,7 @@ func _leave_corpse() -> void:
 		return
 	var copy := skeleton.duplicate() as Skeleton3D
 	for child in copy.get_children():
-		if child.name in ["Mannequin", "PoliceCap", "BaguetteGrip"]:
+		if child.name in ["Mannequin", "PoliceCap", "MilitaryCap", "BaguetteGrip"]:
 			continue
 		if child.name == "HandAttachment":
 			for part in child.get_children():
@@ -414,7 +415,15 @@ func _respawn() -> void:
 ## A new person, not the one lying over there: same slot in the crowd, new clothes.
 func _reborn(life: int) -> void:
 	lives = life
-	OUTFIT.apply(self, bot_index + lives * OUTFITS_PER_LIFE)
+	_apply_outfit()
+
+
+func _apply_outfit() -> void:
+	var index := bot_index + lives * OUTFITS_PER_LIFE
+	if military_uniform:
+		OUTFIT.apply_military(self, index)
+	else:
+		OUTFIT.apply(self, index)
 
 
 func _set_alive(value: bool) -> void:

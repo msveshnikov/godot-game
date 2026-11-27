@@ -10,6 +10,7 @@ const AMBIENCE := "res://audio/city_hum.wav"
 const PODIUM_COLORS := [UiTheme.GOLD, Color(0.82, 0.87, 0.93), Color(0.91, 0.65, 0.43)]
 const PLACES := {
 	"nyc": "Times Square, New York: the theatre district cut out of Manhattan and set adrift as an island. LED screens on every wall, yellow cabs, the TKTS red steps.",
+	"moscow": "Red Square, Moscow: a cobblestone plaza between the Kremlin wall and GUM, with St. Basil’s Cathedral and green-uniformed guards.",
 	"neratovice": "Neratovice, Czechia: an autumn panel-housing estate with loggias, garages, a playground and a walk-in supermarket.",
 	"omsk1": "Omsk 1, Siberia: five-storey khrushchyovkas under new red roofs, yards with playgrounds, kindergartens and a school.",
 	"omsk2": "Omsk 2, Siberia: panel blocks, brick garages and wooden houses, with connected streets as far as 10th Cheredovaya Street and No. 23.",
