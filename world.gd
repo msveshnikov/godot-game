@@ -3,8 +3,12 @@ extends Node3D
 ## the script of the location picked in the menu (Net.location), so the player,
 ## the bots and the traffic all find the right place.
 
+const CITY_SKY := preload("res://city_sky.gdshader")
+
 
 func _ready() -> void:
+	if Settings.uses_lightweight_city_rendering():
+		_use_lightweight_sky()
 	apply_settings()
 	# The menu's loading screen came along over the build; the game is running now.
 	for k in 3:
@@ -15,6 +19,17 @@ func _ready() -> void:
 ## Graphics quality from the settings (settings.gd calls this again when they change).
 func apply_settings() -> void:
 	get_tree().root.get_node("Settings").call("apply_scene", self)
+
+
+func _use_lightweight_sky() -> void:
+	var sky := ($WorldEnvironment as WorldEnvironment).environment.sky
+	var original := sky.sky_material as ShaderMaterial
+	var material := ShaderMaterial.new()
+	material.shader = CITY_SKY
+	for parameter in ["zenith_color", "horizon_color", "sun_direction", "sun_color",
+			"cloud_color", "cloud_shadow_color", "cloud_cover", "ground_color"]:
+		material.set_shader_parameter(parameter, original.get_shader_parameter(parameter))
+	sky.sky_material = material
 
 
 func _enter_tree() -> void:

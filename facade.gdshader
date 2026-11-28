@@ -15,6 +15,7 @@ shader_type spatial;
 uniform sampler2D damage_map : filter_nearest, hint_default_black;
 uniform vec2 damage_origin = vec2(0.0);
 uniform bool damage_on = false;
+uniform bool lightweight = false;
 
 varying vec3 v_world;
 varying vec3 v_wnormal;
@@ -112,7 +113,10 @@ void fragment() {
 	float detail = 1.0 - smoothstep(0.35, 0.9, max(fw.x / bay, fw.y / floor_h) * 6.0);
 	if (style == 0 || style == 1 || european) {
 		// Masonry with punched windows, a sill and a lintel.
-		if (style == 0 || style == 9) {
+		if (lightweight) {
+			// Keep the masonry courses and window silhouettes at a lower shading cost.
+			col *= 1.0 - 0.12 * detail * step(0.94, fract(m.y / 0.45));
+		} else if (style == 0 || style == 9) {
 			// Brick courses.
 			float course = fract(m.y / 0.075);
 			float joint = fract(m.x / 0.21 + floor(m.y / 0.075) * 0.5);
@@ -127,7 +131,7 @@ void fragment() {
 		float win = box(f, vec2(bay * 0.24, 0.85), vec2(bay * 0.76, 2.55), fw);
 		float sill = box(f, vec2(bay * 0.2, 0.72), vec2(bay * 0.8, 0.85), fw);
 		float lintel = box(f, vec2(bay * 0.2, 2.55), vec2(bay * 0.8, 2.78), fw);
-		if (european) {
+		if (european && !lightweight) {
 			float moulding = box(f, vec2(bay * 0.17, 0.64), vec2(bay * 0.83, 2.76), fw);
 			float grain = hash(floor(m * 29.0)) * (1.0 - smoothstep(0.010, 0.046, max(fw.x, fw.y)));
 			float rain = hash(vec2(floor(m.x * 5.0), floor(m.y * 0.42)));
@@ -145,9 +149,13 @@ void fragment() {
 		}
 		col = mix(col, wall * 1.25 + 0.06, max(sill, lintel) * detail);
 		// Two sashes.
-		float mull = box(f, vec2(bay * 0.5 - 0.04, 0.85), vec2(bay * 0.5 + 0.04, 2.55), fw) + box(f, vec2(bay * 0.24, 1.66), vec2(bay * 0.76, 1.72), fw);
+		float mull = 1.0 - smoothstep(0.03, 0.06 + fw.x, abs(f.x - bay * 0.5));
+		if (!lightweight) {
+			mull = box(f, vec2(bay * 0.5 - 0.04, 0.85), vec2(bay * 0.5 + 0.04, 2.55), fw)
+				+ box(f, vec2(bay * 0.24, 1.66), vec2(bay * 0.76, 1.72), fw);
+		}
 		vec3 w = mix(glass, vec3(0.85, 0.84, 0.8), min(mull, 1.0) * detail);
-		if (european) {
+		if (european && !lightweight) {
 			float frame_inside = box(f, vec2(bay * 0.275, 0.91), vec2(bay * 0.72, 2.49), fw);
 			w *= mix(0.60, 1.0, frame_inside);
 			float drape = smoothstep(0.42, 0.65, abs(f.x / bay - 0.5) * 2.0 + 0.22 * sin(f.y * 2.1));
@@ -240,7 +248,7 @@ void fragment() {
 		// Sky reflected in the upper part of the shop window, goods lit warm low down.
 		inside = mix(inside, vec3(0.38, 0.44, 0.5), smoothstep(2.2, 3.4, m.y) * 0.6);
 		inside += vec3(0.25, 0.18, 0.1) * (1.0 - smoothstep(0.5, 1.8, m.y)) * step(0.4, sid);
-		if (european && detail > 0.08) {
+		if (european && !lightweight && detail > 0.08) {
 			inside = mix(inside * 0.45, shop_display(vec2(x, m.y), fw, sid, VIEW), detail);
 		}
 		vec3 shop = mix(frame, inside, window);

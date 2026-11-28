@@ -10,6 +10,7 @@ shader_type spatial;
 uniform sampler2D atlas : source_color, filter_linear_mipmap, repeat_disable;
 uniform vec2 atlas_px = vec2(2048.0, 2304.0);
 uniform float period = 16.0;
+uniform bool lightweight = false;
 
 varying vec4 v_info;
 varying vec2 v_ads;
@@ -52,6 +53,10 @@ void fragment() {
 		float x = fract(UV.x / (r.z / r.w) - TIME * 0.035 + v_info.r);
 		vec2 px = r.xy + vec2(x, clamp(UV.y, 0.02, 0.98)) * r.zw;
 		col = texture(atlas, px / atlas_px).rgb;
+	} else if (lightweight) {
+		float aspect = max(v_info.b * 8.0, 0.05);
+		float ad = fract(TIME / period + v_info.r) < 0.5 ? v_ads.x : v_ads.y;
+		col = sample_ad(ad, UV, aspect, 1.0);
 	} else {
 		float aspect = max(v_info.b * 8.0, 0.05);
 		float t = TIME / period + v_info.r;
@@ -73,12 +78,14 @@ void fragment() {
 		col += vec3(0.25) * (1.0 - smoothstep(0.0, 0.06, abs(UV.x - UV.y * 0.3 - sweep * 1.6 + 0.3)));
 	}
 	// LED dots, visible only up close.
-	vec2 fw = fwidth(UV);
-	float led_size = 0.012;
-	vec2 cell = fract(UV / vec2(led_size * 0.5, led_size));
-	float dots = smoothstep(0.95, 0.6, length(cell - 0.5) * 1.4);
-	float close = 1.0 - smoothstep(0.004, 0.012, max(fw.x, fw.y));
-	col *= mix(1.0, 0.55 + 0.6 * dots, close);
+	if (!lightweight) {
+		vec2 fw = fwidth(UV);
+		float led_size = 0.012;
+		vec2 cell = fract(UV / vec2(led_size * 0.5, led_size));
+		float dots = smoothstep(0.95, 0.6, length(cell - 0.5) * 1.4);
+		float close = 1.0 - smoothstep(0.004, 0.012, max(fw.x, fw.y));
+		col *= mix(1.0, 0.55 + 0.6 * dots, close);
+	}
 
 	ALBEDO = col * 0.12;
 	ROUGHNESS = 0.35;

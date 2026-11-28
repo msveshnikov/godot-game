@@ -899,6 +899,16 @@ func _setup_game_ui() -> void:
 	_money_label.add_theme_color_override("font_color", Color(1.0, 0.82, 0.25))
 	_money_label.pivot_offset = Vector2(0.0, 18.0)
 	_on_money_changed(Game.money)
+	var fps := _make_hud_label("%d FPS" % Engine.get_frames_per_second(), 90.0, 112.0, 17)
+	fps.name = "FPS"
+	fps.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fps.add_theme_constant_override("outline_size", 3)
+	var fps_timer := Timer.new()
+	fps_timer.wait_time = 0.5
+	fps_timer.autostart = true
+	fps_timer.timeout.connect(func() -> void:
+		fps.text = "%d FPS" % Engine.get_frames_per_second())
+	fps.add_child(fps_timer)
 	_toast_label = Label.new()
 	_toast_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
 	_toast_label.offset_left = -360.0
@@ -1172,8 +1182,7 @@ func _update_weapon_ui() -> void:
 	if _weapon_bar != null:
 		_weapon_bar.set_state(weapon, Game.has_bazooka, Game.rockets, Game.has_m4a1, Game.m4a1_rounds)
 	if _mobile_controls != null:
-		_mobile_controls.weapon = weapon
-		_mobile_controls.loaded = Game.rockets > 0
+		_mobile_controls.set_weapon_display(weapon, Game.rockets > 0)
 
 
 func _on_arsenal_changed() -> void:

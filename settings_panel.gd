@@ -64,6 +64,8 @@ func _ready() -> void:
 		_quality_buttons[entry[0]] = button
 	rows.add_child(_row("Quality", presets))
 	_scale_slider = _slider(50.0, 100.0, 5.0, _settings.get("render_scale") * 100.0)
+	if Settings.uses_lightweight_city_rendering():
+		_scale_slider.tooltip_text = "3D resolution in this city is capped at %d%%." % roundi(Settings.city_render_scale_limit() * 100.0)
 	_scale_value = Label.new()
 	_scale_value.custom_minimum_size = Vector2(64.0, 0.0)
 	_scale_slider.value_changed.connect(func(v: float) -> void:

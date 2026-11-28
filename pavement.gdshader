@@ -6,6 +6,8 @@ shader_type spatial;
 //              0.2 asphalt, 0.3 hexagonal pavers, 0.4 granite, 0.5 road paint,
 //              0.6 granite setts, 0.7 lawn
 
+uniform bool lightweight = false;
+
 varying vec3 world_pos;
 varying vec3 v_tint;
 varying float v_kind;
@@ -41,7 +43,10 @@ void fragment() {
 	vec3 col = v_tint;
 	float rough = 0.9;
 	int kind = int(v_kind + 0.5);
-	float grime = noise(p * 0.35) * 0.5 + noise(p * 2.1) * 0.25;
+	float grime = 0.25;
+	if (!lightweight) {
+		grime = noise(p * 0.35) * 0.5 + noise(p * 2.1) * 0.25;
+	}
 
 	if (kind == 0) {
 		// Concrete sidewalk flags, 1.5 m, with dark joints and the odd darker slab.
@@ -50,8 +55,10 @@ void fragment() {
 		float joint = max(line_mask(p.x / 1.5 + 0.5, 0.025, fw.x / 1.5), line_mask(p.y / 1.5 + 0.5, 0.025, fw.y / 1.5));
 		col = mix(col, col * 0.55, joint * far_fade);
 		// Flattened chewing gum.
-		float gum = step(0.985, hash(floor(p / 0.22))) * far_fade;
-		col = mix(col, col * 0.6, gum * 0.6);
+		if (!lightweight) {
+			float gum = step(0.985, hash(floor(p / 0.22))) * far_fade;
+			col = mix(col, col * 0.6, gum * 0.6);
+		}
 	} else if (kind == 1) {
 		// Times Square plaza: dark pre-cast pavers set with little steel discs.
 		vec2 q = p / vec2(0.6, 1.2);
@@ -59,15 +66,22 @@ void fragment() {
 		col *= 0.85 + hash(cell) * 0.25 - grime * 0.08;
 		float joint = max(line_mask(q.x + floor(q.y) * 0.5 + 0.5, 0.04, fw.x / 0.6), line_mask(q.y + 0.5, 0.03, fw.y / 1.2));
 		col = mix(col, col * 0.6, joint * far_fade);
-		vec2 dp = fract(p / 1.8) - 0.5;
-		float disc = (1.0 - smoothstep(0.03, 0.04, length(dp))) * step(0.7, hash(floor(p / 1.8))) * far_fade;
-		col = mix(col, vec3(0.75, 0.76, 0.78), disc);
-		rough = mix(0.85, 0.25, disc);
+		rough = 0.85;
+		if (!lightweight) {
+			vec2 dp = fract(p / 1.8) - 0.5;
+			float disc = (1.0 - smoothstep(0.03, 0.04, length(dp))) * step(0.7, hash(floor(p / 1.8))) * far_fade;
+			col = mix(col, vec3(0.75, 0.76, 0.78), disc);
+			rough = mix(0.85, 0.25, disc);
+		}
 	} else if (kind == 2) {
 		// Asphalt: speckled, patched, darker in the wheel tracks.
-		col *= 0.82 + noise(p * 6.0) * 0.18 + grime * 0.25;
-		float patch = smoothstep(0.62, 0.64, noise(p * 0.12 + 7.0));
-		col = mix(col, col * 0.75, patch);
+		if (lightweight) {
+			col *= 0.88 + noise(p * 0.35) * 0.18;
+		} else {
+			col *= 0.82 + noise(p * 6.0) * 0.18 + grime * 0.25;
+			float patch = smoothstep(0.62, 0.64, noise(p * 0.12 + 7.0));
+			col = mix(col, col * 0.75, patch);
+		}
 		rough = 0.92;
 	} else if (kind == 3) {
 		// Hexagonal pavers of the waterfront promenade.

@@ -26,10 +26,8 @@ var movement_direction := Vector2.ZERO
 var run_pressed := false
 var jump_pressed := false
 var fire_held := false
-## The weapon in hand ("pistol", "bat", "bazooka", "none"), drawn on the WEAPON button.
-var weapon := "pistol"
-var loaded := true
-
+var _weapon := "pistol"
+var _loaded := true
 var _pad: Control
 var _font: Font
 var _stick_idx := -1
@@ -47,6 +45,7 @@ func _ready() -> void:
 	_pad.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_pad.draw.connect(_draw_pad)
+	_pad.resized.connect(_pad.queue_redraw)
 	add_child(_pad)
 	visibility_changed.connect(func() -> void:
 		if not visible:
@@ -61,7 +60,13 @@ func is_looking(grace := 0.45) -> bool:
 
 func _process(delta: float) -> void:
 	_look_idle += delta
-	_pad.queue_redraw()
+
+
+func set_weapon_display(weapon: String, loaded: bool) -> void:
+	if weapon != _weapon or loaded != _loaded:
+		_weapon = weapon
+		_loaded = loaded
+		_pad.queue_redraw()
 
 
 func _input(event: InputEvent) -> void:
@@ -91,6 +96,7 @@ func _finger_down(idx: int, p: Vector2) -> void:
 	var id := _button_at(p)
 	if id != "":
 		_held[idx] = id
+		_pad.queue_redraw()
 		match id:
 			"fire":
 				fire_held = true
@@ -118,6 +124,7 @@ func _finger_up(idx: int) -> void:
 	if _held.has(idx):
 		var id: String = _held[idx]
 		_held.erase(idx)
+		_pad.queue_redraw()
 		if id == "fire":
 			fire_held = _held.values().has("fire")
 		elif id == "jump":
@@ -153,6 +160,7 @@ func _apply_stick() -> void:
 		if v.length() < DEAD_ZONE:
 			v = Vector2.ZERO
 	movement_direction = v
+	_pad.queue_redraw()
 
 
 func release_all() -> void:
@@ -190,7 +198,7 @@ func _draw_pad() -> void:
 		_pad.draw_circle(c, r, bg)
 		_pad.draw_arc(c, r, 0.0, TAU, 56, edge, 3.0 if fire else 2.0, true)
 		if b["id"] == "swap":
-			WeaponIcons.draw(_pad, weapon, c + Vector2(0, -9), 0.95, Color(1, 1, 1, 0.92), Color(0.9, 0.25, 0.15, 1.0 if loaded else 0.0))
+			WeaponIcons.draw(_pad, _weapon, c + Vector2(0, -9), 0.95, Color(1, 1, 1, 0.92), Color(0.9, 0.25, 0.15, 1.0 if _loaded else 0.0))
 			_text(b["label"], c + Vector2(0, 19), 12, TEXT_COL)
 			continue
 		_text(b["label"], c, 24 if fire else 15, TEXT_COL)

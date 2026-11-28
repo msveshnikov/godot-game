@@ -52,6 +52,14 @@ static func _is_small_device() -> bool:
 	return OS.has_feature("mobile") or OS.has_feature("web_android") or OS.has_feature("web_ios")
 
 
+static func uses_lightweight_city_rendering() -> bool:
+	return (_is_small_device() or OS.has_feature("web")) and Net.location in ["nyc", "moscow", "paris"]
+
+
+static func city_render_scale_limit() -> float:
+	return 0.70 if _is_small_device() else 0.85
+
+
 ## Can this build go fullscreen (desktop and browser; phones always are).
 static func can_fullscreen() -> bool:
 	return not _is_small_device()
@@ -85,14 +93,19 @@ func _changed() -> void:
 ## the sun's shadows and the environment's glow.
 func apply_scene(scene: Node) -> void:
 	var viewport := scene.get_viewport()
-	viewport.scaling_3d_scale = render_scale
-	viewport.msaa_3d = QUALITY[quality]["msaa"]
-	for light in scene.find_children("*", "DirectionalLight3D", true, false):
-		(light as DirectionalLight3D).shadow_enabled = shadows
+	var lightweight := uses_lightweight_city_rendering()
+	viewport.scaling_3d_scale = minf(render_scale, city_render_scale_limit()) if lightweight else render_scale
+	viewport.msaa_3d = Viewport.MSAA_DISABLED if lightweight else QUALITY[quality]["msaa"]
+	for node in scene.find_children("*", "DirectionalLight3D", true, false):
+		var light := node as DirectionalLight3D
+		light.shadow_enabled = shadows
+		if lightweight:
+			light.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
+			light.directional_shadow_max_distance = 45.0
 	for node in scene.find_children("*", "WorldEnvironment", true, false):
 		var environment := (node as WorldEnvironment).environment
 		if environment != null:
-			environment.glow_enabled = QUALITY[quality]["glow"]
+			environment.glow_enabled = not lightweight and QUALITY[quality]["glow"]
 
 
 func apply_audio() -> void:

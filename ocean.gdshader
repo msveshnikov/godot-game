@@ -9,8 +9,10 @@ uniform vec3 sky_color : source_color = vec3(0.62, 0.74, 0.86);
 uniform vec2 island_centre = vec2(0.0, 0.0);
 uniform vec2 island_half = vec2(300.0, 300.0);
 uniform float island_corner = 24.0;
+uniform bool lightweight = false;
 
 varying vec3 world_pos;
+varying vec2 wave_slope;
 
 float hash(vec2 p) {
 	p = fract(p * vec2(123.34, 456.21));
@@ -51,34 +53,42 @@ void vertex() {
 	vec3 s = swell(w.xz, TIME);
 	VERTEX.y += s.x * (0.35 + 0.65 * calm);
 	world_pos = w;
+	wave_slope = s.yz;
 }
 
 void fragment() {
 	vec2 p = world_pos.xz;
 	float t = TIME;
-	vec3 s = swell(p, t);
-	// Chop: two scrolling noise layers for small ripples.
-	float e = 0.6;
-	vec2 q1 = p * 0.35 + vec2(t * 0.35, t * 0.2);
-	vec2 q2 = p * 0.9 - vec2(t * 0.25, -t * 0.4);
-	float n0 = noise(q1) + 0.5 * noise(q2);
-	float nx = noise(q1 + vec2(e, 0.0)) + 0.5 * noise(q2 + vec2(e, 0.0));
-	float nz = noise(q1 + vec2(0.0, e)) + 0.5 * noise(q2 + vec2(0.0, e));
-	vec2 slope = s.yz + vec2(nx - n0, nz - n0) * 0.55;
+	float d = wall_distance(p);
+	vec2 slope;
+	float foam;
+	if (lightweight) {
+		slope = wave_slope + sin(p.yx * vec2(0.43, 0.65) + t * vec2(1.5, -1.2)) * 0.075;
+		float edge = d + 0.4 * sin(dot(p, vec2(1.5, 0.7)) - t * 2.0);
+		foam = (1.0 - smoothstep(0.0, 2.2, edge)) * step(-0.5, d) * 0.7;
+	} else {
+		vec3 s = swell(p, t);
+		// Chop: two scrolling noise layers for small ripples.
+		float e = 0.6;
+		vec2 q1 = p * 0.35 + vec2(t * 0.35, t * 0.2);
+		vec2 q2 = p * 0.9 - vec2(t * 0.25, -t * 0.4);
+		float n0 = noise(q1) + 0.5 * noise(q2);
+		float nx = noise(q1 + vec2(e, 0.0)) + 0.5 * noise(q2 + vec2(e, 0.0));
+		float nz = noise(q1 + vec2(0.0, e)) + 0.5 * noise(q2 + vec2(0.0, e));
+		slope = s.yz + vec2(nx - n0, nz - n0) * 0.55;
+		// Foam against the sea wall and on crests.
+		float lace = noise(p * 1.7 + vec2(t * 0.8, -t * 0.4));
+		float foam_line = (1.0 - smoothstep(0.0, 2.2, d + noise(p * 0.6 + t * 0.5) * 1.5)) * step(-0.5, d) * (0.55 + 0.45 * lace);
+		float crest = smoothstep(0.55, 0.7, s.x + n0 * 0.1) * smoothstep(0.55, 0.8, noise(p * 0.21 + t * 0.05)) * 0.5;
+		foam = clamp(foam_line + crest * lace, 0.0, 1.0);
+	}
 	vec3 n_world = normalize(vec3(-slope.x, 1.0, -slope.y));
 	NORMAL = normalize((VIEW_MATRIX * vec4(n_world, 0.0)).xyz);
 
 	vec3 view_dir = normalize(CAMERA_POSITION_WORLD - world_pos);
 	float fres = pow(1.0 - clamp(dot(view_dir, n_world), 0.0, 1.0), 4.0);
-	float d = wall_distance(p);
 	vec3 water = mix(shallow_color, deep_color, smoothstep(0.0, 60.0, d));
 	water = mix(water, sky_color, clamp(fres * 0.9, 0.0, 0.85));
-
-	// Foam against the sea wall and on crests.
-	float lace = noise(p * 1.7 + vec2(t * 0.8, -t * 0.4));
-	float foam_line = (1.0 - smoothstep(0.0, 2.2, d + noise(p * 0.6 + t * 0.5) * 1.5)) * step(-0.5, d) * (0.55 + 0.45 * lace);
-	float crest = smoothstep(0.55, 0.7, s.x + n0 * 0.1) * smoothstep(0.55, 0.8, noise(p * 0.21 + t * 0.05)) * 0.5;
-	float foam = clamp(foam_line + crest * lace, 0.0, 1.0);
 	water = mix(water, vec3(0.88, 0.92, 0.94), foam);
 
 	ALBEDO = water;

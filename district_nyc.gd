@@ -400,16 +400,18 @@ func _build_island() -> void:
 
 
 func _build_ocean() -> void:
+	var lightweight := Settings.uses_lightweight_city_rendering()
 	var material := ShaderMaterial.new()
 	material.shader = load("res://ocean.gdshader")
+	material.set_shader_parameter("lightweight", lightweight)
 	material.set_shader_parameter("island_centre", Vector2((EDGE_W + EDGE_E) * 0.5, (EDGE_N + EDGE_S) * 0.5))
 	material.set_shader_parameter("island_half", Vector2((EDGE_E - EDGE_W) * 0.5, (EDGE_S - EDGE_N) * 0.5))
 	material.set_shader_parameter("island_corner", EDGE_CORNER)
 	var centre := Vector3((EDGE_W + EDGE_E) * 0.5, SEA_LEVEL, (EDGE_N + EDGE_S) * 0.5)
 	var near := PlaneMesh.new()
 	near.size = Vector2(1500, 1500)
-	near.subdivide_width = 299
-	near.subdivide_depth = 299
+	near.subdivide_width = 79 if lightweight else 299
+	near.subdivide_depth = near.subdivide_width
 	var sea := MeshInstance3D.new()
 	sea.name = "Sea"
 	sea.mesh = near

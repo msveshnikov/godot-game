@@ -1430,11 +1430,12 @@ func _build_tree_meshes() -> void:
 	trunk_mesh.bottom_radius = 0.24
 	trunk_mesh.height = 3.0
 	trunk_mesh.radial_segments = 7
+	var lightweight := Settings.uses_lightweight_city_rendering()
 	var sphere_mesh := SphereMesh.new()
 	sphere_mesh.radius = 1.0
 	sphere_mesh.height = 2.0
-	sphere_mesh.radial_segments = 10
-	sphere_mesh.rings = 6
+	sphere_mesh.radial_segments = 8 if lightweight else 10
+	sphere_mesh.rings = 4 if lightweight else 6
 	var cone_mesh := CylinderMesh.new()
 	cone_mesh.top_radius = 0.0
 	cone_mesh.bottom_radius = 1.0
@@ -1445,8 +1446,8 @@ func _build_tree_meshes() -> void:
 	crown.shader = load("res://tree_crown.gdshader")
 	if parts.has("street_sphere"):
 		var street_sphere := sphere_mesh.duplicate() as SphereMesh
-		street_sphere.radial_segments = 16
-		street_sphere.rings = 10
+		street_sphere.radial_segments = 10 if lightweight else 16
+		street_sphere.rings = 6 if lightweight else 10
 		var street_crown := crown.duplicate() as ShaderMaterial
 		street_crown.set_shader_parameter("street_foliage", true)
 		street_sphere.material = street_crown

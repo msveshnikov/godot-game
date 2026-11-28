@@ -505,6 +505,7 @@ func _facade_material() -> ShaderMaterial:
 	if not _materials.has("facade_shader"):
 		var material := ShaderMaterial.new()
 		material.shader = FACADE_SHADER
+		material.set_shader_parameter("lightweight", Settings.uses_lightweight_city_rendering())
 		_materials["facade_shader"] = material
 	return _materials["facade_shader"]
 
@@ -513,6 +514,7 @@ func _pavement_material() -> ShaderMaterial:
 	if not _materials.has("pavement_shader"):
 		var material := ShaderMaterial.new()
 		material.shader = PAVEMENT_SHADER
+		material.set_shader_parameter("lightweight", Settings.uses_lightweight_city_rendering())
 		_materials["pavement_shader"] = material
 	return _materials["pavement_shader"]
 
@@ -521,6 +523,7 @@ func _screens_material() -> ShaderMaterial:
 	if _screen_material == null:
 		_screen_material = ShaderMaterial.new()
 		_screen_material.shader = SCREEN_SHADER
+		_screen_material.set_shader_parameter("lightweight", Settings.uses_lightweight_city_rendering())
 	return _screen_material
 
 
